@@ -1,0 +1,9 @@
+Changes made by John U to file persistence for TCB boot:
+
+I added INIT_FILE="/etc/rc.local" as an additional file in the list of files to save in /storage in TCB-Protection/scripts/storage_mount
+
+RPCORE_CONF_DIR="/tmp/rptmp" was added to TCB-Protection/scripts/storage_mount_xen along with the code to save the directory in /storage.
+
+The way /bin/storage_mount works is that it checks each file and directory in its list and if a version of it exists in /storage with the slashes replaced with underscore, it copies that directory structure or file to the proper place with the underscores replaced with slashes.
+If it does not exist in /storage, it copies the directory structure or file to /storage.
+

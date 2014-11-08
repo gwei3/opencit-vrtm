@@ -1,0 +1,13 @@
+Instructions for building tcService
+===================================
+
+
+Create the directory for the tcService objects as described
+in DirectoryStructure.txt.
+    cd ROOT/tcService
+Edit the tcService.mak to reflect the correct ROOT directory,
+in the distribution, this is called ~/jlmcrypt.exe.  Then
+compile tcService:
+    make -f tcService.mak
+
+

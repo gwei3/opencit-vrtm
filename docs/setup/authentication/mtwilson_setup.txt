@@ -1,0 +1,27 @@
+		      Mt Wilson Installation
+
+To install the new version of Trust Agent, you must first install the new 2.0.0 version of MtWilson.  This is the sequence:
+
+copy mtwilson-server-2.0.0-jdk_glassfish_monit.bin from avalonia in ~repo/mtw
+Uninstall mtw:
+1.       mtwilson erase-users --all
+2.       mtwilson erase-data
+3.       mtwilson uninstall
+
+The most important file to have in the same directory and in /root
+for Mt Wilson install is mtwilson.env. Update it with the correct IP
+address before using.
+
+There is a sample of mtwilson.env here on Avalonia: /home/a/mtwilson.env
+
+Run MTW installer:
+4.       ./mtwilson-server-2.0.0-jdk_glassfish_monit.bin
+
+If you get an HTTP error in the Client tool log when it tries to access Mt Wilson.
+Download this file from Avalonia:
+~repo/mtw/mtwilson-vm-attestation-ws-v2-2.0-SNAPSHOT.jar
+Replace this file: /usr/share/glassfish4/glassfish/domains/domain1/applications/mtwilson/WEB-INF/lib/mtwilson-vm-attestation-ws-v2-2.0-SNAPSHOT.jar
+with the one just downloaded.
+Then run this command:
+/usr/share/glassfish4/glassfish/bin/asadmin restart-domain domain1
+

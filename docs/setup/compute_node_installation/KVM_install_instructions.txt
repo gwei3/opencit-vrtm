@@ -1,0 +1,28 @@
+
+Copy KVM_install.sh and KVM_install_$date.tar.gz into the home directory on a machine with Ubuntu 12.04 server installed.
+
+Run ./KVM_install.sh --help to get a usage statement.
+
+Run:
+sudo bash
+or:
+sudo su
+
+then:
+./KVM_install.sh
+
+The script will prompt for these inputs:
+Openstack Controller IP
+Openstack KVM Compute IP
+Gateway IP for Openstack KVM Compute node
+DNS nameserver IP for Openstack KVM Compute node
+Flat interface (default is eth0)
+Public interface (default is eth0)
+
+On the MtWilson server:
+cd /etc/intel/cloudsecurity
+openssl x509 -pubkey -noout -in saml.crt.pem  > pubkey.pem
+
+Copy pubkey.pem from the MtWilson server into the directory that contains verifier: /opt/RP*/rpcore/bin/debug on the KVM node.
+verifier looks for pubkey.pem in its own directory.
+

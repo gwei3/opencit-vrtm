@@ -1,0 +1,37 @@
+		  Trust Agent Installation
+
+0. Clear and reset TPM (no ownership taken), install tboot, 
+
+1. set up env variables (replace the IP below with your MtW's IP):
+use https://192.168.1.15:8181/mtwilson/v2/util/trustagent-env-file.html
+
+admin/password
+(MtW's URL)
+copy the content on the webpage to the machine for trust agent installation
+~/trustagent.env
+Sample content:
+MTWILSON_API_URL=https://192.168.1.15:8181/mtwilson/v2
+MTWILSON_API_USERNAME=admin
+MTWILSON_API_PASSWORD=password
+MTWILSON_TLS_CERT_SHA1=e8315e6d137dda1352dd497e473a4ec742707221
+
+There is a sample of trustagent.env here: /home/a/xfer/root/trustagent.env on Avalonia.
+
+2. Make sure TPM ownership has not been taken yet
+cat /sys/class/misc/tpm0/device/owned
+
+3. Make sure previous installation, if any, is cleared
+tagent uninstall
+
+4. Run the installer
+First copy /home/repo/mtw/mtwilson-trustagent-installer-2.0.0.bin from Avalonia to the local machine.
+
+Clear the ownership by clearing in the Setup screen before booting
+Run the Trust Agent install .bin file
+./mtwilson-trustagent-installer-2.0.0.bin
+
+During install, answer this question y.
+Register TPM password with service to support asset tag automation? y/n  y
+
+Then the kms server must be upgraded to match also.
+

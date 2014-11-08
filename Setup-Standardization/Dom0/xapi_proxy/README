@@ -1,0 +1,29 @@
+on dom0 
+--------------
+
+- create tmpfs 
+    mkdir /image_tmpfs
+    sudo mount -t tmpfs -o size=3G,mode=700 tmpfs /image_tmpfs
+
+-updated current directory to LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=`pwd`:$LD_LIBRARY_PATH
+
+- update XEN_BR0_IP in xapi_config.py and start proxy server 
+    chmod a+x xapi_proxy.py
+    nohup python xapi_proxy.py & 
+
+restart nova compute after this change
+
+
+building rpclient.py bindings
+--------------
+If you want to build rpclient python bindings then do the following
+
+cd RPCore/src/rptest/vmstart/
+make -f rpclient-g.mak
+copy rpclient.py, _rpclient.so and librputil.so to current directory
+
+
+
+
+

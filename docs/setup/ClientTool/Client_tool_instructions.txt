@@ -1,0 +1,35 @@
+After running Client_build.sh:
+
+A. Create the directory /root/manifest_files
+# mkdir /root/manifest_files
+
+B. Change to the directory of the latest build
+# cd /opt/RP_$Current_Date/ManifestTool
+
+C. Provide the necessary values in resources/config.properties file
+
+To run the client tool to create and upload a manifest for a Virtual Machine binary:
+In resources/config.properties:
+Host_Manifest=false
+
+To run the client tool to create a manifest for a TCB boot using rootfs.tar.gz;
+In resources/config.properties:
+Host_Manifest=true
+
+    How to set up the Client Tool machine after setting up a new Mt Wilson server:
+    Default password is changeit
+    1. Retrieve Mt. Wilson server public certificate
+    # ./retrieve-cert.sh $mtwilson_ip:8181 > ./mtwcert.pem
+
+    2. Delete the old mtwcert certificate from the java keystore:
+    # keytool -delete -noprompt -trustcacerts -alias mtwcert  -keystore /usr/lib/jvm/jdk1.7.0_55/jre/lib/security/cacerts
+
+    3. Add the certificate to java keystore
+    # keytool -import -noprompt -trustcacerts -alias mtwcert -file ./mtwcert.pem -keystore /usr/lib/jvm/jdk1.7.0_55/jre/lib/security/cacerts
+
+    4. Verify the certificate added to keystore
+    # keytool -list -keystore /usr/lib/jvm/jdk1.7.0_55/jre/lib/security/cacerts -alias mtwcert
+
+D. Run the client tool and provide the 'Mt. Wilson IP' and 'Mt. Wilson Port' in the GUI
+# java -jar dist/lib/ManifestToolApp.jar
+

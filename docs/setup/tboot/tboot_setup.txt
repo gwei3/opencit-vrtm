@@ -1,0 +1,46 @@
+		TBOOT 1.8 Setup Instructions
+
+Make sure TPM is enabled in the BIOS:
+Using Grizzly Pass 2u 2.5in HDD Xeon DP Server as example below:
+In the setup screen, go to Advanced->Processor Configuration and set Intel (R) Virtualization Technology to Enabled.
+Then scroll down a little further and set Intel (R) TXT to Enabled.
+Then hit F10, save the settings, and exit.
+Get into the setup screen again, go to Security and check if the TPM State is Enabled/Activated.  If not, select TPM Administrative Control and then Turn ON.
+Then hit F10, save the settings, and exit.
+Get into the setup screen again, go to Security->TPM Administrative Control and then Clear Ownership.
+Then hit F10, save the settings, and exit.
+
+Next copy /home/a/xfer/txtprov_ubuntu.tar.gz to local machine from Avalonia.
+Then untar it.  There is a duplicate file in it.
+Copy /home/a/xfer/txtprov.sh to local machine from Avalonia.
+Copy /home/a/3rd_gen_i5_i7_SINIT_67.BIN to /boot on local machine from Avalonia.
+./txtprov.sh
+tpm_version
+tpm_selftest
+Then reboot and select tboot 1.8 in the grub boot menu.
+
+txt-stat | less
+should contain this output:
+*************************************************************
+          TXT measured launch: TRUE
+          secrets flag set: TRUE
+*************************************************************
+
+cat /sys/class/misc/tpm0/device/owned
+cat /sys/class/misc/tpm0/device/enabled
+cat /sys/class/misc/tpm0/device/active
+
+Assuming that /sys/class/misc/tpm0/device/owned == 0 and txt-stat looks good, you should be ready to install the trust agent which will take the ownership.
+For a successful trust agent install, owned must be zero before installation.
+
+If there are problems, see http://cryptotronix.com/2014/08/28/compliance_mode/
+
+
+NOTE--- Error on KVM_install.sh if tboot is installed first - 
+After tboot install there is a /usr/local/ssl/lib directory with
+libcrypto.so.1.0.0 and libssl.so.1.0.0 in it. The qemu configure script
+used with KVM_install.sh ends up using this when it should be using
+the libraries in /usr/lib/x86_64-linux-gnu.
+A possible workaround would be to change the name of the
+/usr/local directory temporarily while running KVM_install.sh.
+

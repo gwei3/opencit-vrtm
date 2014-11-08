@@ -1,0 +1,12 @@
+<ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#" KeyName="KEYNAME">
+    <KeyType>RSAKeyType</KeyType>
+    <ds:KeyValue>
+        <ds:RSAKeyValue size="2048">
+            <ds:M>XM/UMd55jtkPfFjSMluKNKRfOS5aCefHLL8064rMVrbduhmWIPAHowxY7+FkhcTmIS4rtAMZCHWJNxXEQ3tKirs/7lQi9ElEZnSEx6c3Y43KLe5pgOwzpeLMtUt8pCdPr8xU6Qq5oOmcLrEm+syI4SRCa9Y8SXVm/vx9Vy3OzF+70Ys4YYih9CzBduMZd7K2hJ8l9P9FwLwO5u8FCicwIiKoRVUb7LvYQhsHHy1wVmP3nE4xzxdIn376sU/8r27kg4Hp6OfDa04EnuS3cKfYuncS6AG3aLDALV7oy7/gbmme2kkyXtJ+hZQ0nrUQK+Q86L9RB8xLprYmO9ESSRKCOQ==</ds:M>
+            <ds:E>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAE=</ds:E>
+            
+            
+            
+        </ds:RSAKeyValue>
+    </ds:KeyValue>
+</ds:KeyInfo>

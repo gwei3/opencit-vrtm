@@ -1,0 +1,77 @@
+		TCB Boot Setup Instructions
+
+1. Get a copy of the scripts by cloning a copy of mysteryhill-tcb-protection:
+git clone repo@192.55.66.14:~/dev/mysteryhill-tcb-protection
+or
+Request a tar file of the TCB-Protection file structure.
+
+2. You will need a cleared partition on the hard disk i.e. /dev/sda2
+cd TCB-Protection
+./setup_encrypted_lvm.sh
+Enter the device path after the prompt for it: /dev/sda2
+I suggest at least 10G for the host volume, at least 1G for the storage,
+and make the swap size about the same as the RAM size.
+
+If you have previously run setup_encrypted_lvm.sh and need to delete
+the old encrypted volumes, take a look at XEN_install_after_reboot.sh.
+It has code for deleting previously created volumes in case it was run before.
+
+To use the brute force method to get rid of previous encrypted LocalStorage:
+ll /dev/mapper
+cat /proc/partitions
+fdisk /dev/dm-7	# Rewrite the partition table for the parent partition
+		# Enter w as a command to write the partition
+partprobe	# Have the OS read the new partition
+
+
+3. There is a script, configure_trusted_host.sh, that I recommend
+running to set up an entry in /boot/grub/grub.cfg for the TCB boot.
+It will also install a default version of rootfs.tar.gz.  After
+running it, you should be able to do a TCB boot of the default
+system.
+
+4. Then you will want to create a rootfs.tar.gz file the is an image
+of the system configured as you want it with tboot and KVM or XEN
+installed.
+
+The files in the directory that you run create_rootfs_tarball.sh
+from will not be included in the rootfs.tar.gz file.  I did
+something like this:
+mkdir /create
+mkdir ~/TCB-Protection
+cp -a mysteryhill-tcb-protection/TCB-Protection/* ~/TCB-Protection
+(This does not copy the .git directory)
+(Also all the non-.git files in the directory need to be copied
+because there is a file in the script directory that must be there.)
+mv mysteryhill-tcb-protection/TCB-Protection /create
+(Prevent including the git repository in rootfs.tar.gz)
+cd /create
+~/TCB-Protection/create_rootfs_tarball.sh
+
+The output file is /rootfs.tar.gz
+mv /rootfs.tar.gz /boot
+
+mv /create/TCB-Protection mysteryhill-tcb-protection
+
+5. Then copy /boot/rootfs.tar.gz to the Client tool machine and
+run the client tool after putting:
+Host_Manifest=true
+in resources/config.properties
+
+When browsing the directories, click on Add Directory and
+add /opt/RP_$date/rpcore
+
+When finished creating the manifest file, copy it to the
+TCB boot machine into the /boot directory and rename it:
+tcb-manifest.xml
+
+6. Next run the script:
+./generate_initrd.sh
+cp -p initrd_output/initrd.img* /boot
+
+If you want the machine to automatically boot in TCB,
+in /boot/grub/grub.cfg you can change the default line to:
+set default="TCB-protection"
+
+7. You should now be able to boot into the clone of the
+system now running, but in TCB mode.

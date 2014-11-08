@@ -1,0 +1,82 @@
+Dom0 Setup
+
+
+1. Create a bootable media using the dom0 iso using the .Steps to create bootable  USB in Windows. doc
+
+2. Install the OS with manual partitioning
+	- We need one partition of 100GB to create SR .. for exaple /dev/sda4
+
+3. Once OS is installed, check network interface name with ifconfig command, if you see em1 instead of eth0 then perform following steps to change interface name
+    i) Edit file /etc/default/grub and modify value of key GRUB_CMDLINE_LINUX to add "biosdevname=0" value as below--
+       GRUB_CMDLINE_LINUX="biosdevname=0"
+    ii) Hit command: update-grub
+    iii) reboot machine and check network interface name
+
+3. Clone Dom0 folder from GIT to any location, and change directory to Dom0 folder
+
+4. Run the "setup-xcp-xapi.sh" script to install and configure the xcp-xapi
+
+5. Edit the /etc/network/interfaces and put your IPs
+---------------------------------------
+# interfaces(5) file used by ifup(8) and ifdown(8)
+auto lo
+iface lo inet loopback
+auto eth0
+iface eth0 inet manual
+# Xenbr0 config
+auto xenbr0
+iface xenbr0 inet dhcp
+bridge_ports eth0
+-----------------------------------------
+
+6. Reboot the machine
+
+7. Check for xcp service status
+# service xcp-xapi status
+# xe vm-list
+
+8. Change directory to Dom0 folder and run "kernel-upgrade.sh" script to upgrade the kernel to 3.11.0-13-generic
+
+9. Reboot the machine
+
+10. Check the blktap module
+# modinfo blktap
+
+11. mkdir /opt/RP
+
+12. Clone rpcore folder from GIT to /opt/RP and build it.
+
+13. Change directory to Dom0 folder and run "dom0-config.sh" to run the rpcore and xapi-access-control-proxy
+
+
+14. Create SR
+
+   Either You can use script to create Encrypted SR- (device encrypted with DM_CRYPT)
+   or you can setup non encrypted SR manually.
+
+   For Encrypted SR:
+      a. Execute script /opt/RP/setup_encrypted_sr.sh    It will ask you for device on which you want to create SR: for example /dev/sda4. And it will generate file: /etc/sr_encryption_key
+      b. After system is rebooted, execute script /opt/RP/setup_encrypted_sr_after_reboot.sh  to create encrypted lvm once again, and activate SR.
+
+   For Non Encrypted SR:
+        assuming /dev/sda4 is the device to be used for SR
+        # xe sr-create device-config:device=/dev/sda4 host-uuid=<host-uuid> name-label=LocalStorage shared=true type=ext content-type=user
+            The output will be sr-uuid -- 814394a8-80a7-a0d7-2a16-480cd902a42f
+        # xe pool-param-set uuid=<pool-uuid> default-SR=<sr-uuid created in above step>
+            Get the pool-uuid from- xe pool-list
+            and get sr-uuid from - xe sr-list
+
+15. To block port 80 for outside request- #iptables -A INPUT -d <dom0_ip> -p tcp --dport 80 -j DROP
+
+16. Create the symbolic link for /boot/guest
+
+# mkdir /run/sr-mount/<sr_uuid>/guest
+get "/run/sr-mount/<sr_uuid>/" path from "df -h" command
+
+# ln -s /run/sr-mount/<sr_uuid>/guest /boot/
+
+# ls -lrth /boot/guest
+
+
+
+NOTE : If you face "dpkg: dependency problems" for virtualbox-fuse while installing any new package with apt-get. You can run command " sudo apt-get -f install" to remove that package. Then you will able to install other packages. Once you done with that, you have to install vdfuse package manually using dpkg -i --force-depends /opt/RP/scripts/virtualbox-fuse_4.1.18-dfsg-1ubuntu1_amd64.deb.

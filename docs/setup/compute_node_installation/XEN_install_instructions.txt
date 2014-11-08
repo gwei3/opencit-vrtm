@@ -1,0 +1,66 @@
+
+Copy XEN_install.sh and XEN_install_$date.tar.gz into the home directory on a machine with Ubuntu 13.04 server installed.
+
+Run ./XEN_install.sh --help to get a usage statement.
+
+Run:
+sudo bash
+or:
+sudo su
+
+then:
+./XEN_install.sh
+
+The script will prompt for these inputs:
+Openstack XEN Dom0 Compute IP
+Gateway IP for Openstack XEN Dom0 Compute node
+DNS nameserver IP for Openstack KVM Compute node
+
+When the script completes, reboot.  Then:
+Copy XEN_install_after_reboot.sh into the same directory as XEN_install_$date.tar.gz.
+
+Run:
+sudo bash
+or:
+sudo su
+
+then:
+./XEN_install_after_reboot.sh
+
+Respond with upper case "YES" when prompted about whether you want to create SR storage.
+
+Enter the device that will contain the SR storage i.e. /dev/sda4
+
+Enter the Size in GB requested for the LVM (logical volume) of the SR. You will be shown how much is available on the selected device.
+
+When the script completes, reboot.  Then:
+Copy NOVA_compute_install.sh into the home directory.
+Add the ssh public key from the new XEN machine to ~repo/.ssh/authorized_keys
+and ~a/.ssh/authorized_keys on the machine at 192.55.66.14 FIRST.
+OR, download base_image_compute_new to the directory NOVA_compute_install.sh will be run from.
+Then in a root shell:
+./NOVA_compute_install.sh
+You will be prompted for the username enabled for ssh to Avalonia - 192.55.66.14 if base_image_compute_new is not already downloaded to this machine.
+
+This will set up and start the NOVA compute node.
+xe console uuid=$Base_UUID
+(Base_UUID will come on the screen at the end of the script)
+
+
+Then log into it as root with the usual password:
+Then set the ip address: ifconfig eth0 192.168.1.xx to be able to download the following script:
+
+After downloading, run:
+./NOVA_compute_config.sh
+while logged into the NOVA compute node.
+
+The script will prompt for these inputs:
+Openstack Controller IP
+Openstack Nova Compute IP
+Dom0 IP
+Gateway IP for Openstack XEN Dom0 Compute node
+DNS nameserver IP for Openstack KVM Compute node
+Flat interface (default is eth0)
+Public interface (default is eth0)
+
+

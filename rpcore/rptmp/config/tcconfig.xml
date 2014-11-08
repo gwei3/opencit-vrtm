@@ -1,0 +1,10 @@
+<tc_config>
+	<directory>/tmp/rptmp/config</directory>
+	<signing_server_ip> 192.168.1.15 </signing_server_ip>
+	<signing_server_port> 6001</signing_server_port>
+	<rpcore_ip> 192.168.1.15 </rpcore_ip>
+	<rpcore_port> 16005</rpcore_port>
+	<cert_domain>www.rp.com</cert_domain>
+	<vif_br_script>/etc/xen/scripts/vif-bridge</vif_br_script>
+	<default_console>console=hvc0</default_console>
+</tc_config>

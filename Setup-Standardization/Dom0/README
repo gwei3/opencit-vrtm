@@ -1,0 +1,7 @@
+setup-xcp-xapi.sh :  script to install and configure the xcp-xapi
+kernel-upgrade.sh :  script to upgrade the kernel to 3.11.0-13-generic
+dom0-config.sh.   :  To run the nontpm rpcore and xapi_proxy
+setup_encrypted_sr.sh : To create encrypted SR
+setup_encrypted_sr_after_reboot.sh : Script to enable encrypted SR after system reboot
+
+Please read SetupDocForDom0 before running scripts 

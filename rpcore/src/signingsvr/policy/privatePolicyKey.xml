@@ -1,0 +1,12 @@
+<ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#" KeyName="KEYNAME">
+    <KeyType>RSAKeyType</KeyType>
+    <ds:KeyValue>
+        <ds:RSAKeyValue size="2048">
+            <ds:M>XM/UMd55jtkPfFjSMluKNKRfOS5aCefHLL8064rMVrbduhmWIPAHowxY7+FkhcTmIS4rtAMZCHWJNxXEQ3tKirs/7lQi9ElEZnSEx6c3Y43KLe5pgOwzpeLMtUt8pCdPr8xU6Qq5oOmcLrEm+syI4SRCa9Y8SXVm/vx9Vy3OzF+70Ys4YYih9CzBduMZd7K2hJ8l9P9FwLwO5u8FCicwIiKoRVUb7LvYQhsHHy1wVmP3nE4xzxdIn376sU/8r27kg4Hp6OfDa04EnuS3cKfYuncS6AG3aLDALV7oy7/gbmme2kkyXtJ+hZQ0nrUQK+Q86L9RB8xLprYmO9ESSRKCOQ==</ds:M>
+            <ds:E>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAE=</ds:E>
+            <ds:D>ME3mdZIBmCw2mBQuShFEjANkoAEU0YT1L7/QTiruEM+Z9OquLTRf9SdO/oJDbC+/SlOaYVUfaTyrDqVggXKgqDWun17g1l1voRdRqAvKkyDPsjocZQIKG3M/8bd5BoKDQc7J/oQberk7FT4UOIHNV8gkXbWhqOXWli1ZGs93ivxD86TKcIIpckbrW7AS8utyWcE+GFeJcE66EQE4fuF+IydBDr7zkfmatcz6yuKM9ZvRMk9vkso1xQSQK14Uu6iwUOqQmlm+yNTyepaCTJGl8xV5ybS56ugpgma906KHSDMSx+zY7v08etQQfh+WaHI9TKOY7OAsRUP/WHYBxe2olQ==</ds:D>
+            <ds:P>mXM883xwVa1O3YpRlUTvPby0057tERbd/OBEgu6bKqXcPROIkhrG1qCgI+KU4zoOtWf+wKec5i5Umrhth67pJpJqv5AgvrCwXVL0ZW4VUl2Kd8fS0ZXOG1YGrD3qeE0A4AGFBD9mGx37zaGCmAfYIvk8z+tlunDhFth+DKp1lRM=</ds:P>
+            <ds:Q>mtZiwhMLsHZjTPjQXIZqTHfC3+e+xyOeNks9gwPWb9TXwDFPocccSq9QkWoVUFayQkVblDuGx3hJHYr5cAr/KejAwJ6axf6y6fCsfOM1ONHYzsx287JID4KwoBZQ1TceldR7ysh81iVfHI6c2okjtSHTkL20dOeBIXUaEdD2kQM=</ds:Q>
+        </ds:RSAKeyValue>
+    </ds:KeyValue>
+</ds:KeyInfo>

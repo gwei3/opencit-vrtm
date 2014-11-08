@@ -1,0 +1,1 @@
+cmd_/home/intel/git-repositories/mysteryhill/rpcore/src/driver/mmio.ko := ld -r -m elf_x86_64 -T /usr/src/linux-headers-3.11.0-17-generic/scripts/module-common.lds --build-id  -o /home/intel/git-repositories/mysteryhill/rpcore/src/driver/mmio.ko /home/intel/git-repositories/mysteryhill/rpcore/src/driver/mmio.o /home/intel/git-repositories/mysteryhill/rpcore/src/driver/mmio.mod.o

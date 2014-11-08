@@ -1,0 +1,15 @@
+# Build order
+# Debug  version only needed  when you need to debug
+LD_TARGETS=  rpcrypto     rpcrypto-g  
+             rptools      rptools-g 
+             examples     examples-g  
+             rptrust      rptrust-g  
+             domtest      domtest-g 
+             vmtcservice  vmtcservice-g   
+             keynego      keynego-g  
+	     tsigner
+	     vtci		
+             nontpmkss       nontpmkss-g
+             nontpmrpcs      nontpmrpcs-g
+	     rpdombldr rpdombldr-g
+

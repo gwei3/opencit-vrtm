@@ -1,0 +1,19 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+CC	Makefile	/^CC = gcc$/;"	m
+CFLAGS	Makefile	/^CFLAGS = -I$(X509ACINC) $/;"	m
+LDFLAGS	Makefile	/^LDFLAGS =$/;"	m
+OBJS	Makefile	/^OBJS =  test.o $/;"	m
+OPENSSLDIR	Makefile	/^OPENSSLDIR = \/home\/mohd\/tp\/openSSLAC\/openssl-0.9.8a\/source\/openssl-0.9.8a\/$/;"	m
+SRCS	Makefile	/^SRCS =  test.c $/;"	m
+TEST_IETF_ATTR_SYNTAX	test.c	44;"	d	file:
+TEST_ROLE_SYNTAX	test.c	45;"	d	file:
+USE_BASECERTID	test.c	157;"	d	file:
+X509ACDIR	Makefile	/^X509ACDIR = ..\/x509ac\/$/;"	m
+X509ACINC	Makefile	/^X509ACINC = $(X509ACDIR)$/;"	m
+_CRT_SECURE_NO_DEPRECATE	test.c	29;"	d	file:
+main	test.c	/^void main()$/;"	f

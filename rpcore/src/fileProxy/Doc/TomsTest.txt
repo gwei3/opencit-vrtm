@@ -1,0 +1,57 @@
+Set up a branch with the working commit
+
+cd $CODE
+git branch -b bug a91d25b8e36c
+make clean && make
+
+Test Procedure (starting in $CODE):
+
+make clean && make
+cd $ROOT
+rm *.exe fileClient/* fileServer/* TrustedOS/*
+cp ~/jlmcrypt/*.exe .
+<reboot to clear any tcService state>
+cd $ROOT
+./keyNegoServer.exe &
+sudo ../setup.sh
+./tcService.exe -initKeys
+<reboot so I can start tcService again without the machine hanging>
+cd $ROOT
+./keyNegoServer.exe &
+sudo ../setup.sh
+./tcService.exe &
+./fileServer.exe -initProg; <wait for a few seconds>
+./fileCilent.exe -initProg
+
+Gets all [OK] indications from fileClient
+
+Now pull in the change:
+
+cd $CODE
+git cherry-pick -n af2e1245b0d53
+git reset
+git checkout cryptUtility/* # gets rid of the changes in cryptUtility
+
+Run Test Procedure exactly as before. Tests fail at read2048 and succeed before then. Looks like the fileServer process crashed, since it’s not there after the test finishes (e.g., check with “ps -eF | grep fileS”)
+
+removed the changes from jlmcrypto.cpp with 
+
+git checkout -- jlmcrypto/jlmcrypto.cpp
+
+Run Test Procedure as before. Still fails in exactly the same way.
+
+removed the changes from modesandpadding.* with
+
+git checkout -- jlmcrypto/modesandpadding.*
+
+Run Test Procedure as before. Still fails in exactly the same way.
+
+So, it looks like the bug is in encryptedblockIO.{cpp,h}, since those are the only changes left.
+
+just to check, I reverted the last change:
+
+git checkout -- jlmcrypto/encryptedblockIO.*
+
+and ran Test Procedure once more. And everything works again correctly.
+
+

@@ -1,0 +1,72 @@
+[?25l[J[J[J[?12l[?25h[?1049h[?1h=[1;24r[?12;25h[?12l[?25h[27m[m[H[2J[?25l[24;1H"ReleaseNotes.txt" 68 lines, 3585 characters[1;1HRP Crypto Library[34m^M
+^M[m
+Introduction[34m^M[m
+The RP crypto library implements a  number of cryptogrphic algorithms. This is cc[5;1Hurrently being used for RP projects. The library provides a c/c++ level APIs forr[6;1H cryptographic primitives. Version 1.0 of the library was  released on May 10, 22[7;1H013. This is targetted for Linux platforms(Kernel 3.2.44 and above).[34m^M
+^M[m
+Overyview[34m^M[m
+librpcrypto consists of a number of functionalities and includes cryptographic rr[11;1Handom number generation, symmetric and public key generation, symmetric and publl[12;1Hic key encryption and decryption, cryptographic hash functions and public key (RR[13;1HSA) based signature and verifications. It also includes base64 functionality forr[14;1H enconding/decoding. Finally, it has few functions specifically for  RP crypto ll[15;1Hibrary initialization and cleanup.[34m^M
+^M
+^M[m
+- Release (1.2)[34m^M[m
+  -Symmetric key encryption APIs(4 APIs) have changed. Release 1.0 defaulted [34m^M[m
+   the integrity key to the encryption key. This release lets the user select[34m^M[m
+   a different key as the integrity key. [34m^M[m
+  -Seal and Unseal APIs are implemented in this release.[34m^M[m
+  -GenerateQuote and VerifyQuote API are also implemented in this release.[34m^M[1;1H[?12l[?25h[?25l[m[24;1HType  :quit<Enter>  to exit Vim[24;32H[K[1;1H[?12l[?25h
+
+
+[8;1H[?25l[?12l[?25h[?25l[?12l[?25h
+
+[16;1H
+[?25l[17;23r[17;1H[2M[1;24r[22;2H -The sample example(rpapisample1.cpp) is modified for the new APIs involving ss[23;1Hymmetric encryption and decryption.[34m^M[m[24;1H[K[17;3H[?12l[?25h
+   
+   
+  
+  
+  [?25l[1;23r[1;1H[2M[1;24r[22;2H -The GetMAC API had an underlying bug(wrong HMAC algorithm) and has been fixedd[23;1H in this release.[34m^M[22;3H[?12l[?25h[?25l[1;23r[m[1;1H[5M[1;24r[19;2H - The RSA Keys(generated and saved in xml files) will not be compatible will bb[20;1He previous releases and vice-versa. We do not provide a tool to do the conversioo[21;1Hn. [34m^M
+^M[m
+- Initial release (1.1) - Jun 4, 2013[34m^M[19;3H[?12l[?25h
+
+
+
+[?25l[1;23r[m[23;1H
+[1;24r[23;2H - Bug Fix Release.[34m^M[m  [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;2H - RSA Key Generation bug (which cause RSA Encrypt/Decrypt to fail) fixed.[34m^M[m  [?12l[?25h[?25l[1;23r[1;1H[6M[1;24r[18;2H - Compilation instruction (-I../inc added) for modified sample program(s).[34m^M[m
+  - Sample example program using the RP Crypto APIs(RSA). Source files - rpapisaa[20;1Hmple3.cpp and rpapisample3.h.[34m^M
+^M[m
+- Initial release (1.0) - May 10, 2013[34m^M[m
+  - public key: RSA encrypt[34m^M[18;3H[?12l[?25h
+[m  
+
+
+
+  [?25l[1;23r[23;1H
+[1;24r[23;2H - secret key: AES[34m^M[m  [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;2H - hash:  SHA-1, SHA-256[34m^M[m  [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;2H - HMAC [34m^M[m  [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;2H - modes: CBC[34m^M[m  [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;2H - converters: Base64[34m^M[m  [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;2H - key derivation : PBKDF2[34m^M[m  [?12l[?25h[?25l[1;23r[1;1H[2M[1;24r[22;1H[34m^M[m
+Installation:[34m^M[22;1H[?12l[?25h
+[?25l[1;23r[m[1;1H[5M[1;24r[19;1HUntar(tar -xvf <tar file>) the RP Crypto library into a directory of your choicee[20;1H($ROOT). The rp library will be installed there and will have the following diree[21;1Hctory structure and contents:[34m^M
+^M[m
+$ROOT[34m^M[19;1H[?12l[?25h
+
+
+
+[?25l[1;23r[m[23;1H
+[1;24r[23;1H└── rp[34m^M[?12l[?25h[?25l[1;23r[m[23;1H
+[1;24r[23;4H ├── examples[34m^M[m    [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;4H │   ├── PlainText1[34m^M[m    [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;4H │   ├── rpapisample1.cpp[34m^M[m    [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;4H │   └── rpapisample1.h[34m^M[m    [?12l[?25h[?25l[1;23r[1;1H[2M[1;24r[22;4H ├── inc[34m^M[m
+    │   └── rpapi.h[34m^M[22;5H[?12l[?25h
+[m    [?25l[1;23r[23;1H
+[1;24r[23;4H ├── lib[34m^M[m    [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;4H │   └── librpcrypto.a[34m^M[m    [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;4H ├── ReleaseNotes.txt[34m^M[m    [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;4H └── RPapidoc.txt[34m^M[m    [?12l[?25h[?25l[1;23r[23;1H
+[1;24r[23;1H[34m^M[?12l[?25h[?25l[1;23r[m[23;1H
+[1;24r[23;1HFiles:[34m^M[?12l[?25h[?25l[1;23r[m[1;1H[2M[1;24r[22;2H - librpcrypto.a : This is the RP Crypto library which needs to be linked to thh[23;1He program using RP Crypto functioanlity.[34m^M[22;3H[?12l[?25h[?25l[1;23r[m[1;1H[2M[1;24r[22;2H - rpapi.h : The .h file that needs to be included by a RP Crypto based programm[23;1H/modules.[34m^M[22;3H[?12l[?25h[?25l[1;23r[m[23;1H
+[1;24r[23;2H - ReleaseNotes.txt: This file containing the updated release notes.[34m^M[m  [?12l[?25h[?25l
+Type  :quit<Enter>  to exit Vim[23;3H[?12l[?25h

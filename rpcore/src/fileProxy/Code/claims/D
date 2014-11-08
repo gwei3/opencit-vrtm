@@ -1,0 +1,36 @@
+--- quote.cpp.OLD	2013-06-19 12:10:33.292344378 -0700
++++ quote.cpp	2013-06-19 12:14:46.348342056 -0700
+@@ -152,6 +152,7 @@
+     }
+     m_szQuotealg= strdup(szA);
+     m_pNodeNonce= Search(m_pNodeQuote, "Nonce");
++    
+     m_pNodeCodeDigest= Search(m_pNodeQuote, "CodeDigest");
+     if(m_pNodeCodeDigest==NULL) {
+         fprintf(g_logFile, "Quote::init: No CodeDigest node\n");
+@@ -305,6 +306,7 @@
+ 
+     // get nonce
+     if(sznonce!=NULL) {
++		
+         if(!fromBase64(strlen(sznonce), sznonce, &sizeNonce, nonce)) {
+             fprintf(g_logFile, "checkXMLQuote: Cant base64 decode noncevalue\n");
+             return false;
+@@ -321,6 +323,8 @@
+     }
+     if(hashType==SHA1HASH) {
+         oSha1Hash.Init();
++        if (sizeNonce )
++			oSha1Hash.Update((byte*)nonce, sizeNonce);
+         oSha1Hash.Update((byte*) szCanonicalQuotedBody, strlen(szCanonicalQuotedBody));
+         oSha1Hash.Final();
+         oSha1Hash.getDigest(hashBody);
+@@ -328,6 +332,8 @@
+     }
+     else if(hashType==SHA256HASH) {
+         oSha256Hash.Init();
++        if (sizeNonce )
++			oSha256Hash.Update((byte*)nonce, sizeNonce);
+         oSha256Hash.Update((byte*) szCanonicalQuotedBody, strlen(szCanonicalQuotedBody));
+         oSha256Hash.Final();
+         oSha256Hash.GetDigest(hashBody);

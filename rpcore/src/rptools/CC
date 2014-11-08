@@ -1,0 +1,1 @@
+echo g++ $1 -I../../../rp/inc -o `basename "$1" .cpp`  -L ../../rp/lib -lrpcrypto-g

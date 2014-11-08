@@ -1,0 +1,16 @@
+bin/
+	Exceutables of RPCore.
+	TODO: RPProxy, RPListener binaries should be included here as well -- Makefile to update.
+bin-03-20-14/
+	exact copy of bin as of 03-20-2014. -- Ideally we don't need to keep track of binaries, 
+	they shall be compiled at each local machine once src code checked out. But somehow 
+	RPCore seems compiles and runs on some machine, but not on some other machines; reason 
+	to be figured out. So we include RPCore binaries in git repository. 
+	bin/* might changed due to development and recompilation. 
+	bin-mm-dd-yy/ snapshot of binaries that we know work across machines.
+src/
+	All source code.
+rptmp/
+	Configuration files for RPCore. This directory needs to be copied to /tmp/, and for each
+	machine, it needs to be reconfigured. See RPCore installation and configuration doc.
+

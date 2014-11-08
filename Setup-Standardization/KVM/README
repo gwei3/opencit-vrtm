@@ -1,0 +1,14 @@
+1. Install Ubuntu 12.04 server using the shared kvm iso in the ~repo/Setup-Standardization directory tree on the Avalonia gateway computer.
+
+2. Go to the root directory of the dev branch of the git repository cloned from ~repo/dev/mysteryhill on the Avalonia gateway computer (./mysteryhill).
+
+3. Run the 'kvm-config.sh', it will install the kvm packages and configures them using the files in the repository. It will also start nontpmrpcore and rplistener
+
+If you want to run the tpm rpcore
+    a.  Set up rpcore manually first
+    b.  Comment the line number 212 which a function call to start nontpm rpcore
+
+then run the script
+# ./kvm-config.sh
+
+4. If you want to upgrade the kernel to 3.11.0-13-generic, run the script 'kernel-upgrade.sh'

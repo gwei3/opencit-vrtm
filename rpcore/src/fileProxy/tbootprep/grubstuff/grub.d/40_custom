@@ -1,0 +1,22 @@
+#!/bin/sh
+exec tail -n +3 $0
+# This file provides an easy way to add custom menu entries.  Simply type the
+# menu entries you want to add after this comment.  Be careful not to change
+# the 'exec tail' line above.
+menuentry 'Ubuntu Linux 3.0.0-16-generic with TXT' --class ubuntu --class gnu-linux --class gnu --class os {
+        recordfail
+        set gfxpayload=text
+        insmod gzio
+        insmod part_msdos
+        insmod ext2
+        set root='(hd0,msdos5)'
+        search --no-floppy --fs-uuid --set=root 8ab78657-8561-4fa8-af57-bff736275cc6
+	echo 'Multiboot'
+        multiboot /boot/tboot.gz /boot/tboot.gz logging=vga,memory,serial
+        echo 'Linux'
+        module   /boot/vmlinuz-3.0.0-16-generic /boot/vmlinuz-3.0.0-16-generic root=UUID=8ab78657-8561-4fa8-af57-bff736275cc6 ro   splash vt.handoff=7 intel_iommu=on
+        echo 'initrd'
+        module /boot/initrd.img-3.0.0-16-generic /boot/initrd.img-3.0.0-16-generic
+        echo 'sinit'
+        module /boot/sinit51.bin /boot/sinit51.bin
+}
