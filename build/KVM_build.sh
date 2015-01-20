@@ -71,6 +71,7 @@ then
   exit
 fi
 
+#comment all this, not needed
 while : ; do
         echo "Repo machine IP address - hit only enter for 192.55.66.14"
         read avalonia_ip
@@ -88,16 +89,17 @@ while : ; do
 	read user
 	found=`ls /home | grep -c $user`
 
-	if [ $found = "0" ]
-	then
-	  echo User $user is unknown.  Please Enter again
-	else
+#	if [ $found = "0" ]
+#	then
+#	  echo User $user is unknown.  Please Enter again
+#	else
 	  break;
-	fi
+#	fi
 done
 
 echo Make sure git is installed
 apt-get --force-yes -y install git
+
 
 # Check if mysteryhill directory already exists here
 if [ -d mysteryhill ]
@@ -110,9 +112,11 @@ then
   sudo -u $user git rebase origin/dev
 else
   # Get a clone of the code base
-  sudo -u $user git clone repo@192.55.66.14:/home/repo/dev/mysteryhill
-  cd mysteryhill
-  sudo -u $user git checkout dev
+  # no need to get code base, exists locally, commenting it out
+ # sudo -u $user git clone repo@192.55.66.14:/home/repo/dev/mysteryhill
+ # cd mysteryhill
+cd ..
+ # sudo -u $user git checkout dev
 fi
 
 Current_version="`date +%Y%m%d%H%M%S`"
