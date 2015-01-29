@@ -810,7 +810,7 @@ void processNode(xmlTextReaderPtr reader, char *imagePath) {
                 exit(1);
             }
             // Injecting certain params into the VM image         
-            injectRpParams();     
+         //   injectRpParams();     
         }
         FILE *fp = fopen("dirHashes.txt","a");
         fclose(fp);
