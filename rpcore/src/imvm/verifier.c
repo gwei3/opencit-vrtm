@@ -1129,6 +1129,7 @@ static void streamFile(const char *origManifestPath, char *imagePath, char *veri
     system(command);
 
 // Uncomment the below part for verfication of the manifest file
+/*  Signature Verification will now be done in Polcy Agent with a different mechanism
 
     parseSignatureXml("signature.xml");
   
@@ -1202,7 +1203,7 @@ static void streamFile(const char *origManifestPath, char *imagePath, char *veri
     }
     // Remove temporary files
     remove("fileHashes.txt");
-
+*/
     populateExcludeFileArray(manifestPath);
     reader = xmlReaderForFile(manifestPath, NULL, XML_PARSE_HUGE);
     if (reader != NULL) {
