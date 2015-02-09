@@ -330,6 +330,48 @@ bool serviceprocTable::updateprocEntry(int procid, char* uuid, char *vdi_uuid)
     return true;
 }
 
+bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature) {
+    //geting the procentry related to this procid
+    serviceprocEnt* pEnt= getEntfromprocId(procid);
+    if(pEnt == NULL) {
+        printf("pEnt is NULL");
+        return false;
+    }
+    
+    //    updating the proctable entry for current procid
+    /*pEnt->m_vm_image_id = malloc(sizeof(char) * (strlen(vm_image_id) + 1));
+    if(pEnt->m_vm_image_id == NULL) {
+        printf("\nError in allocating memory for proctable attribute");
+        return false;
+    }*/
+    strcpy(pEnt->m_vm_image_id,vm_image_id);
+    pEnt->m_size_vm_image_id = strlen(pEnt->m_vm_image_id);
+    /*pEnt->m_vm_customer_id = malloc(sizeof(char) * (strlen(vm_customer_id) + 1));
+    if(pEnt->m_vm_customer_id == NULL) {
+        printf("\n Error in allocating memory for proctable attribure");
+        return false;
+    }*/
+    strcpy(pEnt->m_vm_customer_id,vm_customer_id);
+    pEnt->m_size_vm_customer_id = strlen(pEnt->m_vm_customer_id);
+
+    /*pEnt->m_vm_manifest_hash = malloc(sizeof(char) * (strlen(vm_manifest_hash) + 1));
+    if(pEnt->m_vm_manifest_hash == NULL) {
+        printf("\nError in allocating memory for proctable attribute");
+        return false;
+    }*/
+    strcpy(pEnt->m_vm_manifest_hash,vm_manifest_hash);
+    pEnt->m_size_vm_manifest_hash = strlen(pEnt->m_vm_manifest_hash);
+    /*pEnt->m_vm_manifest_signature = malloc(sizeof(char) * (strlen(vm_manifest_signature) + 1));
+    if(pEnt->m_vm_manifest_signature == NULL) {
+        printf("\nError in allcoating memory for proctatble attribute");
+        return false;
+    }*/
+    strcpy(pEnt->m_vm_manifest_signature,vm_manifest_signature);
+    pEnt->m_size_vm_manifest_signature = strlen(pEnt->m_vm_manifest_signature);
+    return true;
+}
+
+
 bool serviceprocTable::checkprocEntry(char* uuid, char *vdi_uuid)
 {
    //printf("Inside checkprocEntry");
@@ -420,6 +462,56 @@ TCSERVICE_RESULT tcServiceInterface::initService(const char* execfile, int an, c
 #endif
 
     return TCSERVICE_RESULT_SUCCESS;
+}
+
+// *****************return the procId (rpid) for given uuid***************
+
+TCSERVICE_RESULT tcServiceInterface::GetRpId(char *vm_uuid, byte * rpidbuf, int * rpidsize)
+{
+
+	serviceprocMap* pMap = m_procTable.m_pMap;
+	serviceprocEnt *pEnt;
+	while(pMap != NULL)
+	{
+		pEnt = pMap->pElement;
+		if(strcmp(pEnt->m_uuid,vm_uuid) == 0)
+		{
+			//itoa(pEnt->m_procid, (char *)rpidbuf, 10);
+            sprintf((char *)rpidbuf,"%d",pEnt->m_procid);
+			*rpidsize = strlen((char *)rpidbuf);
+			return TCSERVICE_RESULT_SUCCESS;
+		}
+		pMap = pMap->pNext;
+	}
+	return TCSERVICE_RESULT_FAILED;
+}
+
+//*************************return vmeta for given procid(rpid)*************/
+
+TCSERVICE_RESULT tcServiceInterface::GetVmMeta(int procId, byte *vm_imageId, int * vm_imageIdsize,
+    						byte * vm_customerId, int * vm_customerIdsize, byte * vm_manifestHash, int * vm_manifestHashsize,
+    						byte * vm_manifestSignature, int * vm_manifestSignaturesize)
+{
+	serviceprocMap* pMap = m_procTable.m_pMap;
+	serviceprocEnt *pEnt;
+	while(pMap != NULL)
+	{
+		pEnt = pMap->pElement;
+		if(procId == pEnt->m_procid)
+		{
+			memcpy(vm_imageId,pEnt->m_vm_image_id,pEnt->m_size_vm_image_id + 1);
+			*vm_imageIdsize = pEnt->m_size_vm_image_id ;
+			memcpy(vm_customerId,pEnt->m_vm_customer_id,pEnt->m_size_vm_customer_id + 1);
+			*vm_customerIdsize = pEnt->m_size_vm_customer_id ;
+			memcpy(vm_manifestHash,pEnt->m_vm_manifest_hash, pEnt->m_size_vm_manifest_hash + 1);
+			*vm_manifestHashsize = pEnt->m_size_vm_manifest_hash ;
+			memcpy(vm_manifestSignature,pEnt->m_vm_manifest_signature,pEnt->m_size_vm_manifest_signature + 1);
+			*vm_manifestSignaturesize = pEnt->m_size_vm_manifest_signature ;
+			return TCSERVICE_RESULT_SUCCESS;
+		}
+		pMap = pMap->pNext;
+	}
+	return TCSERVICE_RESULT_FAILED;
 }
 
 
@@ -550,6 +642,7 @@ TCSERVICE_RESULT tcServiceInterface::GetServiceHash(u32* phashType,
     return TCSERVICE_RESULT_SUCCESS;
 }
 
+
 TCSERVICE_RESULT tcServiceInterface::TerminateApp(int sizeIn, byte* rgIn, int* psizeOut, byte* out)
 {
 	//remove entry from table.
@@ -668,6 +761,11 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
     char*   config_file = NULL;
     char*   mtw_pubkey_file = "./pubkey.pem";
     bool    is_launch_allowed = false;
+    char *  vm_image_id;
+    char*   vm_customer_id;
+    char*   vm_manifest_hash;
+    char*   vm_manifest_signature;
+
     //char    command[512];
   if(an>30) {
         return TCSERVICE_RESULT_FAILED;
@@ -811,13 +909,56 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
                     fprintf(stdout, "IMVM Verification Failed, but continuing with VM launch as AUDIT launch policy is used\n");
                     flag=1;
                 }
-       if (strstr(line, "SHA-256-IMAGE-HASH") != NULL) {
+               if (strstr(line, "SHA-256-IMAGE-HASH") != NULL) {
                     char *token;
                     token = strtok(line, ":");
                     token = strtok(NULL, ":");
                     strcpy(imageHash, token);
                 }
-
+                if(strstr(line, "VM_IMAGE_ID") != NULL) {
+                    char *token;
+                    token = strtok(line, "=");
+                    token = strtok(NULL,"=");
+                    vm_image_id = (char *)malloc(sizeof(char)*(strlen(token) + 1));
+                    if(vm_image_id == NULL) {
+                        fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_image_id");
+                        return TCSERVICE_RESULT_FAILED;
+                    }
+                    strcpy(vm_image_id,token);
+                }
+                if(strstr(line, "VM_CUSTOMER_ID") != NULL) {
+                    char *token;
+                    token = strtok(line,"=");
+                    token = strtok(NULL,"=");
+                    vm_customer_id = (char *)malloc(sizeof(char) *(strlen(token) + 1));
+                    if(vm_customer_id == NULL) {
+                        fprintf(g_logFile,"\n StartApp : Error in allocating memory for vm_customer_id");
+                        return TCSERVICE_RESULT_FAILED;
+                    }
+                    strcpy(vm_customer_id,token);
+                }
+                if(strstr(line, "VM_MANIFEST_HASH") != NULL) {
+                    char * token;
+                    token = strtok(line, "=");
+                    token = strtok(NULL, "=");
+                    vm_manifest_hash = (char *)malloc(sizeof(char) * (strlen(token) +1));
+                    if(vm_manifest_hash == NULL) {
+                        fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_manifest_hash");
+                        return TCSERVICE_RESULT_FAILED;
+                    }
+                    strcpy(vm_manifest_hash,token);
+                }
+                if(strstr(line, "VM_MANIFEST_SIGNATURE") != NULL) {
+                    char * token;
+                    token = strtok(line,"=");
+                    token = strtok(NULL,"=");
+                    vm_manifest_signature = (char *)malloc(sizeof(char) * (strlen(token) + 1));
+                    if(vm_manifest_hash == NULL) {
+                        fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_manifest_hash");
+                        return TCSERVICE_RESULT_FAILED;
+                    }
+                    strcpy(vm_manifest_signature,token);
+                }
             }
             fclose(fp);
         }
@@ -848,6 +989,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
         return TCSERVICE_RESULT_FAILED;
     }
 
+   if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature)) {
+        fprintf(g_logFile, "SartApp : can't update proc table entry\n");
+        return TCSERVICE_RESULT_FAILED;
+    }
 
     for ( i = 1; i < an; i++) {
         if( av[i] ) {
@@ -855,6 +1000,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
             av[i] = NULL;
         }
     }
+    // free all allocated variable
+    free(vm_image_id);
+    free(vm_customer_id);
+    free(vm_manifest_hash);
+    free(vm_manifest_signature);
+    
  *poutsize = sizeof(int);
     *((int*)out) = (int)child;
 
@@ -1055,7 +1206,8 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
 #endif
 
     // get request
-    inparamsize= PARAMSIZE;
+    //inparamsize= PARAMSIZE;
+    inparamsize = outparamsize = PARAMSIZE;
     if(!chan.gettcBuf(&procid, &uReq, &uStatus, &origprocid, &inparamsize, inparams)) {
         fprintf(g_logFile, "serviceRequest: gettcBuf failed\n");
         return false;
@@ -1071,6 +1223,7 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
 #endif
 
     char response;
+    //inparamsize = outparamsize = PARAMSIZE;
     switch(uReq) {
 
       case RP2VM_GETOSHASH:
@@ -1551,45 +1704,140 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
 	//MH start of GETTPMQUOTE code
 	
        case RP2VM_GETTPMQUOTE:
-	outparamsize= PARAMSIZE;
-	printf("%s", inparams);
-	if(!decodeVM2RP_GETTPMQUOTE(&outparamsize, outparams, inparams)) {
-        	fprintf(g_logFile, "serviceRequest: decodeVM2RP_GETTPMQUOTE failed\n");
-                g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-                return false;
-        }
-	
-        //HL: make sure outparams ends with null
-        outparams[outparamsize]='\0';
-        	
-        #ifdef TEST
-           fprintf(g_logFile, "decodeVM2RP_GETTPMQUOTE: outparams %s, \n outparams size: %d\n", (char*)outparams, outparamsize);
-        #endif
-                        //clear the buf "inparams" and reuse it as buffer for the quote request message
-        inparamsize= PARAMSIZE;
-        memset(inparams, 0, inparamsize);
-	char nonce[4096];
-	memcpy(nonce,outparams,outparamsize);
-	if(! g_myService.GetTPMQuote(nonce, (byte*)inparams, &inparamsize)){ 				
-	    fprintf(g_logFile, "serviceRequest: get_tpm_quote failed\n");
-            chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-            return false;	
-	}
-        outparamsize= encodeRP2VM_GETTPMQUOTE(inparamsize,(byte*)inparams, PARAMSIZE, outparams);
-        if(outparamsize<0) {
-               	fprintf(g_logFile, "RP2VM_GETTPMQUOTE: encodeRP2VM_GETTPMQUOTE buf too small\n");
-                g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-                        return false;
-        }
-	if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
-	        fprintf(g_logFile, "serviceRequest: sendtcBuf (getosCert) failed\n");
-	        chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-	        return false;
-	}
-	return true;
-	//MH end of GETTPMQUOTE code 
+		outparamsize= PARAMSIZE;
+		printf("%s", inparams);
+		if(!decodeVM2RP_GETTPMQUOTE(&outparamsize, outparams, inparams)) {
+				fprintf(g_logFile, "serviceRequest: decodeVM2RP_GETTPMQUOTE failed\n");
+					g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+					return false;
+			}
 
-      default:
+			//HL: make sure outparams ends with null
+			outparams[outparamsize]='\0';
+
+			#ifdef TEST
+			   fprintf(g_logFile, "decodeVM2RP_GETTPMQUOTE: outparams %s, \n outparams size: %d\n", (char*)outparams, outparamsize);
+			#endif
+							//clear the buf "inparams" and reuse it as buffer for the quote request message
+			inparamsize= PARAMSIZE;
+			memset(inparams, 0, inparamsize);
+			char nonce[4096];
+			memcpy(nonce,outparams,outparamsize);
+			if(! g_myService.GetTPMQuote(nonce, (byte*)inparams, &inparamsize)){
+				fprintf(g_logFile, "serviceRequest: get_tpm_quote failed\n");
+					chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+					return false;
+			}
+				outparamsize= encodeRP2VM_GETTPMQUOTE(inparamsize,(byte*)inparams, PARAMSIZE, outparams);
+				if(outparamsize<0) {
+						fprintf(g_logFile, "RP2VM_GETTPMQUOTE: encodeRP2VM_GETTPMQUOTE buf too small\n");
+						g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+								return false;
+				}
+			if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
+					fprintf(g_logFile, "serviceRequest: sendtcBuf (getosCert) failed\n");
+					chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+					return false;
+			}
+			return true;
+			//MH end of GETTPMQUOTE code
+
+			/***********new API ******************/
+        case RP2VM_GETRPID:
+        {
+        	outparamsize = PARAMSIZE;
+        	//printf("%s",inparams);
+        	if(!decodeRP2VM_GETRPID(&outparamsize,outparams,inparams))
+        	{
+        		fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
+        		g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+        		return false;
+        	}
+
+        	inparamsize = PARAMSIZE;
+        	memset(inparams,0,inparamsize);
+        	char uuid[50];
+        	memcpy(uuid,outparams,outparamsize);
+        	//call getRPID(outparams,&inparams)
+        	if(g_myService.GetRpId(uuid,inparams,&inparamsize))
+        	{
+        		fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETRPID uuid does not exist\n");
+				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+        	}
+        	//then encode the result
+        	outparamsize = PARAMSIZE;
+        	outparamsize = encodeRP2VM_GETRPID(inparamsize,inparams,outparamsize,outparams);
+        	if(outparamsize<0) {
+				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETRPID buf too small\n");
+				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+        	}
+			if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
+				fprintf(g_logFile, "serviceRequest: sendtcBuf (getRPID) failed\n");
+				chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+			}
+            return true;
+        }
+        case RP2VM_GETVMMETA:
+        {
+        	outparamsize = PARAMSIZE;
+			if(!decodeRP2VM_GETVMMETA(&outparamsize,outparams,inparams))
+			{
+				fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
+				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+			}
+			//inparamsize = PARAMSIZE;
+			//memcpy(inparams,0,inparamsize);
+			//call to getVMMETA
+			byte vm_rpimageId[256];
+			byte vm_rpcustomerId[256];
+			byte vm_rpmanifestHash[64];
+			byte vm_rpmanifestSignature[512];
+			int vm_rpimageIdsize, vm_rpcustomerIdsize,vm_rpmanifestHashsize,vm_rpmanifestSignaturesize;
+			int in_procid = atoi((char *)outparams);
+			if(g_myService.GetVmMeta(in_procid,vm_rpimageId, &vm_rpimageIdsize,vm_rpcustomerId, &vm_rpcustomerIdsize,
+					vm_rpmanifestHash, &vm_rpmanifestHashsize,vm_rpmanifestSignature, &vm_rpmanifestSignaturesize))
+			{
+				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETVMMETA RPID does not exist\n");
+				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+			}
+			//create a map of data vmmeta data
+
+			byte * metaMap[4];
+
+			/*char *key1 = "VM_IMAGE_ID";
+			char *key2 = "VM_CUSTOMER_ID";
+			char *key3 = "VM_MANIFEST_HASH";
+			char *key4 = "VM_MSANIFEST_SIGNATURE";*/
+			//metaMap[0][0] = key1;
+			metaMap[0] = vm_rpimageId;
+			//metaMap[1][0] = key2;
+			metaMap[1] = vm_rpcustomerId;
+			//metaMap[2][0] = key3;
+			metaMap[2] = vm_rpmanifestHash;
+			//metaMap[3][0] = key4;
+			metaMap[3] = vm_rpmanifestSignature;
+			int numOfMetaComp = 4;
+			//encode the vmMeta data
+			outparamsize = PARAMSIZE;
+			outparamsize = encodeRP2VM_GETVMMETA(numOfMetaComp,metaMap,outparamsize,outparams);
+			if(outparamsize<0) {
+				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETVMMETA buf too small\n");
+				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+			}
+			if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
+				fprintf(g_logFile, "serviceRequest: sendtcBuf (getVMMETA) failed\n");
+				chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+			}
+            return true;
+        }
+        default:
             chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
         return false;
     }

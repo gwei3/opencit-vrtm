@@ -71,14 +71,22 @@ class serviceprocEnt {
 public:
     int                 m_procid;
     int                 m_sizeHash;
+    int                 m_size_vm_image_id;
+    int                 m_size_vm_customer_id;
+    int                 m_size_vm_manifest_hash;
+    int                 m_size_vm_manifest_signature;
     byte                m_rgHash[32];
-    char 		m_uuid[48];
-    char		m_vdi_uuid[48];
+    char 				m_uuid[48];
+    char				m_vdi_uuid[48];
     char*               m_szexeFile;
     int                 m_nArgs;
     char**              m_Args;
 
     void                print();
+    char                m_vm_image_id[256];
+    char                m_vm_customer_id[256];
+    char                m_vm_manifest_hash[65];
+    char                m_vm_manifest_signature[512];
 };
 
 
@@ -101,16 +109,17 @@ public:
     bool                addprocEntry(int procid, const char* file, int an, char** av,
     			int sizeHash, byte* hash);
     bool                checkprocEntry(char* uuid, char* vdi_uuid);
-    bool 		updateprocEntry(int procid, char* uuid, char* vdi_uuid);
+    bool 				updateprocEntry(int procid, char* uuid, char* vdi_uuid);
+    bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature);
     void                removeprocEntry(int procid);
     void                removeprocEntry(char* procid);
     serviceprocEnt*     getEntfromprocId(int procid);
     //serviceprocEnt*     getEntfromuuid(byte* uuid);
-    bool     getEntfromuuid(char* uuid);
+    bool     			getEntfromuuid(char* uuid);
 
     bool                gethashfromprocId(int procid, int* psizeHash, byte* hash);
-
     void                print();
+
 };
 
 
@@ -153,6 +162,11 @@ public:
     TCSERVICE_RESULT    UpdateAppID(char* rp_id, char* uuid, char* vdi_uuid, int* psizeOut, byte* rgOut);
     TCSERVICE_RESULT    TerminateApp(int sizeIn, byte* rgIn, int* psizeOut, byte* rgOut);
     TCSERVICE_RESULT	CheckIS_MEASURED(char* uuid, int* psizeOut, byte* rgOut);
+    TCSERVICE_RESULT	GetRpId(char *vm_uuid, byte *rp_idbuf, int* bufsize);
+    TCSERVICE_RESULT 	GetVmMeta(int procId, byte *vm_imageIdbuf, int * vm_imageIdsize,
+    						byte * vm_customerId, int * vm_customerIdsize, byte * vm_manifestHash, int * vm_manifestHashsize,
+    						byte * vm_manifestSignature, int * vm_manifestSignaturesize);
+
 };
 
 

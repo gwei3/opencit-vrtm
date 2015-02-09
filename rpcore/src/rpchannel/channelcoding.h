@@ -158,6 +158,12 @@ bool  decodeVM2RP_IS_MEASURED(int* psize, byte* data, const byte* buf);
 int  encodeRP2VM_IS_MEASURED(const char response, int bufsize, byte* buf);
 bool  decodeRP2VM_IS_MEASURED(int* psize, byte *response, const byte* buf);
 */
+// get rpid
+bool  decodeRP2VM_GETRPID(int *psize, byte* data, const byte* buf);
+int encodeRP2VM_GETRPID(int size,byte *data, int bufsize, byte *buf);
+// get vm meta
+bool decodeRP2VM_GETVMMETA(int * psize, byte *data, const byte * buf);
+int encodeRP2VM_GETVMMETA(int numofMetadata, byte * metadata[], int bufsize, byte *buf);
 #endif
 
 
