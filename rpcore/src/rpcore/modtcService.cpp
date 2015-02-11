@@ -468,14 +468,16 @@ TCSERVICE_RESULT tcServiceInterface::initService(const char* execfile, int an, c
 
 TCSERVICE_RESULT tcServiceInterface::GetRpId(char *vm_uuid, byte * rpidbuf, int * rpidsize)
 {
-
+    fprintf(g_logFile,"In GetRpId function\n");
 	serviceprocMap* pMap = m_procTable.m_pMap;
 	serviceprocEnt *pEnt;
 	while(pMap != NULL)
 	{
 		pEnt = pMap->pElement;
+        fprintf(g_logFile,"uuids :: %s vs : %s\n",pEnt->m_uuid,vm_uuid);
 		if(strcmp(pEnt->m_uuid,vm_uuid) == 0)
 		{
+            fprintf(g_logFile,"match found for Given UUID\n");
 			//itoa(pEnt->m_procid, (char *)rpidbuf, 10);
             sprintf((char *)rpidbuf,"%d",pEnt->m_procid);
 			*rpidsize = strlen((char *)rpidbuf);
@@ -483,6 +485,7 @@ TCSERVICE_RESULT tcServiceInterface::GetRpId(char *vm_uuid, byte * rpidbuf, int 
 		}
 		pMap = pMap->pNext;
 	}
+    fprintf(g_logFile,"Found NO Match of UUID\n");
 	return TCSERVICE_RESULT_FAILED;
 }
 
@@ -492,6 +495,7 @@ TCSERVICE_RESULT tcServiceInterface::GetVmMeta(int procId, byte *vm_imageId, int
     						byte * vm_customerId, int * vm_customerIdsize, byte * vm_manifestHash, int * vm_manifestHashsize,
     						byte * vm_manifestSignature, int * vm_manifestSignaturesize)
 {
+    fprintf(g_logFile,"In function GetVmMeta\n");
 	serviceprocMap* pMap = m_procTable.m_pMap;
 	serviceprocEnt *pEnt;
 	while(pMap != NULL)
@@ -499,7 +503,10 @@ TCSERVICE_RESULT tcServiceInterface::GetVmMeta(int procId, byte *vm_imageId, int
 		pEnt = pMap->pElement;
 		if(procId == pEnt->m_procid)
 		{
+            fprintf(g_logFile,"Match found for given RPid\n");
+			fprintf(g_logFile,"vmimage id : %s\n",pEnt->m_vm_image_id);
 			memcpy(vm_imageId,pEnt->m_vm_image_id,pEnt->m_size_vm_image_id + 1);
+			fprintf(g_logFile,"vmimage id copied : %s\n",vm_imageId);
 			*vm_imageIdsize = pEnt->m_size_vm_image_id ;
 			memcpy(vm_customerId,pEnt->m_vm_customer_id,pEnt->m_size_vm_customer_id + 1);
 			*vm_customerIdsize = pEnt->m_size_vm_customer_id ;
@@ -511,6 +518,7 @@ TCSERVICE_RESULT tcServiceInterface::GetVmMeta(int procId, byte *vm_imageId, int
 		}
 		pMap = pMap->pNext;
 	}
+    fprintf(g_logFile,"Given RPID is not registered to RPCORE\n");
 	return TCSERVICE_RESULT_FAILED;
 }
 
@@ -1753,11 +1761,12 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
         		g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
         		return false;
         	}
-
+            fprintf(g_logFile,"Inparams after decoding : %s\n",inparams);
+            fprintf(g_logFile,"outparams after decoding: %s\n",outparams);
         	inparamsize = PARAMSIZE;
         	memset(inparams,0,inparamsize);
         	char uuid[50];
-        	memcpy(uuid,outparams,outparamsize);
+        	memcpy(uuid,outparams,outparamsize+1);
         	//call getRPID(outparams,&inparams)
         	if(g_myService.GetRpId(uuid,inparams,&inparamsize))
         	{
@@ -1765,9 +1774,12 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
 				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
 				return false;
         	}
+            fprintf(g_logFile,"rpid : %s\n",inparams);
+
         	//then encode the result
         	outparamsize = PARAMSIZE;
         	outparamsize = encodeRP2VM_GETRPID(inparamsize,inparams,outparamsize,outparams);
+            fprintf(g_logFile,"after encode : %s",outparams);
         	if(outparamsize<0) {
 				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETRPID buf too small\n");
 				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
@@ -1778,6 +1790,7 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
 				chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
 				return false;
 			}
+            fprintf(g_logFile,"************succesfully send the response*************** ");
             return true;
         }
         case RP2VM_GETVMMETA:
@@ -1792,10 +1805,35 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
 			//inparamsize = PARAMSIZE;
 			//memcpy(inparams,0,inparamsize);
 			//call to getVMMETA
-			byte vm_rpimageId[256];
-			byte vm_rpcustomerId[256];
-			byte vm_rpmanifestHash[64];
-			byte vm_rpmanifestSignature[512];
+			byte *vm_rpcustomerId;
+			byte *vm_rpimageId;
+			byte *vm_rpmanifestHash;
+			byte *vm_rpmanifestSignature;
+			vm_rpcustomerId = (byte *)malloc(sizeof(byte)*256);
+			if(vm_rpcustomerId == NULL) {
+                                fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for customerId \n");
+                                g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                                return false;
+                        }
+
+			vm_rpimageId = (byte *) malloc(sizeof(byte)*256);
+			if(vm_rpimageId == NULL) {
+                                fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for imageId \n");
+                                g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                                return false;
+                        }
+			vm_rpmanifestSignature = (byte *) malloc(sizeof(byte) *512);
+			if(vm_rpmanifestSignature == NULL) {
+                                fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for manifestSignature \n");
+                                g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                                return false;
+                        }
+			vm_rpmanifestHash = (byte *) malloc(sizeof(byte) * 64);
+			if( vm_rpmanifestHash== NULL) {
+                                fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for vm_rpmanifestHash \n");
+                                g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                                return false;
+                        }
 			int vm_rpimageIdsize, vm_rpcustomerIdsize,vm_rpmanifestHashsize,vm_rpmanifestSignaturesize;
 			int in_procid = atoi((char *)outparams);
 			if(g_myService.GetVmMeta(in_procid,vm_rpimageId, &vm_rpimageIdsize,vm_rpcustomerId, &vm_rpcustomerIdsize,
@@ -1806,7 +1844,10 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
 				return false;
 			}
 			//create a map of data vmmeta data
-
+			fprintf(g_logFile,"vmimage id : %s\n",vm_rpimageId);
+			fprintf(g_logFile,"vmcustomer id : %s\n",vm_rpcustomerId);
+			fprintf(g_logFile,"vmmanifest hash : %s\n",vm_rpmanifestHash);
+			fprintf(g_logFile,"vm manifest signature : %s\n",vm_rpmanifestSignature);
 			byte * metaMap[4];
 
 			/*char *key1 = "VM_IMAGE_ID";
@@ -1825,6 +1866,7 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
 			//encode the vmMeta data
 			outparamsize = PARAMSIZE;
 			outparamsize = encodeRP2VM_GETVMMETA(numOfMetaComp,metaMap,outparamsize,outparams);
+			fprintf(g_logFile,"after encode : %s\n",outparams);
 			if(outparamsize<0) {
 				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETVMMETA buf too small\n");
 				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
@@ -1835,6 +1877,11 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
 				chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
 				return false;
 			}
+		fprintf(g_logFile,"************succesfully send the response*************** \n");
+		free(vm_rpimageId);
+		free(vm_rpcustomerId);
+		free(vm_rpmanifestHash);
+		free(vm_rpmanifestSignature);
             return true;
         }
         default:
