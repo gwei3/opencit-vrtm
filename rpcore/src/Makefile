@@ -15,7 +15,8 @@ RMOBJROOTD=../build/debug
 RMBIN=../bin
 RMLIB=../lib
 
-BUILD_TARGETS=  rpcrypto-g   \
+BUILD_TARGETS=  makedirstructure \
+		rpcrypto-g   \
 		rpchannel-g  \
 		rptools-g    \
 		keynego-g    \
@@ -37,6 +38,12 @@ TARGETS=$(BUILD_TARGETS) clean
 .PHONY: $(TARGETS)
 
 all: $(BUILD_TARGETS)
+makedirstructure:
+	mkdir -p $(BIN)/debug
+	mkdir -p $(BIN)/release
+	mkdir -p $(LIB)
+	mkdir -p $(OBJROOTR)
+	mkdir -p $(OBJROOTD)
 nontpmrpcorsvc-g:
 	mkdir -p $(OBJROOTD)/nontpmrpcorsvcobjects
 	$(MAKE) -C rpcore -f nontpmrpcorsvc-g.mak

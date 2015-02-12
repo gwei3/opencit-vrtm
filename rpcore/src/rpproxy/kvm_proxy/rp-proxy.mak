@@ -27,6 +27,7 @@ $(BIN)/rp_listner: $(listnerobj)
 	$(LINK) -o $(BIN)/rp_listner $(listnerobj) -L$(LIB) -lrpchannel-g -lpthread -lvirt
 
 $(OBJ)/rp_proxy.o: rp_proxy.cpp
+	mkdir -p $(OBJ)
 	$(CC) $(CFLAGS) -I. -I$(TM) -I$(RPCORE) -c -o $(OBJ)/rp_proxy.o rp_proxy.cpp
 
 $(OBJ)/rp_listner.o: rp_listner.cpp
