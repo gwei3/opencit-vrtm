@@ -54,7 +54,11 @@
 
 #define VM2RP_GETTPMQUOTE		33
 #define RP2VM_GETTPMQUOTE		34
-
+//new api macros
+#define RP2VM_GETRPID			35
+#define VM2RP_GETRPID			36
+#define RP2VM_GETVMMETA			37
+#define VM2RP_GETVMMETA			38
 #define TCSERVICETERMINATE 100
 
 

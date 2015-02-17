@@ -15,9 +15,9 @@ RMOBJROOTD=../build/debug
 RMBIN=../bin
 RMLIB=../lib
 
-BUILD_TARGETS= 	rpcrypto-g   \
+BUILD_TARGETS=  makedirstructure \
+		rpcrypto-g   \
 		rpchannel-g  \
-		rpproxy	\
 		imvm \
 		rptools-g    \
 		keynego-g    \
@@ -39,11 +39,16 @@ TARGETS=$(BUILD_TARGETS) clean
 .PHONY: $(TARGETS)
 
 all: $(BUILD_TARGETS)
+makedirstructure:
+	mkdir -p $(BIN)/debug
+	mkdir -p $(BIN)/release
+	mkdir -p $(LIB)
+	mkdir -p $(OBJROOTR)
+	mkdir -p $(OBJROOTD)
 imvm:
 	$(MAKE) -C imvm -f verifier-g.mak
 rpproxy:
-	mkdir -p $(OBJROOTD)/rpproxyobjects
-#	$(MAKE) -C rpproxy/kvm_proxy -f rp-proxy.mak
+	$(MAKE) -C rpproxy/kvm_proxy -f rp-proxy.mak
 nontpmrpcorsvc-g:
 	mkdir -p $(OBJROOTD)/nontpmrpcorsvcobjects
 	$(MAKE) -C rpcore -f nontpmrpcorsvc-g.mak

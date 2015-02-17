@@ -575,7 +575,26 @@ bool tciodd_processService(void)
             fRet= false;
         }
         break;
-
+        case RP2VM_GETRPID:
+        if (!queueforApp(pent, VM2RP_GETRPID, RP2VM_GETRPID)) {
+                fRet = false;
+        }
+        break;
+        case VM2RP_GETRPID:
+        if (!queueforService(pent, VM2RP_GETRPID, RP2VM_GETRPID)) {
+                fRet = false;
+        }
+        break;
+      case RP2VM_GETVMMETA:
+        if (!queueforApp(pent, VM2RP_GETVMMETA, RP2VM_GETVMMETA)) {
+                fRet = false;
+        }
+        break;
+      case VM2RP_GETVMMETA:
+        if (!queueforService(pent, VM2RP_GETVMMETA, RP2VM_GETVMMETA)) {
+              fRet = false;
+        }
+        break;
       case VM2RP_GETPROGHASH:
         if(!queueforService(pent, VM2RP_GETPROGHASH, RP2VM_GETPROGHASH)) {
             fRet= false;

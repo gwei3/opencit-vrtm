@@ -810,7 +810,11 @@ void processNode(xmlTextReaderPtr reader, char *imagePath) {
                 exit(1);
             }
             // Injecting certain params into the VM image         
-         //   injectRpParams();     
+            //injectRpParams();    
+            printf("\nVM_IMAGE_ID=%s",imageID);
+            printf("\nVM_CUSTOMER_ID=%s",customerID);
+            printf("\nVM_MANIFEST_HASH=%s",imageHash);
+            printf("\nVM_MANIFEST_SIGNATURE=%s",signature);
         }
         FILE *fp = fopen("dirHashes.txt","a");
         fclose(fp);
