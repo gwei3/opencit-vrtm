@@ -18,7 +18,6 @@ RMLIB=../lib
 BUILD_TARGETS=  makedirstructure \
 		rpcrypto-g   \
 		rpchannel-g  \
-		imvm \
 		rptools-g    \
 		keynego-g    \
 		nontpmkss-g  \
@@ -27,10 +26,8 @@ BUILD_TARGETS=  makedirstructure \
 		rpmeasurer-g \
 		rptrust-g    \
 		rpquote-g    \
-		rpmmio-g     \
 		driver       \
 		rptpm-emu-g rptpm-direct-g rptpm-tcsd-g \
-		tpmtest-g    \
 		nontpmrpcorsvc-g tcsd-rpcoreservice-g
 
 
@@ -45,10 +42,6 @@ makedirstructure:
 	mkdir -p $(LIB)
 	mkdir -p $(OBJROOTR)
 	mkdir -p $(OBJROOTD)
-imvm:
-	$(MAKE) -C imvm -f verifier-g.mak
-rpproxy:
-	$(MAKE) -C rpproxy/kvm_proxy -f rp-proxy.mak
 nontpmrpcorsvc-g:
 	mkdir -p $(OBJROOTD)/nontpmrpcorsvcobjects
 	$(MAKE) -C rpcore -f nontpmrpcorsvc-g.mak
@@ -122,6 +115,7 @@ rptools-g:
 	$(MAKE) -C rptools -f rpapitools-g.mak
 	mkdir -p $(OBJROOTR)/cryptUtilityobjects
 	$(MAKE) -C rptools -f cryptUtility.mak
+
 rptest:
 	mkdir -p $(OBJROOTR)/rptrustobjects
 	$(MAKE) -C rptest/rptrusttest -f rptest.mak
@@ -142,16 +136,6 @@ rptrust-g:
 rpquote-g:
 	mkdir -p $(OBJROOTD)/librpquoteobjects
 	$(MAKE) -C rpquote
-tpmtest:
-	mkdir -p $(OBJROOTR)/rptrustobjects
-	$(MAKE) -C rptest/tpmtest -f tpmextend.mak
-tpmtest-g:
-	mkdir -p $(OBJROOTR)/rptrustobjects
-	$(MAKE) -C rptest/tpmtest -f tpmextend-g.mak
-rpmmio:
-	$(MAKE) -C rptpm/rpmmio
-rpmmio-g:
-	$(MAKE) -C rptpm/rpmmio
 driver:
 	$(MAKE) -C driver
 	
