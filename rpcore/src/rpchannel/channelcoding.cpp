@@ -594,6 +594,22 @@ int encodeRP2VM_GETVMMETA(int numofMetadata, byte * metadata[], int bufsize, byt
 	//return cbuf_to_xmlrpc("encode_response","",size,data,bufsize,buf);
 	return args_to_xmlrpc((char*)"get_vmmeta", numofMetadata, (char**)metadata, bufsize, buf);
 }
+
+bool decodeRP2VM_ISVERIFIED(int * psize, byte *data, const byte * buf)
+{
+	#ifdef TEST
+    fprintf(stdout, "decodeRP2VM_ISVERIFIED called\n");
+    #endif
+    int status = xmlrpc_to_cbuf(RPC2BUF,psize,data,buf);
+        return (status > 0);
+}
+
+int encodeRP2VM_ISVERIFIED(int size, byte *data, int bufsize, byte * buf)
+{
+	memset(buf,0,bufsize);
+	return  cbuf_to_xmlrpc("encode_response", "", size, data, bufsize, buf);
+}
+
 //MH end of GETTPMQUOTE xmlrpc conversion
 
 // ------------------------------------------------------------------------------

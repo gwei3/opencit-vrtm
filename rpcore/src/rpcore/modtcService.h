@@ -75,6 +75,7 @@ public:
     int                 m_size_vm_customer_id;
     int                 m_size_vm_manifest_hash;
     int                 m_size_vm_manifest_signature;
+    int 				m_size_vm_launch_policy;
     byte                m_rgHash[32];
     char 				m_uuid[48];
     char				m_vdi_uuid[48];
@@ -87,6 +88,8 @@ public:
     char                m_vm_customer_id[256];
     char                m_vm_manifest_hash[65];
     char                m_vm_manifest_signature[512];
+    char				m_vm_launch_policy[15];
+    bool				m_vm_verfication_status;
 };
 
 
@@ -110,7 +113,7 @@ public:
     			int sizeHash, byte* hash);
     bool                checkprocEntry(char* uuid, char* vdi_uuid);
     bool 				updateprocEntry(int procid, char* uuid, char* vdi_uuid);
-    bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature);
+    bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature,char* launch_policy,bool status);
     void                removeprocEntry(int procid);
     void                removeprocEntry(char* procid);
     serviceprocEnt*     getEntfromprocId(int procid);
@@ -166,7 +169,7 @@ public:
     TCSERVICE_RESULT 	GetVmMeta(int procId, byte *vm_imageIdbuf, int * vm_imageIdsize,
     						byte * vm_customerId, int * vm_customerIdsize, byte * vm_manifestHash, int * vm_manifestHashsize,
     						byte * vm_manifestSignature, int * vm_manifestSignaturesize);
-
+    TCSERVICE_RESULT	IsVerified(char *vm_uuid, int* verification_status);
 };
 
 
