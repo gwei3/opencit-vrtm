@@ -1,6 +1,5 @@
 #!/bin/bash
 
-source utils/functions
 
 # The script does the following
 # 1. Creates the directory structure ../dist, kvm_build
@@ -13,15 +12,18 @@ START_DIR=$PWD
 SRC_ROOT_DIR=$START_DIR/../
 BUILD_DIR=$START_DIR/KVM_build
 DIST_DIR=$PWD/../dist
+TBOOT_REPO=${TBOOT_REPO:-"$SRC_ROOT_DIR/../dcg_security-tboot-xm"}
+
 
 function makeDirStructure()
 {
-	if [ -d $SRC_ROOT_DIR/rpcore -a -d $SRC_ROOT_DIR/rpclient -a -d $SRC_ROOT_DIR/docs -a -d $SRC_ROOT_DIR/install ] 
+	if [ -d $SRC_ROOT_DIR/rpcore -a -d $SRC_ROOT_DIR/rpclient -a -d $SRC_ROOT_DIR/docs -a -d $SRC_ROOT_DIR/install -a -d $TBOOT_REPO/imvm ]
 	then
 		echo "All resources found"
 	else
 		echo "One or more of the required dirs absent please check the following dir existence :"
-		echo "rpcore, rpclient, docs and install at $SRC_ROOT_DIR"
+		echo "1. rpcore, rpclient, docs and install at $SRC_ROOT_DIR"
+		echo "2. Measurement Agent (imvm) is present at $TBOOT_REPO/imvm"
 		exit
 	fi
 	mkdir -p $BUILD_DIR
@@ -64,7 +66,7 @@ function buildLibvirt()
 
 function buildVerifier()
 {
-	cd rpcore/src/imvm
+	cd $TBOOT_REPO/imvm/src
 	make -f verifier-g.mak clean >> $BUILD_DIR/outfile 2>&1
     if [ $? -ne 0 ]; then
         echo "Verifier clean failed...Please see outfile for more details"
@@ -79,6 +81,7 @@ function buildVerifier()
     else
         echo "Verifier build successful"
     fi
+	cp bin/verifier $BUILD_DIR/rpcore/bin/debug/.
 	cd $BUILD_DIR
 }
 

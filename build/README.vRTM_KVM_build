@@ -11,6 +11,12 @@ The above steps will create a "dist" directory at code level and create KVM_inst
 
 The dist contains a tarball along with a script. Copy dist dir to target location and execute the following
 
+The script also builds verifier component from other repository.
+One can specify the verifier respository location using TBOOT_REPO  environemnt variable.
+
+If TBOOT_REPO is not present, it will seek for "dcg_security-tboot-xm" one level above the build dir and proceed with 
+verifer build.
+
 This script does the following :
 1. Builds the RPCore components into a temp dir
 2. Creates a tarball in dist directory
