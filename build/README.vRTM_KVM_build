@@ -1,0 +1,19 @@
+##
+How to build the Intel RPCore
+##
+
+To build RPCore checkout the latest codebase from git repository
+
+$ cd build_dir
+$ bash vRTM_KVM_build.sh
+
+The above steps will create a "dist" directory at code level and create KVM_install_<VERSION_TIMESTAMP>.tar.gz
+
+The dist contains a tarball along with a script. Copy dist dir to target location and execute the following
+
+This script does the following :
+1. Builds the RPCore components into a temp dir
+2. Creates a tarball in dist directory
+3. Places the install script in the dist directory
+4. Once the tarball and install script are created, they can be moved to different machine for installation.
+
