@@ -149,12 +149,12 @@ function main()
 	echo "Creating the required build structure... "
 	makeDirStructure
 	echo "Building RPCore binaries... "
-    buildRpcore
+        buildRpcore
 	cd $BUILD_DIR
 	echo "Building libvirt if required..."
 	buildLibvirt
-	#echo "Building Verifier binaries..."
-	#buildVerifier
+	echo "Building Verifier binaries..."
+	buildVerifier
 	echo "Building RPListener binaries..."
 	buildRplistener
 
@@ -169,7 +169,7 @@ function main()
         cd $BUILD_DIR
         tar czf KVM_install_$BUILD_VER.tar.gz libvirt-1.2.2.tar.gz rpcore/scripts rpcore/bin rpcore/rptmp rpcore/lib
         mv KVM_install_$BUILD_VER.tar.gz $DIST_DIR
-        cp install/KVM_install_mh.sh $DIST_DIR
+        cp install/vRTM_KVM_install.sh $DIST_DIR
         
         arg=`cat $BUILD_DIR/outfile | grep -i -v "print*" | grep -c ' error'`
 

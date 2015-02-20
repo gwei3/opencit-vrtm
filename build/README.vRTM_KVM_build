@@ -5,7 +5,7 @@ How to build the Intel RPCore
 To build RPCore checkout the latest codebase from git repository
 
 $ cd build_dir
-$ bash KVM_build_new.sh
+$ bash vRTM_KVM_build.sh
 
 The above steps will create a "dist" directory at code level and create KVM_install_<VERSION_TIMESTAMP>.tar.gz
 
