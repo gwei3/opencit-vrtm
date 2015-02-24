@@ -30,9 +30,29 @@ function unmount_vm_image() {
                 fi
         fi
 	
+	#kpartx -d /dev/loop0
+	#losetup -d /dev/loop0
+	#qemu-nbd -d /dev/nbd0
 	killall -9 qemu-nbd
 	killall -9 vdfuse
 
+
+	#vhdPathCheck=$(mount | grep -o "$vhdMountPath")
+	#if [ ! -z $vhdPathCheck ]
+	#then
+		#umount $vhdMountPath 2>/dev/null
+	#fi
+	
+	#umount $vhdMountPath 2>/dev/null
+        #umount $mountPath 2>/dev/null
+	#exitcode=$?
+	#echo "Unmount Exit code is -- $exitcode"
+	#if [ ! $exitcode ]
+	#then
+		#return $exitcode
+	#fi
+	#echo "Unmounted . . . . "
+	#df -h
         rm -rf $mountPath
         mkdir -p $mountPath
         rm -rf $vhdMountPath
@@ -163,30 +183,45 @@ case "$imageFormat" in
 	unmount_vm_image
 	#mount_raw_image
 	mount_raw_image_duplicate
+	if [ $? ]
+	then
+		echo "Successfully mounted raw image, exiting ..."
+		exit 0
+	else
+		echo "Error in mounting the image"
+		exit 1
+	fi 
    ;;
    "vpc")
 	echo "########### Mounting vhd Image" 
 	#check_unmount_status
 	unmount_vm_image
 	mount_vhd_image
+        if [ $? ];
+        then
+                echo "Successfully mounted vhd image, exiting ..."
+                exit 0
+        else
+                echo "Error in mounting the image"
+                exit 1
+        fi
    ;;
    "qcow2")
 	echo "################ Mounting qcow2 Image." 
 	#check_unmount_status
 	unmount_vm_image
 	mount_qcow2_image
+        if [ $? ]
+        then
+                echo "Successfully mounted qcow2 image, exiting ..."
+                exit 0
+        else
+                echo "Error in mounting the image"
+                exit 1
+        fi
    ;;
    *)
 	echo "############### format other than vhd, raw, qcow2"
 	exit 1
 esac
-if [ $? -ne 0 ]
-then
-	echo "Error in mounting the image"
-        exit 1
-else
-	echo "Successfully mounted image"
-        exit 0
-fi
-
 
