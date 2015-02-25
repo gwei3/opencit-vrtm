@@ -282,7 +282,7 @@ mh_request_dek() {
     dekdir=/tmp
   else
     mh_fix_aik
-    aikdir=/opt/trustagent/configuration/
+    aikdir=/opt/trustagent/configuration
     dekdir=/var/lib/nova
   fi
   if [ ! -f $aikdir/aik.pem ]; then
