@@ -16,7 +16,7 @@ DIST_DIR=$PWD/../dist
 
 function makeDirStructure()
 {
-	if [ -d $SRC_ROOT_DIR/rpcore -a -d $SRC_ROOT_DIR/rpclient -a -d $SRC_ROOT_DIR/docs -a -d $SRC_ROOT_DIR/install ] 
+	if [ -d "$SRC_ROOT_DIR/rpcore" -a -d "$SRC_ROOT_DIR/rpclient" -a -d "$SRC_ROOT_DIR/docs" -a -d "$SRC_ROOT_DIR/install" ] 
 	then
 		echo "All resources found"
 	else
@@ -24,68 +24,34 @@ function makeDirStructure()
 		echo "rpcore, rpclient, docs and install at $SRC_ROOT_DIR"
 		exit
 	fi
-	mkdir -p $BUILD_DIR
-	cp -r $SRC_ROOT_DIR/rpcore $SRC_ROOT_DIR/rpclient $SRC_ROOT_DIR/docs $SRC_ROOT_DIR/install $BUILD_DIR 
+	mkdir -p "$BUILD_DIR"
+	cp -r "$SRC_ROOT_DIR/rpcore" "$SRC_ROOT_DIR/rpclient" "$SRC_ROOT_DIR/docs" "$SRC_ROOT_DIR/install" "$BUILD_DIR"
 }
-
-function buildLibvirt()
-{
-
-	if [ ! -f libvirt-1.2.2.tar.gz ]
-	then
-		echo "Downloading libvirt-1.2.2"
-		wget http://libvirt.org/sources/libvirt-1.2.2.tar.gz
-		if [ $? -ne 0 ] ; then
-			echo "Libvirt download failed... Pl check outfile for errors"
-			exit
-		fi
-	fi
-
-	if [ ! -f libvirt-1.2.2/src/.libs/libvirt.so.0.1002.2 ]
-	then
-		tar xf libvirt-1.2.2.tar.gz
-		cd libvirt-1.2.2
-		echo Building libvirt - may take a few minutes
-		./configure > $BUILD_DIR/outfile 2>&1
-		make >> $BUILD_DIR/outfile 2>&1
-		if [ $? -ne 0 ] ; then
-			echo "Libvirt build failed ... Pl check outfile for errors"
-			exit
-		fi
-		cd ..
-	fi
- 	cp -a libvirt-1.2.2/include/libvirt rpcore/src/rpchannel
-	# This dir is not created in the structure
-	mkdir -p rpcore/lib
-	cp -pL libvirt-1.2.2/src/.libs/libvirt.so.0.1002.2 rpcore/lib/libvirt.so
-	cd $BUILD_DIR
-}
-
 
 function buildVerifier()
 {
 	cd rpcore/src/imvm
-	make -f verifier-g.mak clean >> $BUILD_DIR/outfile 2>&1
+	make -f verifier-g.mak clean >> "$BUILD_DIR/outfile" 2>&1
     if [ $? -ne 0 ]; then
         echo "Verifier clean failed...Please see outfile for more details"
         exit
 	else
 		echo "Verifier clean successful"
     fi
-	make -f verifier-g.mak >> $BUILD_DIR/outfile 2>&1
+	make -f verifier-g.mak >> "$BUILD_DIR/outfile" 2>&1
     if [ $? -ne 0 ]; then
         echo "Verifier build failed...Please see outfile for more details"
         exit
     else
         echo "Verifier build successful"
     fi
-	cd $BUILD_DIR
+	cd "$BUILD_DIR"
 }
 
 function buildRplistener()
 {
 	cd rpcore/src/rpproxy/kvm_proxy
-    make -f rp-proxy.mak clean >> $BUILD_DIR/outfile 2>&1
+   	make -f rp-proxy.mak clean >> "$BUILD_DIR/outfile" 2>&1
 	if [ $? -ne 0 ]; then
         echo "RP-Proxy clean failed...Please see outfile for more details"
         exit
@@ -93,7 +59,7 @@ function buildRplistener()
         echo "RPProxy clean successful"
 	fi
 
-        make -f rp-proxy.mak >> $BUILD_DIR/outfile 2>&1
+        make -f rp-proxy.mak >> "$BUILD_DIR/outfile" 2>&1
 	if [ $? -ne 0 ]; then
                 echo "RP-Proxy build failed...Please see outfile for more details"
                 exit
@@ -101,29 +67,29 @@ function buildRplistener()
                 echo "RPProxy build successful"
         fi
 	
-        cd $BUILD_DIR
+        cd "$BUILD_DIR"
 }
 
 function buildRpcore()
 {
-    cd $BUILD_DIR/rpcore
+    cd "$BUILD_DIR/rpcore"
 	#mkdir -p bin/debug bin/release build/debug build/release lib
 	cd src
-    make clean >> $BUILD_DIR/outfile 2>&1
+    make clean >> "$BUILD_DIR/outfile" 2>&1
     if [ $? -ne 0 ]; then
         echo "RPcore clean failed...Please see outfile for more details"
         exit
     else
         echo "RPCore clean successful"
     fi
-    make >> $BUILD_DIR/outfile 2>&1
+    make >> "$BUILD_DIR/outfile" 2>&1
 	if [ $? -ne 0 ]; then
 		echo "RPcore build failed...Please see outfile for more details"
 		exit
 	else
         echo "RPCore build successful"
 	fi
-    cd $BUILD_DIR
+    cd "$BUILD_DIR"
 }
 
 function install_kvm_packages()
@@ -132,7 +98,7 @@ function install_kvm_packages()
 	apt-get update
 	apt-get --force-yes -y install gcc libsdl1.2-dev zlib1g-dev libasound2-dev linux-kernel-headers pkg-config libgnutls-dev libpci-dev build-essential bzr bzr-builddeb cdbs debhelper devscripts dh-make diffutils dpatch fakeroot gnome-pkg-tools gnupg liburi-perl lintian patch patchutils pbuilder piuparts quilt ubuntu-dev-tools wget libglib2.0-dev libsdl1.2-dev libjpeg-dev libvde-dev libvdeplug2-dev libbrlapi-dev libaio-dev libfdt-dev texi2html texinfo info2man pod2pdf libnss3-dev libcap-dev libattr1-dev libtspi-dev gcc-4.6-multilib libpixman-1-dev libxml2-dev libssl-dev ant
 	apt-get --force-yes -y install libyajl-dev libdevmapper-dev libpciaccess-dev libnl-dev
-	apt-get --force-yes -y install bridge-utils dnsmasq pm-utils ebtables ntp chkconfig
+	apt-get --force-yes -y install bridge-utils dnsmasq pm-utils ebtables ntp
 	apt-get --force-yes -y install openssh-server
 	apt-get --force-yes -y install python-dev
 	
@@ -150,28 +116,26 @@ function main()
 	makeDirStructure
 	echo "Building RPCore binaries... "
         buildRpcore
-	cd $BUILD_DIR
-	echo "Building libvirt if required..."
-	buildLibvirt
+	cd "$BUILD_DIR"
 	echo "Building Verifier binaries..."
 	buildVerifier
 	echo "Building RPListener binaries..."
 	buildRplistener
 
 	BUILD_VER=`date +%Y%m%d%H%M%S`
-	grep -i ' error' $BUILD_DIR/outfile
+	grep -i ' error' "$BUILD_DIR/outfile"
 	
 	echo "Verifying for any errors, please verify the output below : "
-	arg=`cat $BUILD_DIR/outfile | grep -i -v "print*" | grep -c ' error'`
+	arg=`cat "$BUILD_DIR/outfile" | grep -i -v "print*" | grep -c ' error'`
 
 	echo "Create the install tar file"
-        mkdir -p $DIST_DIR
-        cd $BUILD_DIR
-        tar czf KVM_install_$BUILD_VER.tar.gz libvirt-1.2.2.tar.gz rpcore/scripts rpcore/bin rpcore/rptmp rpcore/lib
-        mv KVM_install_$BUILD_VER.tar.gz $DIST_DIR
-        cp install/vRTM_KVM_install.sh $DIST_DIR
+        mkdir -p "$DIST_DIR"
+        cd "$BUILD_DIR"
+        tar czf KVM_install_$BUILD_VER.tar.gz rpcore/scripts rpcore/bin rpcore/rptmp rpcore/lib
+        mv KVM_install_$BUILD_VER.tar.gz "$DIST_DIR"
+        cp install/vRTM_KVM_install.sh "$DIST_DIR"
         
-        arg=`cat $BUILD_DIR/outfile | grep -i -v "print*" | grep -c ' error'`
+        arg=`cat "$BUILD_DIR/outfile" | grep -i -v "print*" | grep -c ' error'`
 
 	if [ $arg -eq 0 ]
 	then
@@ -213,8 +177,8 @@ then
 elif [ "$1" == "--clean" ]
 then
 	echo "Removing older build folder"
-	rm -rf $BUILD_DIR
-	rm -rf $DIST_DIR
+	rm -rf "$BUILD_DIR"
+	rm -rf "$DIST_DIR"
 else 
 	help_display
 fi
