@@ -220,6 +220,7 @@ int map_rpid_uuid(int rpid, char* uuid) {
     err = ch_write(fd1, rgBuf, size + sizeof(tcBuffer) );
     if (err < 0){
         fprintf(stdout, "map_rpid_uuid():write error: %s\n", strerror(errno));
+	retval = 0;
         goto fail;
     }
 
@@ -235,6 +236,7 @@ again:
         }
 
         fprintf(stdout, "map_rpid_uuid():read error:%d  %s\n", errno, strerror(errno));
+	retval = 0;
         goto fail;
     }
 
@@ -250,13 +252,13 @@ again:
     }
 
     retval = *(int*) &rgBuf[sizeof(tcBuffer)];
-    return retval;
+    //return retval;
 
 fail:
     if ( fd1 >= 0)
         ch_close (fd1);
-
-    return 0;
+    fd1 = 0;
+    return retval;
 }
 
 // Send request to RPCore to remove the entry for a particular VM
@@ -297,6 +299,7 @@ int delete_rp_uuid(char* uuid) {
     err = ch_write(fd1, rgBuf, size + sizeof(tcBuffer) );
     if (err < 0){
         fprintf(stdout, "delete_rp_uuid(): write error: %s\n", strerror(errno));
+	retval = -1;
         goto fail;
     }
 
@@ -312,6 +315,7 @@ again:
         }
 
         fprintf(stdout, "delete_rp_uuid(): read error:%d  %s\n", errno, strerror(errno));
+	retval = -1;
         goto fail;
     }
 
@@ -325,13 +329,13 @@ again:
     }
 
     retval = *(int*) &rgBuf[sizeof(tcBuffer)];
-    return retval;
+    //return retval;
 
 fail:
     if ( fd1 >= 0)
         ch_close (fd1);
-
-    return -1;
+    fd1 = 0;
+    return retval;
 }
 
 // wrapper on map_rpid_uuid. 

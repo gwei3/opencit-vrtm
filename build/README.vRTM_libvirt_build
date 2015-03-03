@@ -1,0 +1,12 @@
+
+
+This script is used for adding the timeout change to libvirt and craete a tar package.
+The tar package is later packed inside the KVM_build_*.tgz.
+
+The vRTM_KVM_install.sh script has a --with-libvirt option. The packed tar will be used by
+vRTM_KVM_install.sh to install the modified libvirt into the production machine.
+
+This script also creates and installs the libvirt.so library along with vRTM. The vRTM component will
+use this pre-build library during its compilation phase.
+
+

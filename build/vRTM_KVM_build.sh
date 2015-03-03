@@ -14,6 +14,8 @@ BUILD_DIR=$START_DIR/KVM_build
 DIST_DIR=$PWD/../dist
 TBOOT_REPO=${TBOOT_REPO:-"$SRC_ROOT_DIR/../dcg_security-tboot-xm"}
 
+BUILD_LIBVIRT="FALSE"
+PACKAGE="rpcore/scripts rpcore/bin rpcore/rptmp rpcore/lib"
 
 function makeDirStructure()
 {
@@ -113,10 +115,22 @@ function install_kvm_packages()
 
 function main()
 {
+	
 	echo "Installing the packages required for KVM... "	
 	install_kvm_packages
-	echo "Creating the required build structure... "
-	makeDirStructure
+
+        echo "Creating the required build structure... "
+        makeDirStructure
+
+	if [ "$BUILD_LIBVIRT" == "TRUE" ] ; then
+		echo "Building libvirt and its dependencies..."
+		cd "$BUILD_DIR"
+		cp $START_DIR/vRTM_libvirt_build.sh .
+		./vRTM_libvirt_build.sh
+		echo "Inclding modified libvirt-1.2.2.tar.gz into dist package"
+		PACKAGE=`echo $PACKAGE libvirt-1.2.2.tar.gz`
+	fi
+
 	echo "Building RPCore binaries... "
         buildRpcore
 	cd "$BUILD_DIR"
@@ -134,7 +148,7 @@ function main()
 	echo "Create the install tar file"
         mkdir -p "$DIST_DIR"
         cd "$BUILD_DIR"
-        tar czf KVM_install_$BUILD_VER.tar.gz rpcore/scripts rpcore/bin rpcore/rptmp rpcore/lib
+        tar czf KVM_install_$BUILD_VER.tar.gz $PACKAGE
         mv KVM_install_$BUILD_VER.tar.gz "$DIST_DIR"
         cp install/vRTM_KVM_install.sh "$DIST_DIR"
         
@@ -160,9 +174,13 @@ function help_display()
     echo "3. Builds vRTM components"
     echo "4. Creates a tar for the final install in ../dist folder"
     echo ""
+    echo "If --with-libvirt option is used, script will download libvirt 1.2.2 and use"
+    echo "the downloaded version to compile the vRTM components"
+    echo "Otherwise, it will use libvirt installed at default location."
     echo ""
     echo "Following options are available:"
     echo "--build"
+    echo "--with-libvirt"
     echo "--clean"
     echo "--help"
 }
@@ -177,6 +195,12 @@ if [ $# -eq 0 ] || [ "$1" == "--build" ]
 then
 	echo "Building vRTM"
 	main
+elif [ "$1" == "--with-libvirt" ]
+then
+	echo "Building libvirt and vRTM"
+	export BUILD_LIBVIRT="TRUE"
+	main
+	
 elif [ "$1" == "--clean" ]
 then
 	echo "Removing older build folder"

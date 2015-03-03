@@ -10,7 +10,7 @@ OPENSTACK_DIR="Openstack/patch"
 
 LINUX_FLAVOUR="ubuntu"
 NON_TPM="false"
-
+BUILD_LIBVIRT="FALSE"
 
 function valid_ip()
 {
@@ -63,23 +63,59 @@ function installLibvirt()
 {
 	# Openstack icehouse repo contains libvirt 1.2.2
 	# Adding the repository
-
-	apt-get -y install python-software-properties
-	add-apt-repository -y cloud-archive:icehouse
-
-	echo "Updating repositories .. this may take a while "
-	apt-get update > /dev/null
-	if [ $? -ne 0 ] ; then
-		echo "apt-get update failed, kindly resume after manually executing apt-get update"
-	fi
-	apt-get -y install libvirt-bin libvirt-dev libvirt0 python-libvirt
 	
+	if [ $BUILD_LIBVIRT == "TRUE" ] ; then
+		if [ -e libvirt-1.2.2.tar.gz ] ; then
+			echo "Using the packaged libvirt found in dist"
+		else
+			echo "This dist package does not contain custom libvirt"
+			echo "Please create a dist package using --with-libvirt option"
+			echo "Aborting install process.."
+			exit
+		fi
+
+	    tar xvzf libvirt-1.2.2.tar.gz
+	    cd libvirt-1.2.2
+	    ./configure --prefix=/usr --localstatedir=/var --sysconfdir=/etc --with-xen=no --with-esx=no
+	    make -j 4
+	        if [ $? -ne 0 ]; then
+	                echo "ERROR : make failed for libvirtd "
+	                exit
+	        else
+	                echo "INFO : Libvirtd make PASSED"
+	        fi
+	    make install
+	        if [ $? -ne 0 ]; then
+	                echo "ERROR : make install failed for libvirtd "
+	                exit
+	        else
+	                echo "INFO : make install PASSED"
+	        fi
+	    echo "libvirt version is ....."
+	    libvirtd --version
+	    sleep 2
+	else	
+	
+		apt-get -y install python-software-properties
+		add-apt-repository -y cloud-archive:icehouse
+	
+		echo "Updating repositories .. this may take a while "
+		apt-get update > /dev/null
+		if [ $? -ne 0 ] ; then
+			echo "apt-get update failed, kindly resume after manually executing apt-get update"
+		fi
+		apt-get -y install libvirt-bin libvirt-dev libvirt0 python-libvirt
+	fi
 	# Touch them only if they are commented	
 	sed -i 's/^#.*unix_sock_group.*/unix_sock_group="libvirtd"/g' /etc/libvirt/libvirtd.conf
 	sed -i 's/^#.*unix_sock_rw_perms.*/unix_sock_rw_perms="0770"/g' /etc/libvirt/libvirtd.conf
 	sed -i 's/^#.*unix_sock_ro_perms.*/unix_sock_ro_perms="0777"/g' /etc/libvirt/libvirtd.conf
 	sed -i 's/^#.*auth_unix_ro.*/auth_unix_ro="none"/g' /etc/libvirt/libvirtd.conf
 	sed -i 's/^#.*auth_unix_rw.*/auth_unix_rw="none"/g' /etc/libvirt/libvirtd.conf
+
+	# Disable the apparmor profile for libvirt
+	ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/
+	apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd 
 
 }
 
@@ -226,15 +262,15 @@ function main_default()
 	done
 
         cd "$INSTALL_DIR"
+
+	echo "Untarring Resources ..."
+        untarResources
+
         echo "Installing libvirt ..."
         installLibvirt
 
 	echo "Installing pre-requisites ..."
 	installKVMPackages
-
-	echo "Untarring Resources ..."
-	untarResources
-	#read
 
 	echo "Validating installation ... "
 	validate
@@ -282,6 +318,8 @@ function help_display()
 	echo "Usage : ./vRTM_KVM_install.sh [Options]"
         echo "This script creates the installer tar for RPCore"
         echo "    default : Installs RPCore components"
+	echo "	  --with-libvirt : This searches and installs the libvirt version "
+	echo "			 packaged along with vRTM dist"
 	# This will be a separate script
 #        echo "    --nova-compute : Installs and configures nova-compute over the node"
 	exit
@@ -289,12 +327,15 @@ function help_display()
 
 MY_SCRIPT_NAME=$0
 
-if [ "$#" -gt 0 ] ; then
+if [ "$#" -gt 1 ] ; then
 	help_display
 fi
 
 if [ "$1" == "--help" ] ; then
        help_display
+elif [ "$1" == "--with-libvirt" ] ; then
+	BUILD_LIBVIRT="TRUE"
+	main_default
 else
 	echo "Installing RPCore components and applies patch for Openstack compute"
 	main_default
