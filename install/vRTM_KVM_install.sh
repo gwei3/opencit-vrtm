@@ -11,6 +11,8 @@ OPENSTACK_DIR="Openstack/patch"
 LINUX_FLAVOUR="ubuntu"
 NON_TPM="false"
 BUILD_LIBVIRT="FALSE"
+RC_LOCAL_FILE=""
+KVM_BINARY=""
 
 function valid_ip()
 {
@@ -29,6 +31,38 @@ function valid_ip()
     return $stat
 }
 
+function getFlavour()
+{
+        if [ -e /etc/lsb-release ] ; then
+                echo "ubuntu"
+        elif [ -e /etc/redhat-release  ] ; then
+                isRedhat=`grep -c -i redhat /etc/redhat-release`
+                isFedora=`grep -c -i fedora /etc/redhat-release`
+                if [ $isRedhat -ne 0 ] ; then
+                        echo "redhat"	
+                elif [ $isFedora -ne 0 ] ; then
+                        echo "fedora"
+		fi
+        else
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
+                exit
+        fi
+}
+
+function updateFlavourVariables()
+{
+        linuxFlavour=`getFlavour`
+        if [ $linuxFlavour == "fedora" -o $linuxFlavour == "rhel" ]
+        then
+             export RC_LOCAL_FILE="/etc/rc.d/rc.local"
+             export KVM_BINARY="/usr/bin/qemu-kvm"
+	elif [ $linuxFlavour == "ubuntu" ]
+	then
+              export RC_LOCAL_FILE="/etc/rc.local"
+              export KVM_BINARY="/usr/bin/kvm"
+        fi
+}
+
 
 function untarResources()
 {
@@ -42,11 +76,29 @@ function untarResources()
         fi
 }
 
-function installKVMPackages()
+function installKVMPackages_rhel()
+{
+        echo "Installing Required Packages ....."
+        yum -y update
+        yum -y groupinstall -y "Development Tools" "Development Libraries"
+        yum install "kernel-devel-uname-r == $(uname -r)"
+        # Install the openstack repo
+        yum install -y yum-plugin-priorities
+        yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
+
+        yum install libvirt-devel libvirt libvirt-python
+        #Libs required for compiling libvirt
+        yum install -y gcc-c++ gcc make yajl yajl-devel device-mapper device-mapper-devel libpciaccess-devel libnl-devel
+        yum install -y python-devel
+        yum install -y openssh-server
+	yum install -y trousers tpm-tools cryptsetup
+	yum install -y tar
+
+}
+
+function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
-	# apt-get -y install gcc libsdl1.2-dev zlib1g-dev libasound2-dev linux-kernel-headers pkg-config libgnutls-dev libpci-dev build-essential bzr bzr-builddeb cdbs debhelper devscripts dh-make diffutils dpatch fakeroot gnome-pkg-tools gnupg liburi-perl lintian patch patchutils pbuilder piuparts quilt ubuntu-dev-tools wget libglib2.0-dev libsdl1.2-dev libjpeg-dev libvde-dev libvdeplug2-dev libbrlapi-dev libaio-dev libfdt-dev texi2html texinfo info2man pod2pdf libnss3-dev libcap-dev libattr1-dev libtspi-dev gcc-4.6-multilib libpixman-1-dev libxml2-dev libssl-dev wget git
-	# apt-get -y install libyajl-dev libdevmapper-dev libpciaccess-dev libnl-dev
 	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp chkconfig guestfish
 	apt-get -y install openssh-server
 	apt-get -y install python-dev
@@ -58,6 +110,46 @@ function installKVMPackages()
 	service ntp start
 	chkconfig ntp on
 }
+
+function installKVMPackages()
+{
+        if [ $FLAVOUR == "ubuntu" ] ; then
+		installKVMPackages_ubuntu
+        elif [  $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
+		installKVMPackages_rhel
+        fi
+
+}
+
+installLibvirtPackages_ubuntu()
+{
+        apt-get -y install python-software-properties
+        add-apt-repository -y cloud-archive:icehouse
+
+        echo "Updating repositories .. this may take a while "
+        apt-get update > /dev/null
+        if [ $? -ne 0 ] ; then
+               echo "apt-get update failed, kindly resume after manually executing apt-get update"
+        fi
+        apt-get -y install libvirt-bin libvirt-dev libvirt0 python-libvirt
+
+}
+
+installLibvirtPackages_rhel()
+{
+	yum -y install libvirt-devel libvirt libvirt-python	
+}
+
+installLibvirtPackages()
+{
+        if [ $FLAVOUR == "ubuntu" ] ; then
+		installLibvirtPackages_ubuntu
+        elif [  $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
+		installLibvirtPackages_rhel
+        fi
+	
+}
+
 
 function installLibvirt()
 {
@@ -95,16 +187,7 @@ function installLibvirt()
 	    libvirtd --version
 	    sleep 2
 	else	
-	
-		apt-get -y install python-software-properties
-		add-apt-repository -y cloud-archive:icehouse
-	
-		echo "Updating repositories .. this may take a while "
-		apt-get update > /dev/null
-		if [ $? -ne 0 ] ; then
-			echo "apt-get update failed, kindly resume after manually executing apt-get update"
-		fi
-		apt-get -y install libvirt-bin libvirt-dev libvirt0 python-libvirt
+		installLibvirtPackages
 	fi
 	# Touch them only if they are commented	
 	sed -i 's/^#.*unix_sock_group.*/unix_sock_group="libvirtd"/g' /etc/libvirt/libvirtd.conf
@@ -124,9 +207,9 @@ function installRPProxyAndListner()
 	echo "Installing RPProxy and Starting RPListner...."
 	killall -9 libvirtd
 	
-	echo "#! /bin/sh" > /usr/bin/kvm
-	echo "exec qemu-system-x86_64 -enable-kvm \"\$@\""  >> /usr/bin/kvm
-	chmod +x /usr/bin/kvm
+	echo "#! /bin/sh" > $KVM_BINARY
+	echo "exec qemu-system-x86_64 -enable-kvm \"\$@\""  >> $KVM_BINARY
+	chmod +x $KVM_BINARY
 	# is_already_replaced=`strings /usr/bin/qemu-system-x86_64 | grep -c -t "rpcore"`
 	if [ -e /usr/bin/qemu-system-x86_64_orig ]
 	then	
@@ -177,9 +260,9 @@ function updateRCLocal()
 	fi	
 
 	# remove the file if previously created
-        if [ -f /etc/rc.local ]
+        if [ -f $RC_LOCAL_FILE ]
         then
-            rm /etc/rc.local
+            rm $RC_LOCAL_FILE
         fi
 	if [ $NON_TPM == "true"  ] ; then
 	        echo "#!/bin/sh -e
@@ -197,7 +280,7 @@ function updateRCLocal()
 	        libvirtd -d
 	        sleep 1
 	        /root/services.sh restart
-	        exit 0" >> /etc/rc.local
+	        exit 0" >> $RC_LOCAL_FILE
 	else
                 echo "#!/bin/sh -e
                 chown -R nova:nova /var/run/libvirt/
@@ -208,9 +291,9 @@ function updateRCLocal()
                 libvirtd -d
                 sleep 1
                 /root/services.sh restart
-                exit 0" >> /etc/rc.local
+                exit 0" >> $RC_LOCAL_FILE
 	fi	
-        chmod +x /etc/rc.local
+        chmod +x $RC_LOCAL_FILE
 }
 
 function patchOpenstackComputePkgs()
@@ -229,21 +312,19 @@ function validate()
 	# checks for xenbr0 interface
 
 	# Validate qemu-kmv installation	
-	if [ ! -e /usr/bin/kvm ] ; then
+	if [ ! -e $KVM_BINARY ] ; then
 		echo "ERROR : Could not find KVM installed on this machine"
 		echo "Please install it using apt-get qemu-kvm"
 		exit
 	fi
 	
 	# Validate xenbr0 installation
-	ifconfig xenbr0 > /dev/null 
+	ip addr | grep -i -c xenbr0 > /dev/null 
         if [ $? -ne 0 ]; then
                 echo "ERROR : xenbr0 device not available, please setup xenbr0 over this machine"
                 exit
         fi
-	
 }
-
 
 function main_default()
 {
@@ -261,6 +342,8 @@ function main_default()
 		if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
 	done
 
+	FLAVOUR=`getFlavour`
+	updateFlavourVariables
         cd "$INSTALL_DIR"
 
 	echo "Untarring Resources ..."
