@@ -873,7 +873,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
                 }
         if( av[i] && strcmp(av[i], "-manifest") == 0 ){
                         strcpy(manifest_file, av[++i]);
-                        strcpy(nohash_manifest_file, manifest_file);
+			//Create path for just list of files to be passes to verifier
+	   	        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/manifest.xml"));
+			sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
                 }
     }
 
