@@ -7,6 +7,7 @@ RES_DIR=$PWD
 DEFAULT_INSTALL_DIR=/opt
 
 OPENSTACK_DIR="Openstack/patch"
+DIST_LOCATION=`/usr/bin/python -c "import site; print ( site.getsitepackages()[1] )" `
 
 LINUX_FLAVOUR="ubuntu"
 NON_TPM="false"
@@ -80,7 +81,6 @@ function installKVMPackages_rhel()
 {
         echo "Installing Required Packages ....."
         yum -y update
-        yum -y groupinstall -y "Development Tools" "Development Libraries"
         yum install "kernel-devel-uname-r == $(uname -r)"
         # Install the openstack repo
         yum install -y yum-plugin-priorities
@@ -137,7 +137,14 @@ installLibvirtPackages_ubuntu()
 
 installLibvirtPackages_rhel()
 {
-	yum -y install libvirt-devel libvirt libvirt-python	
+	yum -y install libvirt-devel libvirt libvirt-python
+        # This is required because if one installs only libvirt then the eco-system for libvirt is not ready
+        # For e.g the virtualisation group also creates libvirtd group over the system.
+        yum groupinstall -y Virtualization	
+	grep -c libvirt /etc/groups
+	if [ $? -eq 1 ] ; then
+		groupadd libvirt
+	fi
 }
 
 installLibvirtPackages()
@@ -224,7 +231,7 @@ function installRPProxyAndListner()
 	touch /var/log/rp_proxy.log
 	chmod 666 /var/log/rp_proxy.log
 	chown nova:nova /var/log/rp_proxy.log
-	cp "$INSTALL_DIR/rpcore/bin/scripts/rppy_ifc.py" /usr/lib/python2.7/
+	cp "$INSTALL_DIR/rpcore/bin/scripts/rppy_ifc.py" $DIST_LOCATION/.
 	cp "$INSTALL_DIR/rpcore/lib/librpchannel-g.so" /usr/lib
 	ldconfig
 	cd "$INSTALL_DIR/rpcore/bin/debug/"
@@ -346,14 +353,14 @@ function main_default()
 	updateFlavourVariables
         cd "$INSTALL_DIR"
 
+        echo "Installing pre-requisites ..."
+        installKVMPackages
+
 	echo "Untarring Resources ..."
         untarResources
 
         echo "Installing libvirt ..."
         installLibvirt
-
-	echo "Installing pre-requisites ..."
-	installKVMPackages
 
 	echo "Validating installation ... "
 	validate

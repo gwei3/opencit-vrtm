@@ -45,7 +45,7 @@ function installLibvirtRequiredPackages_rhel()
         yum install -y gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel
         yum install -y python-devel
         yum install -y openssh-server
-	
+	yum install -y wget	
 }
 
 
@@ -56,6 +56,7 @@ function installLibvirtRequiredPackages_ubuntu()
 	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp chkconfig
         apt-get -y install openssh-server
         apt-get -y install python-dev
+	apt-get -y install wget
 }
 
 function  installLibvirtRequiredPackages()
