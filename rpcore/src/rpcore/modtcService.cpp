@@ -1015,7 +1015,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
         }
 
 // Open measurement log file at a specified location
-        fq = fopen("/root/cumulative_hash.txt", "rb");
+        fq = fopen("/var/log/trustagent/cumulative_hash.sha", "rb");
         if(!fq) 
 		{
                    fprintf(stdout, "Error returned by verifer in generating cumulative hash, please check imvm-result.out for more logs\n");
