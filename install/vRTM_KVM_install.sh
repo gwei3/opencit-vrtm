@@ -10,7 +10,9 @@ OPENSTACK_DIR="Openstack/patch"
 
 LINUX_FLAVOUR="ubuntu"
 NON_TPM="false"
-
+BUILD_LIBVIRT="FALSE"
+RC_LOCAL_FILE=""
+KVM_BINARY=""
 
 function valid_ip()
 {
@@ -29,13 +31,44 @@ function valid_ip()
     return $stat
 }
 
+function getFlavour()
+{
+        if [ -e /etc/lsb-release ] ; then
+                echo "ubuntu"
+        elif [ -e /etc/redhat-release  ] ; then
+                isRedhat=`grep -c -i redhat /etc/redhat-release`
+                isFedora=`grep -c -i fedora /etc/redhat-release`
+                if [ $isRedhat -ne 0 ] ; then
+                        echo "redhat"	
+                elif [ $isFedora -ne 0 ] ; then
+                        echo "fedora"
+		fi
+        else
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
+                exit
+        fi
+}
+
+function updateFlavourVariables()
+{
+        linuxFlavour=`getFlavour`
+        if [ $linuxFlavour == "fedora" -o $linuxFlavour == "rhel" ]
+        then
+             export RC_LOCAL_FILE="/etc/rc.d/rc.local"
+             export KVM_BINARY="/usr/bin/qemu-kvm"
+	elif [ $linuxFlavour == "ubuntu" ]
+	then
+              export RC_LOCAL_FILE="/etc/rc.local"
+              export KVM_BINARY="/usr/bin/kvm"
+        fi
+}
+
 
 function untarResources()
 {
-	cd $RES_DIR
-	mkdir -p $INSTALL_DIR
-	cp $RES_DIR/*.tar.gz $INSTALL_DIR
-	cd $INSTALL_DIR
+	cd "$RES_DIR"
+	cp KVM_*.tar.gz "$INSTALL_DIR"
+	cd "$INSTALL_DIR"
 	tar xvzf *.tar.gz
         if [ $? -ne 0 ]; then
                 echo "ERROR : Untarring of $RES_DIR/*.tar.gz unsuccessful"
@@ -43,11 +76,29 @@ function untarResources()
         fi
 }
 
-function installKVMPackages()
+function installKVMPackages_rhel()
+{
+        echo "Installing Required Packages ....."
+        yum -y update
+        yum -y groupinstall -y "Development Tools" "Development Libraries"
+        yum install "kernel-devel-uname-r == $(uname -r)"
+        # Install the openstack repo
+        yum install -y yum-plugin-priorities
+        yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
+
+        yum install libvirt-devel libvirt libvirt-python
+        #Libs required for compiling libvirt
+        yum install -y gcc-c++ gcc make yajl yajl-devel device-mapper device-mapper-devel libpciaccess-devel libnl-devel
+        yum install -y python-devel
+        yum install -y openssh-server
+	yum install -y trousers tpm-tools cryptsetup
+	yum install -y tar
+
+}
+
+function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
-	apt-get -y install gcc libsdl1.2-dev zlib1g-dev libasound2-dev linux-kernel-headers pkg-config libgnutls-dev libpci-dev build-essential bzr bzr-builddeb cdbs debhelper devscripts dh-make diffutils dpatch fakeroot gnome-pkg-tools gnupg liburi-perl lintian patch patchutils pbuilder piuparts quilt ubuntu-dev-tools wget libglib2.0-dev libsdl1.2-dev libjpeg-dev libvde-dev libvdeplug2-dev libbrlapi-dev libaio-dev libfdt-dev texi2html texinfo info2man pod2pdf libnss3-dev libcap-dev libattr1-dev libtspi-dev gcc-4.6-multilib libpixman-1-dev libxml2-dev libssl-dev wget git
-	apt-get -y install libyajl-dev libdevmapper-dev libpciaccess-dev libnl-dev
 	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp chkconfig guestfish
 	apt-get -y install openssh-server
 	apt-get -y install python-dev
@@ -60,44 +111,94 @@ function installKVMPackages()
 	chkconfig ntp on
 }
 
+function installKVMPackages()
+{
+        if [ $FLAVOUR == "ubuntu" ] ; then
+		installKVMPackages_ubuntu
+        elif [  $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
+		installKVMPackages_rhel
+        fi
+
+}
+
+installLibvirtPackages_ubuntu()
+{
+        apt-get -y install python-software-properties
+        add-apt-repository -y cloud-archive:icehouse
+
+        echo "Updating repositories .. this may take a while "
+        apt-get update > /dev/null
+        if [ $? -ne 0 ] ; then
+               echo "apt-get update failed, kindly resume after manually executing apt-get update"
+        fi
+        apt-get -y install libvirt-bin libvirt-dev libvirt0 python-libvirt
+
+}
+
+installLibvirtPackages_rhel()
+{
+	yum -y install libvirt-devel libvirt libvirt-python	
+}
+
+installLibvirtPackages()
+{
+        if [ $FLAVOUR == "ubuntu" ] ; then
+		installLibvirtPackages_ubuntu
+        elif [  $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
+		installLibvirtPackages_rhel
+        fi
+	
+}
+
+
 function installLibvirt()
 {
-	cd $INSTALL_DIR
-	tar xvzf libvirt-1.2.2.tar.gz
-	cd libvirt-1.2.2
-	sed -i 's/int timeout =.*/int timeout = 60;/g' src/qemu/qemu_monitor.c
-	./configure --prefix=/usr --localstatedir=/var --sysconfdir=/etc --with-xen=no --with-esx=no
-	if [ $? -ne 0 ]; then
-                echo "ERROR : configure failed for libvirtd "
-                exit
-        else
-                echo "INFO : Libvirtd configure PASSED"
-        fi
-	make -j 4
-        if [ $? -ne 0 ]; then
-                echo "ERROR : make failed for libvirtd "
-                exit
-        else
-                echo "INFO : Libvirtd make PASSED"
-        fi
-	make install
-        if [ $? -ne 0 ]; then
-                echo "ERROR : make install failed for libvirtd "
-                exit
-        else
-                echo "INFO : make install PASSED"
-        fi
-	echo "libvirt version is ....."
-	libvirtd --version
-	sleep 2
-	cd $INSTALL_DIR
+	# Openstack icehouse repo contains libvirt 1.2.2
+	# Adding the repository
 	
+	if [ $BUILD_LIBVIRT == "TRUE" ] ; then
+		if [ -e libvirt-1.2.2.tar.gz ] ; then
+			echo "Using the packaged libvirt found in dist"
+		else
+			echo "This dist package does not contain custom libvirt"
+			echo "Please create a dist package using --with-libvirt option"
+			echo "Aborting install process.."
+			exit
+		fi
+
+	    tar xvzf libvirt-1.2.2.tar.gz
+	    cd libvirt-1.2.2
+	    ./configure --prefix=/usr --localstatedir=/var --sysconfdir=/etc --with-xen=no --with-esx=no
+	    make -j 4
+	        if [ $? -ne 0 ]; then
+	                echo "ERROR : make failed for libvirtd "
+	                exit
+	        else
+	                echo "INFO : Libvirtd make PASSED"
+	        fi
+	    make install
+	        if [ $? -ne 0 ]; then
+	                echo "ERROR : make install failed for libvirtd "
+	                exit
+	        else
+	                echo "INFO : make install PASSED"
+	        fi
+	    echo "libvirt version is ....."
+	    libvirtd --version
+	    sleep 2
+	else	
+		installLibvirtPackages
+	fi
 	# Touch them only if they are commented	
 	sed -i 's/^#.*unix_sock_group.*/unix_sock_group="libvirtd"/g' /etc/libvirt/libvirtd.conf
 	sed -i 's/^#.*unix_sock_rw_perms.*/unix_sock_rw_perms="0770"/g' /etc/libvirt/libvirtd.conf
 	sed -i 's/^#.*unix_sock_ro_perms.*/unix_sock_ro_perms="0777"/g' /etc/libvirt/libvirtd.conf
 	sed -i 's/^#.*auth_unix_ro.*/auth_unix_ro="none"/g' /etc/libvirt/libvirtd.conf
 	sed -i 's/^#.*auth_unix_rw.*/auth_unix_rw="none"/g' /etc/libvirt/libvirtd.conf
+
+	# Disable the apparmor profile for libvirt
+	ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/
+	apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd 
 
 }
 
@@ -106,9 +207,9 @@ function installRPProxyAndListner()
 	echo "Installing RPProxy and Starting RPListner...."
 	killall -9 libvirtd
 	
-	echo "#! /bin/sh" > /usr/bin/kvm
-	echo "exec qemu-system-x86_64 -enable-kvm \"\$@\""  >> /usr/bin/kvm
-	chmod +x /usr/bin/kvm
+	echo "#! /bin/sh" > $KVM_BINARY
+	echo "exec qemu-system-x86_64 -enable-kvm \"\$@\""  >> $KVM_BINARY
+	chmod +x $KVM_BINARY
 	# is_already_replaced=`strings /usr/bin/qemu-system-x86_64 | grep -c -t "rpcore"`
 	if [ -e /usr/bin/qemu-system-x86_64_orig ]
 	then	
@@ -117,19 +218,19 @@ function installRPProxyAndListner()
 		echo "Backup of /usr/bin/qemu-system-x86_64 taken"
 	    	cp /usr/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64_orig
 	fi
-	cp $INSTALL_DIR/rpcore/bin/debug/rp_proxy /usr/bin/qemu-system-x86_64
+	cp "$INSTALL_DIR/rpcore/bin/debug/rp_proxy" /usr/bin/qemu-system-x86_64
 
 	chmod +x /usr/bin/qemu-system-x86_64
 	touch /var/log/rp_proxy.log
 	chmod 666 /var/log/rp_proxy.log
 	chown nova:nova /var/log/rp_proxy.log
-	cp $INSTALL_DIR/rpcore/bin/scripts/rppy_ifc.py /usr/lib/python2.7/
-	cp $INSTALL_DIR/rpcore/lib/librpchannel-g.so /usr/lib
+	cp "$INSTALL_DIR/rpcore/bin/scripts/rppy_ifc.py" /usr/lib/python2.7/
+	cp "$INSTALL_DIR/rpcore/lib/librpchannel-g.so" /usr/lib
 	ldconfig
-	cd $INSTALL_DIR/rpcore/bin/debug/
+	cd "$INSTALL_DIR/rpcore/bin/debug/"
 	nohup ./rp_listner > rp_listner.log 2>&1 &
 	libvirtd -d
-	cd $INSTALL_DIR
+	cd "$INSTALL_DIR"
 
 }
 
@@ -139,12 +240,12 @@ function startNonTPMRpCore()
 	
 	export RPCORE_IPADDR=$CURRENT_IP
 	export RPCORE_PORT=16005
-	export LD_LIBRARY_PATH=$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH
-	cp -r $INSTALL_DIR/rpcore/rptmp /tmp
-	cd $INSTALL_DIR/rpcore/bin/debug
+	export LD_LIBRARY_PATH="$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH"
+	cp -r "$INSTALL_DIR/rpcore/rptmp" /tmp
+	cd "$INSTALL_DIR/rpcore/bin/debug"
 	nohup ./nontpmrpcore > nontpmrpcore.log 2>&1 &
 	NON_TPM="true"
-	cd $INSTALL_DIR
+	cd "$INSTALL_DIR"
 }
 
 function updateRCLocal()
@@ -159,9 +260,9 @@ function updateRCLocal()
 	fi	
 
 	# remove the file if previously created
-        if [ -f /etc/rc.local ]
+        if [ -f $RC_LOCAL_FILE ]
         then
-            rm /etc/rc.local
+            rm $RC_LOCAL_FILE
         fi
 	if [ $NON_TPM == "true"  ] ; then
 	        echo "#!/bin/sh -e
@@ -171,15 +272,15 @@ function updateRCLocal()
 	        ldconfig
 		export RPCORE_IPADDR=$CURRENT_IP
 		export RPCORE_PORT=16005
-		export LD_LIBRARY_PATH=$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH
-		cp -r $INSTALL_DIR/rpcore/rptmp /tmp
-		cd $INSTALL_DIR/rpcore/bin/debug
+		export LD_LIBRARY_PATH=\"$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH\"
+		cp -r \"$INSTALL_DIR/rpcore/rptmp\" /tmp
+		cd \"$INSTALL_DIR/rpcore/bin/debug\"
 		nohup ./nontpmrpcore > nontpmrpcore.log 2>&1 &
 	        nohup ./rp_listner > rp_listner.log 2>&1 &
 	        libvirtd -d
 	        sleep 1
 	        /root/services.sh restart
-	        exit 0" >> /etc/rc.local
+	        exit 0" >> $RC_LOCAL_FILE
 	else
                 echo "#!/bin/sh -e
                 chown -R nova:nova /var/run/libvirt/
@@ -190,17 +291,17 @@ function updateRCLocal()
                 libvirtd -d
                 sleep 1
                 /root/services.sh restart
-                exit 0" >> /etc/rc.local
+                exit 0" >> $RC_LOCAL_FILE
 	fi	
-        chmod +x /etc/rc.local
+        chmod +x $RC_LOCAL_FILE
 }
 
 function patchOpenstackComputePkgs()
 {
-	cd $OPENSTACK_DIR
-	chmod +x $INSTALL_DIR/Openstack_applyPatches.sh
-	$INSTALL_DIR/Openstack_applyPatches.sh --compute
-	cd $INSTALL_DIR
+	cd "$OPENSTACK_DIR"
+	chmod +x "$INSTALL_DIR/Openstack_applyPatches.sh"
+	"$INSTALL_DIR/Openstack_applyPatches.sh" --compute
+	cd "$INSTALL_DIR"
 }
 
 function validate()
@@ -211,75 +312,70 @@ function validate()
 	# checks for xenbr0 interface
 
 	# Validate qemu-kmv installation	
-	if [ ! -e /usr/bin/kvm ] ; then
+	if [ ! -e $KVM_BINARY ] ; then
 		echo "ERROR : Could not find KVM installed on this machine"
 		echo "Please install it using apt-get qemu-kvm"
 		exit
 	fi
 	
 	# Validate xenbr0 installation
-	ifconfig xenbr0 > /dev/null 
+	ip addr | grep -i -c xenbr0 > /dev/null 
         if [ $? -ne 0 ]; then
                 echo "ERROR : xenbr0 device not available, please setup xenbr0 over this machine"
                 exit
         fi
-	
 }
-
 
 function main_default()
 {
 	echo "Please enter the install location (default : /opt/RP_<BUILD_TIMESTAMP> )"
 	read INSTALL_DIR
-	if [ -z $INSTALL_DIR ] 
+	if [ -z "$INSTALL_DIR" ] 
 	then 
 		BUILD_TIMESTAMP=`ls KVM_*.tar.gz | awk 'BEGIN{FS="_"} {print $3}' | cut -c-14`
-		INSTALL_DIR=$DEFAULT_INSTALL_DIR/RP_$BUILD_TIMESTAMP
+		INSTALL_DIR="$DEFAULT_INSTALL_DIR/RP_$BUILD_TIMESTAMP"
 	fi
+	mkdir -p "$INSTALL_DIR"
 	while : ; do
 		echo "Please enter current machine IP"
 		read CURRENT_IP
 		if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
 	done
 
+	FLAVOUR=`getFlavour`
+	updateFlavourVariables
+        cd "$INSTALL_DIR"
+
+	echo "Untarring Resources ..."
+        untarResources
+
+        echo "Installing libvirt ..."
+        installLibvirt
+
 	echo "Installing pre-requisites ..."
 	installKVMPackages
-	echo "Untarring Resources ..."
-	untarResources
-	#read
-	cd $INSTALL_DIR
-	echo "Installing libvirt ..."
-	installLibvirt
-	read
+
 	echo "Validating installation ... "
 	validate
 	#read
+
 	echo "Do you wish to install nontpmrpcore y/n (default: n)"
 	read INSTALL_NON_TPM
-	if [ $INSTALL_NON_TPM == "y" ]
+	if [ "$INSTALL_NON_TPM" == "y" ]
 	then
 		startNonTPMRpCore	
 	fi
-	read
+	#read
 	echo "Installing RPProxy and RPListener..."
 	installRPProxyAndListner
-	read
+	#read
 	
 	#echo "Applying openstack patches..."	
 	#patchOpenstackComputePkgs 
 
 	updateRCLocal
+	echo "Install completed successfully !"
 }
-
-function main_libvirt()
-{
-	echo "Installing libvirt 1.2.2"	
-	INSTALL_DIR=/tmp/libvirt
-	untarResources
-	cd $INSTALL_DIR
-	installLibvirt	
-}
-
 
 function installNovaCompute()
 {
@@ -304,27 +400,25 @@ function help_display()
 {
 	echo "Usage : ./vRTM_KVM_install.sh [Options]"
         echo "This script creates the installer tar for RPCore"
-        echo "Valid options : [--libvirt]"
         echo "    default : Installs RPCore components"
+	echo "	  --with-libvirt : This searches and installs the libvirt version "
+	echo "			 packaged along with vRTM dist"
 	# This will be a separate script
 #        echo "    --nova-compute : Installs and configures nova-compute over the node"
-	echo "    --libvirt : Downloads from libvirt.org and installs libvirt 1.2.2 version"
+	exit
 }
 
 MY_SCRIPT_NAME=$0
 
-if [ $# -gt 1 ] ; then
+if [ "$#" -gt 1 ] ; then
 	help_display
 fi
 
-if [ "$1" == "--libvirt"  ] ; then
-	echo "Installing libvirt 1.2.2 "
-	main_libvirt
-#elif [ $1 == "--nova-compute" ] ; then
-#	echo "Installing nova-compute "
-#	main_novaCompute
-elif [ "$1" == "--help" ] ; then
+if [ "$1" == "--help" ] ; then
        help_display
+elif [ "$1" == "--with-libvirt" ] ; then
+	BUILD_LIBVIRT="TRUE"
+	main_default
 else
 	echo "Installing RPCore components and applies patch for Openstack compute"
 	main_default

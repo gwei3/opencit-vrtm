@@ -330,7 +330,8 @@ bool serviceprocTable::updateprocEntry(int procid, char* uuid, char *vdi_uuid)
     return true;
 }
 
-bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature) {
+bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash,
+									char* vm_manifest_signature, char *launch_policy, bool verification_status) {
     //geting the procentry related to this procid
     serviceprocEnt* pEnt= getEntfromprocId(procid);
     if(pEnt == NULL) {
@@ -368,6 +369,10 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
     }*/
     strcpy(pEnt->m_vm_manifest_signature,vm_manifest_signature);
     pEnt->m_size_vm_manifest_signature = strlen(pEnt->m_vm_manifest_signature);
+
+    strcpy(pEnt->m_vm_launch_policy,launch_policy);
+    pEnt->m_size_vm_launch_policy = strlen(pEnt->m_vm_launch_policy);
+    pEnt->m_vm_verfication_status = verification_status;
     return true;
 }
 
@@ -522,6 +527,35 @@ TCSERVICE_RESULT tcServiceInterface::GetVmMeta(int procId, byte *vm_imageId, int
 	return TCSERVICE_RESULT_FAILED;
 }
 
+/****************************return verification status of vm with attestation policy*********************** */
+TCSERVICE_RESULT tcServiceInterface::IsVerified(char *vm_uuid, int* verification_status)
+{
+	fprintf(g_logFile,"\nIn function IsVerified\n");
+	serviceprocMap* pMap = m_procTable.m_pMap;
+	serviceprocEnt *pEnt;
+	while(pMap != NULL)
+	{
+		pEnt = pMap->pElement;
+		if(strcmp(vm_uuid,pEnt->m_uuid) == 0)
+		{
+			fprintf(g_logFile,"Match found for given UUID \n");
+
+			*verification_status = pEnt->m_vm_verfication_status;
+			fprintf(g_logFile,"verfication status for UUID is %d\n",*verification_status);
+			//*bufsize = strlen(pEnt->m_vm_launch_policy);
+			//memcpy((char *)policybuf,pEnt->m_vm_launch_policy,*bufsize + 1);
+			//fprintf(g_logFile,"launch policy for UUID is %s\n",policybuf);
+			return TCSERVICE_RESULT_SUCCESS;
+		}
+		pMap = pMap->pNext;
+	}
+	fprintf(g_logFile,"Match not found for given UUID \n");
+	//*verification_status = -1;
+	//fprintf(g_logFile,"verfication status for UUID is %d\n",*verification_status);
+	//*policybuf = NULL;
+	//fprintf(g_logFile,"launch policy for UUID is not found\n");
+	return TCSERVICE_RESULT_FAILED;
+}
 
 TCSERVICE_RESULT tcServiceInterface::GetOsPolicyKey(u32* pType, 
                                             int* psize, byte* rgBuf)
@@ -812,6 +846,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
     char*   vm_customer_id;
     char*   vm_manifest_hash;
     char*   vm_manifest_signature;
+    bool 	verification_status = false;
 
     //char    command[512];
   if(an>30) {
@@ -1040,6 +1075,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
                     //oHash.Final();
                     //oHash.GetDigest(rgHash);
                     fprintf(stdout, "IMVM Verification Successfull\n");
+                    verification_status = true;
                     flag=1;
                 }
                 else if ((strcmp(launchPolicy, "Audit") == 0)) {
@@ -1077,7 +1113,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
         return TCSERVICE_RESULT_FAILED;
     }
 
-   if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature)) {
+   if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status)) {
         fprintf(g_logFile, "SartApp : can't update proc table entry\n");
         return TCSERVICE_RESULT_FAILED;
     }
@@ -1964,6 +2000,49 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
 		free(vm_rpmanifestSignature);
             return true;
         }
+
+        case RP2VM_ISVERIFIED:
+        {
+        	fprintf(g_logFile, "\nin case ISVerified \n");
+        	if(!decodeRP2VM_ISVERIFIED(&outparamsize,outparams,inparams))
+			{
+				fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
+				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+			}
+        	fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
+        	fprintf(g_logFile, "\noutparams after decode : %s \n",outparams);
+
+        	inparamsize = PARAMSIZE;
+			memset(inparams,0,inparamsize);
+			char uuid[50];
+			memcpy(uuid,outparams,outparamsize+1);
+			int verification_status;
+			if(g_myService.IsVerified(uuid,&verification_status))
+                	{
+                        	fprintf(g_logFile, "RP2VM_ISVERIFIED : uuid does not exist\n");
+                                g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                                return false;
+                	}
+			sprintf((char *)inparams,"%d",verification_status);
+			inparamsize = strlen((char *)inparams);
+			outparamsize = PARAMSIZE;
+
+			outparamsize = encodeRP2VM_ISVERIFIED(inparamsize, inparams, outparamsize, outparams);
+			if(outparamsize<0) {
+				fprintf(g_logFile, "RP2VM_ISVERIFIED: encodeRP2VM_isverified buf too small\n");
+				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+			}
+			if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
+				fprintf(g_logFile, "serviceRequest: sendtcBuf (isverified) failed\n");
+				chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+			}
+			fprintf(g_logFile,"************succesfully send the response*************** ");
+			return true;
+        }
+
         default:
             chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
         return false;

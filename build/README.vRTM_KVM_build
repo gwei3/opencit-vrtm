@@ -17,3 +17,13 @@ This script does the following :
 3. Places the install script in the dist directory
 4. Once the tarball and install script are created, they can be moved to different machine for installation.
 
+
+The "--with-libvirt" option
+	Most of the current OS version like RHEL6, Ubuntu 14.04, Ubuntu 12.04 ( with ICE-House repository ) has libvirt 1.2.2
+installed. In such cases, the out-of-box version of libvirt can be used with RPCore. But in some cases like using 
+Ubuntu 12.04 with Havana, does not come with libvirt 1.2.2. In such cases, --with-libvirt options comes in handy.
+	This option will download the latest libvirt 1.2.2 version from libvirt.org, apply the patches and then 
+package the modified libvirt along with the distributable tar for vRTM. The dist package also contains the install
+script. The install script also has a "--with-libvirt" option. The option to install script will use the existing 
+libvirt and over-write the existing libvirt over the production machine.
+

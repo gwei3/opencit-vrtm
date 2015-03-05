@@ -616,7 +616,16 @@ bool tciodd_processService(void)
             fRet= false;
         }
         break;
-
+      case RP2VM_ISVERIFIED:
+    	  if(!queueforApp(pent, VM2RP_ISVERIFIED,  RP2VM_ISVERIFIED)) {
+			  fRet= false;
+		  }
+    	  break;
+      case VM2RP_ISVERIFIED:
+    	  if(!queueforService(pent, VM2RP_ISVERIFIED, RP2VM_ISVERIFIED)) {
+			  fRet= false;
+		  }
+		  break;
        case TCSERVICETERMINATE:
         if(!queueforService(pent, TCSERVICETERMINATE, TCSERVICETERMINATE)) {
             fRet= false;
