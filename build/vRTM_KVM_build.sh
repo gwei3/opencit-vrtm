@@ -102,7 +102,7 @@ function buildRpcore()
 
     if [ "$BUILD_LIBVIRT" == "TRUE" ] ; then
         echo "Backing up newly created libvirt.so file"
-        cp ../rpcore/lib/libvirt.so "$BUILD_DIR/."
+        cp ../lib/libvirt.so "$BUILD_DIR/."
     fi
 
     make clean >> "$BUILD_DIR/outfile" 2>&1
@@ -115,7 +115,7 @@ function buildRpcore()
 
    if [ "$BUILD_LIBVIRT" == "TRUE" ] ; then
         echo "Restoring libvirt.so..."
-        mv "$BUILD_DIR/libvirt.so"  ../rpcore/lib/libvirt.so
+        mv "$BUILD_DIR/libvirt.so" ../lib/libvirt.so
    fi
 
     make >> "$BUILD_DIR/outfile" 2>&1
