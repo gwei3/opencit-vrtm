@@ -95,6 +95,12 @@ function buildRpcore()
     cd "$BUILD_DIR/rpcore"
 	#mkdir -p bin/debug bin/release build/debug build/release lib
 	cd src
+
+    if [ "$BUILD_LIBVIRT" == "TRUE" ] ; then
+        echo "Backing up newly created libvirt.so file"
+        cp ../rpcore/lib/libvirt.so "$BUILD_DIR/."
+    fi
+
     make clean >> "$BUILD_DIR/outfile" 2>&1
     if [ $? -ne 0 ]; then
         echo "RPcore clean failed...Please see outfile for more details"
@@ -102,6 +108,12 @@ function buildRpcore()
     else
         echo "RPCore clean successful"
     fi
+
+   if [ "$BUILD_LIBVIRT" == "TRUE" ] ; then
+        echo "Restoring libvirt.so..."
+        mv "$BUILD_DIR/libvirt.so"  ../rpcore/lib/libvirt.so
+   fi
+
     make >> "$BUILD_DIR/outfile" 2>&1
 	if [ $? -ne 0 ]; then
 		echo "RPcore build failed...Please see outfile for more details"
