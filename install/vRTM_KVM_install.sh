@@ -249,6 +249,7 @@ function startNonTPMRpCore()
 	export RPCORE_PORT=16005
 	export LD_LIBRARY_PATH="$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH"
 	cp -r "$INSTALL_DIR/rpcore/rptmp" /tmp
+	cp /tmp/rptmp/config/TrustedOS/privatekey /tmp/rptmp/config/TrustedOS/privatekey.pem
 	cd "$INSTALL_DIR/rpcore/bin/debug"
 	nohup ./nontpmrpcore > nontpmrpcore.log 2>&1 &
 	NON_TPM="true"
@@ -281,6 +282,7 @@ function updateRCLocal()
 		export RPCORE_PORT=16005
 		export LD_LIBRARY_PATH=\"$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH\"
 		cp -r \"$INSTALL_DIR/rpcore/rptmp\" /tmp
+		cp /tmp/rptmp/config/TrustedOS/privatekey /tmp/rptmp/config/TrustedOS/privatekey.pem
 		cd \"$INSTALL_DIR/rpcore/bin/debug\"
 		nohup ./nontpmrpcore > nontpmrpcore.log 2>&1 &
 	        nohup ./rp_listner > rp_listner.log 2>&1 &
