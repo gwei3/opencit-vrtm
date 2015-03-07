@@ -57,7 +57,7 @@ all: $(BIN)/nontpmrpcore
 
 $(BIN)/nontpmrpcore: $(sobjs)
 	@echo "rpcoreservice"
-	$(LINK) -o $(BIN)/nontpmrpcore $(sobjs) $(LDFLAGS) -lpthread -L$(LIB) -lrpcrypto-g -lrpmeasurer-g -lrpchannel-g -lcrypto
+	$(LINK) -o $(BIN)/nontpmrpcore $(sobjs) $(LDFLAGS) -lpthread -L$(LIB) -lrpcrypto-g -lrpmeasurer-g -lrpchannel-g -lcrypto -lxml2
 
 #$(LINK) -o $(BIN)/rpcoreservice $(sobjs) $(LDFLAGS) -lxenlight -lxlutil -lxenctrl -lxenguest -lblktapctl -lxenstore -luuid -lutil -lpthread -L$(LIB) -lrpdombldr-g
 
@@ -74,7 +74,7 @@ $(OBJ)/rpinterface.o: $(TM)/rpinterface.cpp $(S)/tcIO.h
 
 #original tcService
 $(OBJ)/modtcService.o: $(TM)/modtcService.cpp
-	$(CC) $(CFLAGS) -I. -I$(S) -I$(DM) -I$(CH)  -I$(SC) -I$(SCC) -I$(FPX) -I$(VLT) -I$(SBM) -I$(S) -I$(TH) -I$(CLM) -c -o $(OBJ)/modtcService.o $(TM)/modtcService.cpp
+	$(CC) $(CFLAGS) -I. -I$(S) -I$(DM) -I/usr/include/libxml2 -I$(CH)  -I$(SC) -I$(SCC) -I$(FPX) -I$(VLT) -I$(SBM) -I$(S) -I$(TH) -I$(CLM) -c -o $(OBJ)/modtcService.o $(TM)/modtcService.cpp
 
 #implements channel used by taoenv
 $(OBJ)/linuxHostsupport.o: $(TH)/linuxHostsupport.cpp $(TH)/linuxHostsupport.h

@@ -60,6 +60,7 @@
 #include "tcpchan.h"
 #include "rp_api_code.h"
 
+#include <libxml/xmlreader.h>
 tcServiceInterface      g_myService;
 int                     g_servicepid= 0;
 extern bool				g_fterminateLoop;
@@ -822,6 +823,8 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
                                 int procid, const char* file, int an, char** av,
                                 int* poutsize, byte* out)
 {
+        		fprintf(g_logFile, " Inside StartApp \n");
+        		fprintf(stdout, " Inside StartApp \n");
     u32     uType= 0;
     int     size= SHA256DIGESTBYTESIZE;
     byte    rgHash1[SHA256DIGESTBYTESIZE];
@@ -836,7 +839,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
     char    ramdisk_file[1024] = {0};
     char    disk_file[1024] = {0};
     char    manifest_file[1024] = {0};
-    char    nohash_manifest_file[1024] = {0};
+    char    nohash_manifest_file[2048] = {0};
     char    kernel[1024] = {0};
     char    initrd[1024] = {0};
     char*   config_file = NULL;
@@ -856,6 +859,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
 
     for ( i = 1; i < an; i++) {
 
+        		fprintf(stdout, "arg parsing %d \n", i);
         if( av[i] && strcmp(av[i], "-kernel") == 0 ){
             strcpy(kernel_file, av[++i]);
         }
@@ -874,8 +878,16 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
         if( av[i] && strcmp(av[i], "-manifest") == 0 ){
                         strcpy(manifest_file, av[++i]);
 			//Create path for just list of files to be passes to verifier
-	   	        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/manifest.xml"));
+        		fprintf(g_logFile, "Manifest path %s\n", manifest_file);
+        		fprintf(stdout, "Manifest path %s\n", manifest_file);
+	   	       
+		        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/manifest.xml"));
+        		fprintf(g_logFile, "Manifest list path %s\n", nohash_manifest_file);
+        		fprintf(stdout, "Manifest list path %s\n", nohash_manifest_file);
+		
 			sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
+        		fprintf(g_logFile, "Manifest list path 2%s\n",nohash_manifest_file);
+        		fprintf(stdout, "Manifest list path %s\n",nohash_manifest_file);
                 }
     }
 
@@ -936,6 +948,8 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
        //create domain process shall check the whitelist
+        		fprintf(g_logFile, "Before create domain manifest \n");
+        		fprintf(stdout, "Before create domain manifest \n");
         child = create_domain(an, av);
 
 
@@ -955,15 +969,35 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
 	char * end;
     	size_t length = 0;
 
+        		fprintf(g_logFile, "Before opening manifest \n");
+        		fprintf(stdout, "Before opening manifest \n");
         fp=fopen(manifest_file,"r");
 
+        		fprintf(g_logFile, "after opening manifest \n");
+        		fprintf(stdout, "after opening manifest \n");
 
    //Open Manifest to get list of files to hash
+	xmlDocPtr Doc;
+  Doc = xmlParseFile(manifest_file);
+
+        /*This will save the XML file in a correct format, as desired by our parser.
+        We dont use libxml tools to parse but our own pointer legerdemain for the time being
+        Main advantage is simplicity and speed ~O(n) provided space isn't an issue */
+
+    xmlSaveFormatFile (manifest_file, Doc, 1); /*This would render even inline XML perfect for line by line parsing*/
+    xmlFreeDoc(Doc);
+
   	while (getline(&line, &length, fp) != -1) {
 
+        		fprintf(g_logFile, "Reading a line  \n");
+        		fprintf(stdout, "Reading a line  \n");
   	if(strstr(line,"<LaunchControlPolicy")!= NULL){
+        		fprintf(g_logFile,  "Found tag  \n");
+        		fprintf(stdout,  "Found tag  \n");
             temp = tagEntry(line);
-            fprintf(stdout,"<Policy=\"%s\">",NodeValue);
+        		fprintf(g_logFile,  "Processed tag  \n");
+        		fprintf(stdout,  "Processed tag  \n");
+            fprintf(g_logFile,"<Policy=\"%s\">",NodeValue);
 
              if (strcmp(NodeValue, "MeasureOnly") == 0) {
                     strcpy(launchPolicy, "Audit");
@@ -979,15 +1013,23 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
           }
 
 	if(strstr(line,"<ImageHash")!= NULL){
+        		fprintf(g_logFile,  "Found tag imagehash  \n");
             temp = tagEntry(line);
-            fprintf(stdout,"<Image Hash=\"%s\"> \n",NodeValue);
+            fprintf(g_logFile,"<Image Hash=\"%s\"> \n",NodeValue);
             strcpy(goldenImageHash, NodeValue);
+            vm_manifest_hash = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
+                    if(vm_manifest_hash == NULL) {
+                        fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_manifest_hash");
+                        return TCSERVICE_RESULT_FAILED;
+                    }
+           strcpy(vm_manifest_hash,NodeValue);
           }
 
 
 	if(strstr(line,"<ImageId")!= NULL){
+        		fprintf(g_logFile,   "Found image  id tag  \n");
             temp = tagEntry(line);
-            fprintf(stdout,"<Image Id =\"%s\">\n",NodeValue);
+            fprintf(g_logFile,"<Image Id =\"%s\">\n",NodeValue);
 	    vm_image_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
                     if(vm_image_id == NULL) {
                         fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_image_id");
@@ -997,8 +1039,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
           }
 
 	if(strstr(line,"<CustomerId")!= NULL){
+        		fprintf(g_logFile,   "found custoimer id tag  \n");
+        		fprintf(stdout,   "found custoimer id tag  \n");
             temp = tagEntry(line);
-            fprintf(stdout,"<Customer Id =\"%s\">\n",NodeValue);
+        		fprintf(g_logFile,   "Processed custoimer id tag  \n");
+        		fprintf(stdout,   "Processed custoimer id tag  \n");
+            fprintf(g_logFile,"<Customer Id =\"%s\">\n",NodeValue);
             vm_customer_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
                     if(vm_customer_id == NULL) {
                         fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_customer_id");
@@ -1006,11 +1052,11 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
                     }
            strcpy(vm_customer_id,NodeValue);
           }
-
+/*
 
 	if(strstr(line,"<DigestValue")!= NULL){
             temp = tagEntry(line);
-            fprintf(stdout,"<Manifest Hash  =\"%s\">\n",NodeValue);
+            fprintf(g_LogFile,"<Manifest Hash  =\"%s\">\n",NodeValue);
             vm_manifest_hash = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
                     if(vm_manifest_hash == NULL) {
                         fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_manifest_hash");
@@ -1018,10 +1064,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
                     }
            strcpy(vm_manifest_hash,NodeValue);
           }
-
+*/
 	if(strstr(line,"SignatureValue")!= NULL){
             temp = tagEntry(line);
-            fprintf(stdout,"<Manifest Signature  =\"%s\">\n",NodeValue);
+            fprintf(g_logFile,"<Manifest Signature  =\"%s\">\n",NodeValue);
             vm_manifest_signature = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
                     if(vm_manifest_signature == NULL) {
                         fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_manifest_hash");
