@@ -164,7 +164,11 @@ int encodeRP2VM_GETRPID(int size,byte *data, int bufsize, byte *buf);
 // get vm meta
 bool decodeRP2VM_GETVMMETA(int * psize, byte *data, const byte * buf);
 int encodeRP2VM_GETVMMETA(int numofMetadata, byte * metadata[], int bufsize, byte *buf);
+
+int encodeRP2VM_ISVERIFIED(int size, byte *data, int bufsize, byte * buf);
+bool decodeRP2VM_ISVERIFIED(int * psize, byte *data, const byte * buf);
 #endif
+
 
 
 // ------------------------------------------------------------------------------

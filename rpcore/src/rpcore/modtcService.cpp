@@ -330,7 +330,8 @@ bool serviceprocTable::updateprocEntry(int procid, char* uuid, char *vdi_uuid)
     return true;
 }
 
-bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature) {
+bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash,
+									char* vm_manifest_signature, char *launch_policy, bool verification_status) {
     //geting the procentry related to this procid
     serviceprocEnt* pEnt= getEntfromprocId(procid);
     if(pEnt == NULL) {
@@ -368,6 +369,10 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
     }*/
     strcpy(pEnt->m_vm_manifest_signature,vm_manifest_signature);
     pEnt->m_size_vm_manifest_signature = strlen(pEnt->m_vm_manifest_signature);
+
+    strcpy(pEnt->m_vm_launch_policy,launch_policy);
+    pEnt->m_size_vm_launch_policy = strlen(pEnt->m_vm_launch_policy);
+    pEnt->m_vm_verfication_status = verification_status;
     return true;
 }
 
@@ -522,6 +527,35 @@ TCSERVICE_RESULT tcServiceInterface::GetVmMeta(int procId, byte *vm_imageId, int
 	return TCSERVICE_RESULT_FAILED;
 }
 
+/****************************return verification status of vm with attestation policy*********************** */
+TCSERVICE_RESULT tcServiceInterface::IsVerified(char *vm_uuid, int* verification_status)
+{
+	fprintf(g_logFile,"\nIn function IsVerified\n");
+	serviceprocMap* pMap = m_procTable.m_pMap;
+	serviceprocEnt *pEnt;
+	while(pMap != NULL)
+	{
+		pEnt = pMap->pElement;
+		if(strcmp(vm_uuid,pEnt->m_uuid) == 0)
+		{
+			fprintf(g_logFile,"Match found for given UUID \n");
+
+			*verification_status = pEnt->m_vm_verfication_status;
+			fprintf(g_logFile,"verfication status for UUID is %d\n",*verification_status);
+			//*bufsize = strlen(pEnt->m_vm_launch_policy);
+			//memcpy((char *)policybuf,pEnt->m_vm_launch_policy,*bufsize + 1);
+			//fprintf(g_logFile,"launch policy for UUID is %s\n",policybuf);
+			return TCSERVICE_RESULT_SUCCESS;
+		}
+		pMap = pMap->pNext;
+	}
+	fprintf(g_logFile,"Match not found for given UUID \n");
+	//*verification_status = -1;
+	//fprintf(g_logFile,"verfication status for UUID is %d\n",*verification_status);
+	//*policybuf = NULL;
+	//fprintf(g_logFile,"launch policy for UUID is not found\n");
+	return TCSERVICE_RESULT_FAILED;
+}
 
 TCSERVICE_RESULT tcServiceInterface::GetOsPolicyKey(u32* pType, 
                                             int* psize, byte* rgBuf)
@@ -746,6 +780,44 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
 	return TCSERVICE_RESULT_SUCCESS;
 }
 
+/*This function returns the value of an XML tag.
+Input parameter: Line read from the XML file
+Output: Value in the tag
+How it works: THe function accepts a line containing tag value as input
+it parses the line until it reaches quotes (" ")
+and returns the value held inside them
+so <File Path = "a.txt" .....> returns a.txt
+include="*.out" ....> returns *.out and so on..
+*/
+char NodeValue[500];
+char* tagEntry (char* line){
+
+        char key[500];
+                /*We use a local string 'key' here so that we dont make any changes
+                to the line pointer passed to the funciton.
+                This is useful in a line containing more than 1 XML tag values.
+                E.g :<Dir Path="/etc" include="*.bin" exclude="*.conf">
+                */
+        int i =0;
+        strcpy(key,line);
+        char  *start,*end;
+
+                while(key[i] != '>')
+            i++;
+        start = &key[++i];
+        end = start;
+        while(*end != '<')
+            end++;
+        *end = '\0';
+        /*NodeValue is a global variable that holds the XML tag value
+                at a given point of time.
+                Its contents are copied after its new value addition immediately
+                */
+                strcpy(NodeValue,start);
+        return start;
+}
+
+
 TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
                                 int procid, const char* file, int an, char** av,
                                 int* poutsize, byte* out)
@@ -764,6 +836,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
     char    ramdisk_file[1024] = {0};
     char    disk_file[1024] = {0};
     char    manifest_file[1024] = {0};
+    char    nohash_manifest_file[1024] = {0};
     char    kernel[1024] = {0};
     char    initrd[1024] = {0};
     char*   config_file = NULL;
@@ -773,6 +846,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
     char*   vm_customer_id;
     char*   vm_manifest_hash;
     char*   vm_manifest_signature;
+    bool 	verification_status = false;
 
     //char    command[512];
   if(an>30) {
@@ -799,6 +873,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
                 }
         if( av[i] && strcmp(av[i], "-manifest") == 0 ){
                         strcpy(manifest_file, av[++i]);
+			//Create path for just list of files to be passes to verifier
+	   	        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/manifest.xml"));
+			sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
                 }
     }
 
@@ -861,17 +938,111 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
        //create domain process shall check the whitelist
         child = create_domain(an, av);
 
-       /*
-        Currently rpcore reads the IMVM return value from a log file(\tmp\imvm-result.out)
-       */
+
+        // There will be two input files now, one the manifest and other just the list of files to be passed to verifier 
+	// Could be moved to separate function
+	// Paths to 2nd manifest and output are hardcoded	
+
+//	char * nohash_manifest_file ="/root/nohash_manifest.xml"; // Need to be passed by policy agent
+
+        char launchPolicy[10];
+        char goldenImageHash[65];
+	
+
+	FILE *fp, *fq ;
+	char * line = NULL;
+    	char * temp;
+	char * end;
+    	size_t length = 0;
+
+        fp=fopen(manifest_file,"r");
+
+
+   //Open Manifest to get list of files to hash
+  	while (getline(&line, &length, fp) != -1) {
+
+  	if(strstr(line,"<LaunchControlPolicy")!= NULL){
+            temp = tagEntry(line);
+            fprintf(stdout,"<Policy=\"%s\">",NodeValue);
+
+             if (strcmp(NodeValue, "MeasureOnly") == 0) {
+                    strcpy(launchPolicy, "Audit");
+                }
+                else if (strcmp(NodeValue, "MeasureAndEnforce") ==0) {
+                    strcpy(launchPolicy, "Enforce");
+                }
+
+     	 if (strcmp(launchPolicy, "Audit") != 0 && strcmp(launchPolicy, "Enforce") !=0) {
+    		fclose(fp);
+    		return TCSERVICE_RESULT_SUCCESS;
+		}
+          }
+
+	if(strstr(line,"<ImageHash")!= NULL){
+            temp = tagEntry(line);
+            fprintf(stdout,"<Image Hash=\"%s\"> \n",NodeValue);
+            strcpy(goldenImageHash, NodeValue);
+          }
+
+
+	if(strstr(line,"<ImageId")!= NULL){
+            temp = tagEntry(line);
+            fprintf(stdout,"<Image Id =\"%s\">\n",NodeValue);
+	    vm_image_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
+                    if(vm_image_id == NULL) {
+                        fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_image_id");
+                        return TCSERVICE_RESULT_FAILED;
+                    }
+           strcpy(vm_image_id,NodeValue);
+          }
+
+	if(strstr(line,"<CustomerId")!= NULL){
+            temp = tagEntry(line);
+            fprintf(stdout,"<Customer Id =\"%s\">\n",NodeValue);
+            vm_customer_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
+                    if(vm_customer_id == NULL) {
+                        fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_customer_id");
+                        return TCSERVICE_RESULT_FAILED;
+                    }
+           strcpy(vm_customer_id,NodeValue);
+          }
+
+
+	if(strstr(line,"<DigestValue")!= NULL){
+            temp = tagEntry(line);
+            fprintf(stdout,"<Manifest Hash  =\"%s\">\n",NodeValue);
+            vm_manifest_hash = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
+                    if(vm_manifest_hash == NULL) {
+                        fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_manifest_hash");
+                        return TCSERVICE_RESULT_FAILED;
+                    }
+           strcpy(vm_manifest_hash,NodeValue);
+          }
+
+	if(strstr(line,"SignatureValue")!= NULL){
+            temp = tagEntry(line);
+            fprintf(stdout,"<Manifest Signature  =\"%s\">\n",NodeValue);
+            vm_manifest_signature = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
+                    if(vm_manifest_signature == NULL) {
+                        fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_manifest_hash");
+                        return TCSERVICE_RESULT_FAILED;
+                    }
+           strcpy(vm_manifest_signature,NodeValue);
+          }
+
+    } // end of file parsing
+    fclose(fp);
+// Only call verfier when measurement is required
+
+
         pid_t pid=fork();
         if (pid==0) { // child process
             remove("/tmp/imvm-result.out");
             char command[512];
-            if ((strcmp(ramdisk_file,"") == 0) && (strcmp(kernel_file,"") == 0))
-                sprintf(command,"./verifier %s %s IMVM %s %d > /tmp/imvm-result.out 2>&1", manifest_file, disk_file, mtw_pubkey_file, child);
-            else
-			                sprintf(command,"./verifier %s %s IMVM %s %d %s %s > /tmp/imvm-result.out 2>&1", manifest_file, disk_file, mtw_pubkey_file, child, kernel_file, ramdisk_file);
+     //       if ((strcmp(ramdisk_file,"") == 0) && (strcmp(kernel_file,"") == 0))
+                sprintf(command,"./verifier %s %s IMVM  > /tmp/imvm-result.out 2>&1", nohash_manifest_file, disk_file);
+      //      else
+	//		                sprintf(command,"./verifier %s %s IMVM %s %d %s %s > /tmp/imvm-result.out 2>&1", manifest_file, disk_file, mtw_pubkey_file, child, kernel_file, ramdisk_file);
 
             system(command);
             exit(127); // only if execv fails
@@ -880,96 +1051,43 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
             waitpid(pid,0,0); // wait for child to exit
         }
 
-        FILE* fp = fopen("/tmp/imvm-result.out", "rb");
-        if(!fp) return -1;
+// Open measurement log file at a specified location
+        fq = fopen("/var/log/trustagent/cumulative_hash.sha", "rb");
+        if(!fq) 
+		{
+                   fprintf(stdout, "Error returned by verifer in generating cumulative hash, please check imvm-result.out for more logs\n");
+		   return -1; // measurement failed  (verifier failed to measure)
+		}
 
         char imageHash[65];
         int flag=0;
-        char launchPolicy[10];
 
-        if (fp != NULL) {
+        if (fq != NULL) {
             char line[1000];
-            while(fgets(line,sizeof(line),fp)!= NULL)  {
+            if(fgets(line,sizeof(line),fq)!= NULL)  {
                 line[strlen ( line ) - 1] = '\0';
-
-                if (strstr(line, "Audit") != NULL) {
-                    strcpy(launchPolicy, "Audit");
-                }
-                else if (strstr(line, "Enforce") != NULL) {
-                    strcpy(launchPolicy, "Enforce");
-                }
-
-                if (strstr(line, "Error in mounting the image") != NULL) {
-                    fprintf(stdout, "Error in mounting the vm image\n");
-                    flag=0;
-                }
-
-                if (strstr(line, "pass") != NULL) {
+                strcpy(imageHash, line);
+		}
+  	}	
+        fclose(fq);
+        if (strcmp(imageHash, goldenImageHash) ==0) {
                     //Sha256 oHash;
                     //oHash.Init();
                     //oHash.Update((unsigned char *)imageHash, strlen(imageHash));
                     //oHash.Final();
                     //oHash.GetDigest(rgHash);
                     fprintf(stdout, "IMVM Verification Successfull\n");
+                    verification_status = true;
                     flag=1;
                 }
-                else if ((strstr(line, "Failed") != NULL) && (strcmp(launchPolicy, "Audit") == 0)) {
-                    fprintf(stdout, "IMVM Verification Failed, but continuing with VM launch as AUDIT launch policy is used\n");
+                else if ((strcmp(launchPolicy, "Audit") == 0)) {
+                    fprintf(stdout, "IMVM Verification Failed, but continuing with VM launch as MeasureOnly launch policy is used\n");
                     flag=1;
                 }
-               if (strstr(line, "SHA-256-IMAGE-HASH") != NULL) {
-                    char *token;
-                    token = strtok(line, ":");
-                    token = strtok(NULL, ":");
-                    strcpy(imageHash, token);
-                }
-                if(strstr(line, "VM_IMAGE_ID") != NULL) {
-                    char *token;
-                    token = strtok(line, "=");
-                    token = strtok(NULL,"=");
-                    vm_image_id = (char *)malloc(sizeof(char)*(strlen(token) + 1));
-                    if(vm_image_id == NULL) {
-                        fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_image_id");
-                        return TCSERVICE_RESULT_FAILED;
-                    }
-                    strcpy(vm_image_id,token);
-                }
-                if(strstr(line, "VM_CUSTOMER_ID") != NULL) {
-                    char *token;
-                    token = strtok(line,"=");
-                    token = strtok(NULL,"=");
-                    vm_customer_id = (char *)malloc(sizeof(char) *(strlen(token) + 1));
-                    if(vm_customer_id == NULL) {
-                        fprintf(g_logFile,"\n StartApp : Error in allocating memory for vm_customer_id");
-                        return TCSERVICE_RESULT_FAILED;
-                    }
-                    strcpy(vm_customer_id,token);
-                }
-                if(strstr(line, "VM_MANIFEST_HASH") != NULL) {
-                    char * token;
-                    token = strtok(line, "=");
-                    token = strtok(NULL, "=");
-                    vm_manifest_hash = (char *)malloc(sizeof(char) * (strlen(token) +1));
-                    if(vm_manifest_hash == NULL) {
-                        fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_manifest_hash");
-                        return TCSERVICE_RESULT_FAILED;
-                    }
-                    strcpy(vm_manifest_hash,token);
-                }
-                if(strstr(line, "VM_MANIFEST_SIGNATURE") != NULL) {
-                    char * token;
-                    token = strtok(line,"=");
-                    token = strtok(NULL,"=");
-                    vm_manifest_signature = (char *)malloc(sizeof(char) * (strlen(token) + 1));
-                    if(vm_manifest_hash == NULL) {
-                        fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_manifest_hash");
-                        return TCSERVICE_RESULT_FAILED;
-                    }
-                    strcpy(vm_manifest_signature,token);
-                }
-            }
-            fclose(fp);
-        }
+		else {
+                    fprintf(stdout, "IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used\n");
+                    flag=1;
+		}
 
         if (flag == 0) {
             fprintf(stdout, "IMVM Verification Failed\n");
@@ -997,7 +1115,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
         return TCSERVICE_RESULT_FAILED;
     }
 
-   if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature)) {
+   if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status)) {
         fprintf(g_logFile, "SartApp : can't update proc table entry\n");
         return TCSERVICE_RESULT_FAILED;
     }
@@ -1884,6 +2002,49 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
 		free(vm_rpmanifestSignature);
             return true;
         }
+
+        case RP2VM_ISVERIFIED:
+        {
+        	fprintf(g_logFile, "\nin case ISVerified \n");
+        	if(!decodeRP2VM_ISVERIFIED(&outparamsize,outparams,inparams))
+			{
+				fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
+				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+			}
+        	fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
+        	fprintf(g_logFile, "\noutparams after decode : %s \n",outparams);
+
+        	inparamsize = PARAMSIZE;
+			memset(inparams,0,inparamsize);
+			char uuid[50];
+			memcpy(uuid,outparams,outparamsize+1);
+			int verification_status;
+			if(g_myService.IsVerified(uuid,&verification_status))
+                	{
+                        	fprintf(g_logFile, "RP2VM_ISVERIFIED : uuid does not exist\n");
+                                g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                                return false;
+                	}
+			sprintf((char *)inparams,"%d",verification_status);
+			inparamsize = strlen((char *)inparams);
+			outparamsize = PARAMSIZE;
+
+			outparamsize = encodeRP2VM_ISVERIFIED(inparamsize, inparams, outparamsize, outparams);
+			if(outparamsize<0) {
+				fprintf(g_logFile, "RP2VM_ISVERIFIED: encodeRP2VM_isverified buf too small\n");
+				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+			}
+			if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
+				fprintf(g_logFile, "serviceRequest: sendtcBuf (isverified) failed\n");
+				chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				return false;
+			}
+			fprintf(g_logFile,"************succesfully send the response*************** ");
+			return true;
+        }
+
         default:
             chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
         return false;

@@ -810,11 +810,7 @@ void processNode(xmlTextReaderPtr reader, char *imagePath) {
                 exit(1);
             }
             // Injecting certain params into the VM image         
-            //injectRpParams();    
-            printf("\nVM_IMAGE_ID=%s",imageID);
-            printf("\nVM_CUSTOMER_ID=%s",customerID);
-            printf("\nVM_MANIFEST_HASH=%s",imageHash);
-            printf("\nVM_MANIFEST_SIGNATURE=%s",signature);
+            //injectRpParams();
         }
         FILE *fp = fopen("dirHashes.txt","a");
         fclose(fp);
@@ -1260,6 +1256,10 @@ static void streamFile(const char *origManifestPath, char *imagePath, char *veri
             char *finalHash = calculate(imagePath, calc_hash, 1);
             printf("pass - %s\n", calculate(imagePath, calc_hash, 1));
             printf("IMVM Verification Successfull!\n\n\n");
+            printf("\nVM_IMAGE_ID=%s",imageID);
+			printf("\nVM_CUSTOMER_ID=%s",customerID);
+			printf("\nVM_MANIFEST_HASH=%s",imageHash);
+			printf("\nVM_MANIFEST_SIGNATURE=%s",signature);
             if(strcmp(hashType, "SHA-256") == 0) {
                 unsigned char hash[SHA_DIGEST_LENGTH];
                 char output[65];
@@ -1294,6 +1294,11 @@ static void streamFile(const char *origManifestPath, char *imagePath, char *veri
         char *finalHash = calculate("dirHashes.txt", calc_hash, 1);
         printf("pass - %s\n", calculate("dirHashes.txt", calc_hash, 1));
         printf("IMVM Verification Successfull!\n\n\n");
+	printf("\nVM_IMAGE_ID=%s",imageID);
+                        printf("\nVM_CUSTOMER_ID=%s",customerID);
+                        printf("\nVM_MANIFEST_HASH=%s",imageHash);
+                        printf("\nVM_MANIFEST_SIGNATURE=%s",signature);
+
         if(strcmp(hashType, "SHA-256") == 0) {
              unsigned char hash[SHA_DIGEST_LENGTH];
              char output[65];
