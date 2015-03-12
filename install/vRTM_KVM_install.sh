@@ -32,21 +32,28 @@ function valid_ip()
     return $stat
 }
 
+# This function returns either rhel, fedora or ubuntu
+# TODO : This function can be moved out to some common file
 function getFlavour()
 {
-        if [ -e /etc/lsb-release ] ; then
-                echo "ubuntu"
-        elif [ -e /etc/redhat-release  ] ; then
-                isRedhat=`grep -c -i redhat /etc/redhat-release`
-                isFedora=`grep -c -i fedora /etc/redhat-release`
-                if [ $isRedhat -ne 0 ] ; then
-                        echo "redhat"	
-                elif [ $isFedora -ne 0 ] ; then
-                        echo "fedora"
-		fi
-        else
+        flavour=""
+        grep -c -i ubuntu /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="ubuntu"
+        fi
+        grep -c -i "red hat" /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="rhel"
+        fi
+        grep -c -i fedora /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="fedora"
+        fi
+        if [ "$flavour" == "" ] ; then
                 echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
                 exit
+        else
+                echo $flavour
         fi
 }
 
@@ -81,18 +88,18 @@ function installKVMPackages_rhel()
 {
         echo "Installing Required Packages ....."
         yum -y update
-        yum install "kernel-devel-uname-r == $(uname -r)"
+        yum install -y "kernel-devel-uname-r == $(uname -r)"
         # Install the openstack repo
         yum install -y yum-plugin-priorities
         yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
 
-        yum install libvirt-devel libvirt libvirt-python
+        yum install -y libvirt-devel libvirt libvirt-python
         #Libs required for compiling libvirt
         yum install -y gcc-c++ gcc make yajl yajl-devel device-mapper device-mapper-devel libpciaccess-devel libnl-devel
         yum install -y python-devel
         yum install -y openssh-server
 	yum install -y trousers tpm-tools cryptsetup
-	yum install -y tar
+	yum install -y tar procps
 
 }
 
@@ -104,7 +111,7 @@ function installKVMPackages_ubuntu()
 	apt-get -y install python-dev
 	apt-get -y install tboot trousers tpm-tools libtspi-dev cryptsetup-bin
 	apt-get -y install qemu-utils kpartx
-	apt-get -y install iptables libblkid1 libc6 libcap-ng0 libdevmapper1.02.1 libgnutls26 libnl-3-200 libnuma1  libparted0debian1  libpcap0.8 libpciaccess0 libreadline6  libudev0  libxml2  libyajl1
+	apt-get -y install iptables libblkid1 libc6 libcap-ng0 libdevmapper1.02.1 libgnutls26 libnl-3-200 libnuma1  libparted0debian1  libpcap0.8 libpciaccess0 libreadline6  libudev0  libxml2  libyajl1 procps
 	
 	echo "Starting ntp service ....."
 	service ntp start
@@ -212,7 +219,7 @@ function installLibvirt()
 function installRPProxyAndListner()
 {
 	echo "Installing RPProxy and Starting RPListner...."
-	killall -9 libvirtd
+	pkill -9 libvirtd
 	
 	echo "#! /bin/sh" > $KVM_BINARY
 	echo "exec qemu-system-x86_64 -enable-kvm \"\$@\""  >> $KVM_BINARY

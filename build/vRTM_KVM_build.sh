@@ -17,23 +17,29 @@ TBOOT_REPO=${TBOOT_REPO:-"$SRC_ROOT_DIR/../dcg_security-tboot-xm"}
 BUILD_LIBVIRT="FALSE"
 PACKAGE="rpcore/scripts rpcore/bin rpcore/rptmp rpcore/lib"
 
-# THis function returns either rhel, fedora or ubuntu
+# This function returns either rhel, fedora or ubuntu
+# TODO : This function can be moved out to some common file
 function getFlavour()
 {
-	if [ -e /etc/lsb-release ] ; then
-		echo "ubuntu"
-	elif [ -e /etc/redhat-release  ] ; then
-		isRedhat=`grep -c -i redhat /etc/redhat-release`
-		isFedora=`grep -c -i fedora /etc/redhat-release`
-		if [ $isRedhat -ne 0 ] ; then
-			echo "redhat"
-		elif [ $isFedora -ne 0 ] ; then
-			echo "fedora"
-		else
-			echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
-			exit
-		fi
-	fi
+        flavour=""
+        grep -c -i ubuntu /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="ubuntu" 
+        fi
+        grep -c -i "red hat" /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="rhel"
+        fi
+        grep -c -i fedora /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then 
+                flavour="fedora"
+        fi
+        if [ "$flavour" == "" ] ; then  
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
+                exit
+        else
+                echo $flavour
+        fi
 }
 
 function makeDirStructure()
@@ -134,12 +140,12 @@ function install_kvm_packages_rhel()
 	echo "Installing Required Packages ....."
 	yum -y update
 	yum -y groupinstall -y "Development Tools" "Development Libraries"
-	yum install "kernel-devel-uname-r == $(uname -r)" 
+	yum install -y "kernel-devel-uname-r == $(uname -r)" 
 	# Install the openstack repo
 	yum install -y yum-plugin-priorities
 	yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
 
-	yum install libvirt-devel libvirt libvirt-python
+	yum install -y libvirt-devel libvirt libvirt-python
 	#Libs required for compiling libvirt
 	yum install -y gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel
 	yum install -y python-devel
