@@ -22,6 +22,11 @@ class QuoteConstant:
     QUOTEMETHODTPM12RSA1024          =   "Quote-TPM1.2-RSA1024"
     QUOTEMETHODSHA256FILEHASHRSA1024 =   "Quote-Sha256FileHash-RSA1024"
     QUOTEMETHODSHA256FILEHASHRSA2048 =   "Quote-Sha256FileHash-RSA2048"
+    QUOTETYPESHA256FILEHASHRSA1024   = 3
+    QUOTETYPESHA256FILEHASHRSA2048   = 4
+    DIGEST_ALGO_SHA256               = "SHA256"
+    DIGEST_ALGO_SHA1                 = "SHA1"
+    DIGEST_ALGO_SHA1_SIZE            = 20
 
 
 class RPAPICode:
@@ -65,13 +70,21 @@ class RPAPICode:
     VM2RP_SETUUID               =    25
     RP2VM_SETUUID               =    26
 
+    VM2RP_IS_MEASURED           =    27
+    RP2VM_IS_MEASURED           =    28
+
     VM2RP_GETAIKCERT            =    31
     RP2VM_GETAIKCERT            =    32
 
     VM2RP_GETTPMQUOTE           =    33
     RP2VM_GETTPMQUOTE           =    34
 	
-    
+    RP2VM_GETRPID               =    35
+    VM2RP_GETRPID               =    36
+    RP2VM_GETVMMETA             =    37
+    VM2RP_GETVMMETA             =    38
+    RP2VM_ISVERIFIED            =    39
+    VM2RP_ISVERIFIED            =    40
     
     
 method_name_to_rpapicode = {"foo" : RPAPICode.VM2RP_STARTAPP,
@@ -80,6 +93,9 @@ method_name_to_rpapicode = {"foo" : RPAPICode.VM2RP_STARTAPP,
                             "attest_for" : RPAPICode.VM2RP_ATTESTFOR,
                             "set_vm_uuid" : RPAPICode.VM2RP_SETUUID,
                             "delete_vm" : RPAPICode.VM2RP_TERMINATEAPP,
-			    "get_aik_cert" : RPAPICode.VM2RP_GETAIKCERT,
-			    "get_tpm_quote" : RPAPICode.VM2RP_GETTPMQUOTE
+			                "get_aik_cert" : RPAPICode.VM2RP_GETAIKCERT,
+            			    "get_tpm_quote" : RPAPICode.VM2RP_GETTPMQUOTE,
+                            "get_rpid" : RPAPICode.VM2RP_GETRPID,
+                            "get_vmmeta" : RPAPICode.VM2RP_GETVMMETA,
+                            "get_verification_status" : RPAPICode.VM2RP_ISVERIFIED
                             }
