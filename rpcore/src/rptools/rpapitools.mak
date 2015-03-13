@@ -33,7 +33,7 @@ $(BIN)/rpapiTest: $(rpapitestobjs)
 
 $(OBJ)/rpapitest.o: ./rpapitest.cpp ./rpapitest.h $(INC)/rpapi.h
 	@echo "Compiling..."
-	$(CC) $(CFLAGS) -I. -I$(INC)/rpapi.h  -c -o $(OBJ)/rpapitest.o ./rpapitest.cpp 
+	$(CC) $(CFLAGS) -I. -I$(INC)  -c -o $(OBJ)/rpapitest.o ./rpapitest.cpp 
 
 
 $(BIN)/rpapicrypUtil: $(rpapicryputilobjs)
@@ -42,7 +42,7 @@ $(BIN)/rpapicrypUtil: $(rpapicryputilobjs)
 
 $(OBJ)/rpapicryputil.o: ./rpapicryputil.cpp ./rpapicryputil.h $(INC)/rpapi.h
 	@echo "Compiling..."
-	$(CC) $(CFLAGS) -I.  -I$(INC)/rpapi.h -c -o $(OBJ)/rpapicryputil.o ./rpapicryputil.cpp 
+	$(CC) $(CFLAGS) -I.  -I$(INC) -c -o $(OBJ)/rpapicryputil.o ./rpapicryputil.cpp 
 
 $(BIN)/rputil: $(tobjs)
 	@echo "Linking rputil ..."
@@ -50,7 +50,7 @@ $(BIN)/rputil: $(tobjs)
 
 $(OBJ)/rputil.o: ./rputil.cpp ./rpapicryputil.h $(INC)/rpapi.h
 	@echo "Compiling..."
-	$(CC) $(CFLAGS) -I. -I$(INC)/rpapi.h -c -o $(OBJ)/rputil.o ./rputil.cpp
+	$(CC) $(CFLAGS) -I. -I$(INC) -c -o $(OBJ)/rputil.o ./rputil.cpp
 
 
 

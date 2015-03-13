@@ -22,6 +22,7 @@ PROTO=      ../fileProxy/Code/protocolChannel
 TAO=        ../fileProxy/Code/tao
 #TPM=        ../fileProxy/Code/TPMDirect
 PY=	    	/usr/include/python2.7
+PYTHON=		python2.7
 LXML=		/usr/include/libxml2/
 
 DEBUG_CFLAGS     := -Wall  -Wno-format -g -DDEBUG
@@ -56,5 +57,5 @@ $(OBJ)/tcpchan.o: $(TM)/tcpchan.cpp $(TM)/tcpchan.h
 
 $(LIB)/librpchannel-g.so: $(sobjs)
 	@echo "Building librpchannel-g.so ..."
-	$(LINK) -shared  -o  $(LIB)/librpchannel-g.so  $(sobjs)  -L/usr/lib -lpython2.7 -lpthread -lxml2
+	$(LINK) -shared  -o  $(LIB)/librpchannel-g.so  $(sobjs)  -L/usr/lib -l$(PYTHON) -lpthread -lxml2
 

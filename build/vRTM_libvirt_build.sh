@@ -48,7 +48,7 @@ function installLibvirtRequiredPackages_rhel()
 
         yum install -y libvirt-devel libvirt libvirt-python
         #Libs required for compiling libvirt
-        yum install -y gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel
+        yum install -y gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel libxml2-devel
         yum install -y python-devel
         yum install -y openssh-server
 	yum install -y wget	

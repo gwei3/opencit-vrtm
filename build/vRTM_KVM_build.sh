@@ -74,7 +74,7 @@ function buildVerifier()
     else
         echo "Verifier build successful"
     fi
-	cp bin/verifier "$BUILD_DIR/rpcore/bin/debug/."
+	cp ../bin/verifier "$BUILD_DIR/rpcore/bin/debug/."
 	cd "$BUILD_DIR"
 }
 
@@ -123,8 +123,16 @@ function buildRpcore()
         echo "Restoring libvirt.so..."
         mv "$BUILD_DIR/libvirt.so" ../lib/libvirt.so
    fi
-
-    make >> "$BUILD_DIR/outfile" 2>&1
+   
+    PYTHON_HEADERS=""
+    if [ -e /usr/include/python2.7 ]
+    then
+        PYTHON_HEADERS="PY=/usr/include/python2.7 PYTHON=python2.7"
+    elif [ -e /usr/include/python2.6 ]
+    then
+        PYTHON_HEADERS="PY=/usr/include/python2.6 PYTHON=python2.6"
+    fi
+    make $PYTHON_HEADERS >> "$BUILD_DIR/outfile" 2>&1
 	if [ $? -ne 0 ]; then
 		echo "RPcore build failed...Please see outfile for more details"
 		exit
@@ -145,13 +153,13 @@ function install_kvm_packages_rhel()
 	yum install -y yum-plugin-priorities
 	yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
 
-	yum install -y libvirt-devel libvirt libvirt-python
-	#Libs required for compiling libvirt
+	yum install -y libvirt-devel libvirt libvirt-python libxml2
+	#Libs required for compiling libvirt 
 	yum install -y gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel
 	yum install -y python-devel
 	yum install -y openssh-server
 	yum install -y trousers trousers-devel libaio libaio-devel 
-	yum install -y tar
+	yum install -y tar dos2unix
 }
 
 function install_kvm_packages_ubuntu()
@@ -162,7 +170,7 @@ function install_kvm_packages_ubuntu()
 	apt-get --force-yes -y install libyajl-dev libdevmapper-dev libpciaccess-dev libnl-dev
 	apt-get --force-yes -y install bridge-utils dnsmasq pm-utils ebtables ntp
 	apt-get --force-yes -y install openssh-server
-	apt-get --force-yes -y install python-dev
+	apt-get --force-yes -y install python-dev dos2unix
 	
 	echo "Starting ntp service ....."
 	service ntp start
@@ -192,6 +200,8 @@ function main()
 		echo "Building libvirt and its dependencies..."
 		cd "$BUILD_DIR"
 		cp $START_DIR/vRTM_libvirt_build.sh .
+		chmod +x ./vRTM_libvirt_build.sh
+		dos2unix ./vRTM_libvirt_build.sh
 		./vRTM_libvirt_build.sh
 		echo "Inclding modified libvirt-1.2.2.tar.gz into dist package"
 		PACKAGE=`echo $PACKAGE libvirt-1.2.2.tar.gz`
@@ -222,7 +232,7 @@ function main()
 
 	if [ $arg -eq 0 ]
 	then
-	    echo "Build $KVM_install_$BUILD_VER.tar.gz created successfully !!"
+	    echo "Build KVM_install_$BUILD_VER.tar.gz created successfully !!"
 	else
 	    echo "Verifying for any errors, please verify the output below : "
 	    echo Install tar file has been created but it might might has some errors. Please see $BUILD_DIR/outfile file.
