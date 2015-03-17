@@ -69,7 +69,8 @@ class RPClient(object):
      	    self.__logger.debug("TC Buffer is before send:" +  str(tcbuffer.list()))
             self.__send(self.__socket, stream)
             tcbuffer, stream = self.__recv(self.__socket)
-        
+            if stream is None :
+                return (tcbuffer, stream)        
             return (tcbuffer, xmlrpclib.loads(stream))
     
     def stream_to_int(self, stream):

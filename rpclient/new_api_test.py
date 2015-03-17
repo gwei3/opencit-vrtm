@@ -9,13 +9,19 @@ class MeasuredLaunch(object):
     def get_rpid(self,uuid):
 
         tc_buffer,stream = self.__rp_client.send(None,'get_rpid',base64.b64encode(uuid))
+        if stream is None :
+            return stream
         return base64.b64decode(stream[0][0])
 
     def get_vmmeta(self,rpid):
         tcbuffer,stream = self.__rp_client.send(None,'get_vmmeta',base64.b64encode(rpid))
+        if stream is None :
+            return stream
         return stream[0]
     def get_verification_status(self,uuid):
         tcbuffer,stream = self.__rp_client.send(None,'get_verification_status',base64.b64encode(uuid))
+        if stream is None :
+            return stream
         return base64.b64decode(stream[0][0])
 
 if __name__ == "__main__" :
@@ -30,11 +36,18 @@ if __name__ == "__main__" :
    rp_id = ml.get_rpid(sys.argv[2])
 
    print "========================================\n"
-   print "Received RP ID =  %s\n" % (rp_id)
-   t = ml.get_vmmeta(rp_id)
-   print "\nReceived VM META = ", t
+   if rp_id is None :
+       print "RP ID not found for given UUID"
+       print "VM META does not exist for given UUID"
+   else :
+       print "Received RP ID =  %s\n" % (rp_id)
+       t = ml.get_vmmeta(rp_id)
+       print "\nReceived VM META = ", t
    status = ml.get_verification_status(sys.argv[2])
-   print "\n verification status = %s" %(status)
+   if status is None :
+       print "Verification status = Given UUID is not registered with RPCore"
+   else :
+       print "Verification status = %s" %(status)
    print "\n==========================================" 
 
 
