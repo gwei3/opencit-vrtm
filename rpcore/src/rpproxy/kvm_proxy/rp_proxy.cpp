@@ -287,7 +287,9 @@ int main(int argc, char** argv) {
     // Parse the command line request and extract the disk path and manifest path
     disk_start_ptr = strstr(drive_data, "file=") + strlen("file=");
     disk_end_ptr = strstr(drive_data, ",if=none");
+    memset(disk_path, '\0', sizeof(disk_path));
     strncpy(disk_path, disk_start_ptr, disk_end_ptr-disk_start_ptr);
+    memset(manifest_path, '\0', sizeof(manifest_path));
     strncpy(manifest_path, disk_path, strlen(disk_path)-strlen("/disk"));
     sprintf(manifest_path, "%s%s", manifest_path, "/manifest.xml");
 
