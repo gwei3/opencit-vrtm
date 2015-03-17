@@ -7,7 +7,7 @@ RES_DIR=$PWD
 DEFAULT_INSTALL_DIR=/opt
 
 OPENSTACK_DIR="Openstack/patch"
-DIST_LOCATION=`/usr/bin/python -c "import site; print ( site.getsitepackages()[1] )" `
+DIST_LOCATION=`/usr/bin/python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())"`
 
 LINUX_FLAVOUR="ubuntu"
 NON_TPM="false"
@@ -60,14 +60,25 @@ function getFlavour()
 function updateFlavourVariables()
 {
         linuxFlavour=`getFlavour`
-        if [ $linuxFlavour == "fedora" -o $linuxFlavour == "rhel" ]
+        if [ $linuxFlavour == "fedora" ]
         then
              export RC_LOCAL_FILE="/etc/rc.d/rc.local"
              export KVM_BINARY="/usr/bin/qemu-kvm"
+	     export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
+	elif [ $linuxFlavour == "rhel" ]
+	then
+	     export RC_LOCAL_FILE="/etc/rc.d/rc.local"
+	     export KVM_BINARY="/usr/bin/qemu-kvm"
+	     if [ -x /usr/bin/qemu-system-x86_64 ] ; then
+		export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
+	     else
+	        export QEMU_INSTALL_LOCATION="/usr/libexec/qemu-kvm"
+	     fi
 	elif [ $linuxFlavour == "ubuntu" ]
 	then
               export RC_LOCAL_FILE="/etc/rc.local"
               export KVM_BINARY="/usr/bin/kvm"
+	      export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
         fi
 }
 
@@ -220,21 +231,23 @@ function installRPProxyAndListner()
 {
 	echo "Installing RPProxy and Starting RPListner...."
 	pkill -9 libvirtd
-	
-	echo "#! /bin/sh" > $KVM_BINARY
-	echo "exec qemu-system-x86_64 -enable-kvm \"\$@\""  >> $KVM_BINARY
-	chmod +x $KVM_BINARY
+
+	if [ -e $KVM_BINARY ] ; then
+		echo "#! /bin/sh" > $KVM_BINARY
+		echo "exec qemu-system-x86_64 -enable-kvm \"\$@\""  >> $KVM_BINARY
+		chmod +x $KVM_BINARY
+	fi
 	# is_already_replaced=`strings /usr/bin/qemu-system-x86_64 | grep -c -t "rpcore"`
 	if [ -e /usr/bin/qemu-system-x86_64_orig ]
 	then	
 		echo "RP-Proxy binary is already updated, might be old" 
 	else
 		echo "Backup of /usr/bin/qemu-system-x86_64 taken"
-	    	cp /usr/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64_orig
+		cp "$QEMU_INSTALL_LOCATION" /usr/bin/qemu-system-x86_64_orig
 	fi
-	cp "$INSTALL_DIR/rpcore/bin/debug/rp_proxy" /usr/bin/qemu-system-x86_64
+	cp "$INSTALL_DIR/rpcore/bin/debug/rp_proxy" "$QEMU_INSTALL_LOCATION"
 
-	chmod +x /usr/bin/qemu-system-x86_64
+	chmod +x "$QEMU_INSTALL_LOCATION"
 	touch /var/log/rp_proxy.log
 	chmod 666 /var/log/rp_proxy.log
 	chown nova:nova /var/log/rp_proxy.log
@@ -328,9 +341,9 @@ function validate()
 	# checks for xenbr0 interface
 
 	# Validate qemu-kmv installation	
-	if [ ! -e $KVM_BINARY ] ; then
+	if [ ! -e $QEMU_INSTALL_LOCATION ] ; then
 		echo "ERROR : Could not find KVM installed on this machine"
-		echo "Please install it using apt-get qemu-kvm"
+		echo "Please install qemu-kvm"
 		exit
 	fi
 	
@@ -340,6 +353,14 @@ function validate()
                 echo "ERROR : xenbr0 device not available, please setup xenbr0 over this machine"
                 exit
         fi
+	
+	# validate for qemu-nbd as it is required for mount_vm script
+	qemuNbdLocation=`which qemu-nbd`
+	if [ "$qemuNbdLocation" == "" ] ; then
+		echo "ERROR : Could not find qemu-nbd over this host under system PATH"
+		echo "Please install qemu > 0.14 OR qemu-commons package"
+		exit
+	fi
 }
 
 function main_default()
