@@ -840,6 +840,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
     char    disk_file[1024] = {0};
     char    manifest_file[1024] = {0};
     char    nohash_manifest_file[2048] = {0};
+    char    cumulativehash_file[2048] = {0};
     char    kernel[1024] = {0};
     char    initrd[1024] = {0};
     char*   config_file = NULL;
@@ -888,6 +889,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
 			sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
         		fprintf(g_logFile, "Manifest list path 2%s\n",nohash_manifest_file);
         		fprintf(stdout, "Manifest list path %s\n",nohash_manifest_file);
+		        
+			strncpy(cumulativehash_file, manifest_file, strlen(manifest_file)-strlen("/manifest.xml"));
+			sprintf(cumulativehash_file, "%s%s", cumulativehash_file, "/measurement.sha256");
                 }
     }
 
@@ -1098,7 +1102,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
         }
 
 // Open measurement log file at a specified location
-        fq = fopen("/var/log/trustagent/cumulative_hash.sha", "rb");
+        fq = fopen(cumulativehash_file, "rb");
         if(!fq) 
 		{
                    fprintf(stdout, "Error returned by verifer in generating cumulative hash, please check imvm-result.out for more logs\n");
