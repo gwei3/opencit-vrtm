@@ -117,6 +117,10 @@ function installKVMPackages_rhel()
 function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
+	apt-get -y  install python-software-properties
+	add-apt-repository -y cloud-archive:icehouse
+	apt-get -y update
+	apt-get -y dist-upgrade
 	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp chkconfig guestfish
 	apt-get -y install openssh-server
 	apt-get -y install python-dev
@@ -124,6 +128,7 @@ function installKVMPackages_ubuntu()
 	apt-get -y install qemu-utils kpartx
 	apt-get -y install libvirt-bin qemu-kvm 
 	apt-get -y install iptables libblkid1 libc6 libcap-ng0 libdevmapper1.02.1 libgnutls26 libnl-3-200 libnuma1  libparted0debian1  libpcap0.8 libpciaccess0 libreadline6  libudev0 libudev2 libxml2 libyajl1 libyajl2 procps
+	apt-get -y install libyajl-dev libxml2-dev libdevmapper-dev libpciaccess-dev libnl-dev uuid-dev
 	
 	echo "Starting ntp service ....."
 	service ntp start

@@ -110,7 +110,7 @@ function buildRpcore()
         echo "Backing up newly created libvirt.so file"
         cp ../lib/libvirt.so "$BUILD_DIR/."
     fi
-
+    echo > "$BUILD_DIR/outfile"
     make clean >> "$BUILD_DIR/outfile" 2>&1
     if [ $? -ne 0 ]; then
         echo "RPcore clean failed...Please see outfile for more details"
@@ -165,13 +165,16 @@ function install_kvm_packages_rhel()
 function install_kvm_packages_ubuntu()
 {
 	echo "Installing Required Packages for ubuntu ....."
-	apt-get update
-	apt-get --force-yes -y install gcc libsdl1.2-dev zlib1g-dev libasound2-dev linux-kernel-headers pkg-config libgnutls-dev libpci-dev build-essential bzr bzr-builddeb cdbs debhelper devscripts dh-make diffutils dpatch fakeroot gnome-pkg-tools gnupg liburi-perl lintian patch patchutils pbuilder piuparts quilt ubuntu-dev-tools wget libglib2.0-dev libsdl1.2-dev libjpeg-dev libvde-dev libvdeplug2-dev libbrlapi-dev libaio-dev libfdt-dev texi2html texinfo info2man pod2pdf libnss3-dev libcap-dev libattr1-dev libtspi-dev gcc-4.6-multilib libpixman-1-dev libxml2-dev libssl-dev ant
-	apt-get --force-yes -y install libvirt-bin libvirt-dev qemu-kvm
-	apt-get --force-yes -y install libyajl-dev libdevmapper-dev libpciaccess-dev libnl-dev
-	apt-get --force-yes -y install bridge-utils dnsmasq pm-utils ebtables ntp
-	apt-get --force-yes -y install openssh-server
-	apt-get --force-yes -y install python-dev dos2unix
+	apt-get -y  install python-software-properties
+	add-apt-repository -y cloud-archive:icehouse
+	apt-get -y update
+	apt-get -y dist-upgrade
+	apt-get -y install gcc libsdl1.2-dev zlib1g-dev libasound2-dev linux-kernel-headers pkg-config libgnutls-dev libpci-dev build-essential bzr bzr-builddeb cdbs debhelper devscripts dh-make diffutils dpatch fakeroot gnome-pkg-tools gnupg liburi-perl lintian patch patchutils pbuilder piuparts quilt ubuntu-dev-tools wget libglib2.0-dev libsdl1.2-dev libjpeg-dev libvde-dev libvdeplug2-dev libbrlapi-dev libaio-dev libfdt-dev texi2html texinfo info2man pod2pdf libnss3-dev libcap-dev libattr1-dev libtspi-dev gcc-4.6-multilib libpixman-1-dev libxml2-dev libssl-dev ant
+	apt-get -y install libvirt-bin libvirt-dev qemu-kvm
+	apt-get -y install libyajl-dev libdevmapper-dev libpciaccess-dev libnl-dev
+	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp
+	apt-get -y install openssh-server
+	apt-get -y install python-dev dos2unix
 	
 	echo "Starting ntp service ....."
 	service ntp start
