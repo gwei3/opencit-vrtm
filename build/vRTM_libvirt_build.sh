@@ -11,7 +11,7 @@
 BUILD_DIR=${BUILD_DIR:-"."}
 TIMEOUT=60
 
-# This function returns either rhel, fedora or ubuntu
+# This function returns either rhel fedora ubuntu suse
 # TODO : This function can be moved out to some common file
 function getFlavour()
 {
@@ -27,6 +27,10 @@ function getFlavour()
         grep -c -i fedora /etc/*-release > /dev/null
         if [ $? -eq 0 ] ; then
                 flavour="fedora"
+        fi
+        grep -c -i suse /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="suse"
         fi
         if [ "$flavour" == "" ] ; then
                 echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
@@ -65,12 +69,24 @@ function installLibvirtRequiredPackages_ubuntu()
 	apt-get -y install wget
 }
 
+function installLibvirtRequiredPackages_suse()
+{
+	zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI patch patchutils pbuilder quilt wget glib2-devel libjpeg8-devel libvdemgmt0-devel libvdeplug3-devel brlapi-devel libaio-devel libfdt1-devel texinfo libcap-devel libattr-devel libtspi1 libpixman-1-0-devel trousers-devel  ant
+        zypper -n in libvirt libvirt-devel qemu-kvm 
+        zypper -n in libyajl-devel libpciaccess-devel libnl3-devel
+        zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp
+        zypper -n in openssh
+        zypper -n in python-devel dos2unix
+}
+
 function  installLibvirtRequiredPackages()
 {
         if [ $FLAVOUR == "ubuntu" ] ; then
               installLibvirtRequiredPackages_ubuntu
         elif [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
                installLibvirtRequiredPackages_rhel
+	elif [ $FLAVOUR == "suse" ] ; then
+		installLibvirtRequiredPackages_suse
         fi
 }
 

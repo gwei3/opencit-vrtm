@@ -32,7 +32,7 @@ function valid_ip()
     return $stat
 }
 
-# This function returns either rhel, fedora or ubuntu
+# This function returns either rhel fedora ubuntu suse
 # TODO : This function can be moved out to some common file
 function getFlavour()
 {
@@ -48,6 +48,10 @@ function getFlavour()
         grep -c -i fedora /etc/*-release > /dev/null
         if [ $? -eq 0 ] ; then
                 flavour="fedora"
+        fi
+        grep -c -i suse /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="suse"
         fi
         if [ "$flavour" == "" ] ; then
                 echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
@@ -79,6 +83,11 @@ function updateFlavourVariables()
               export RC_LOCAL_FILE="/etc/rc.local"
               export KVM_BINARY="/usr/bin/kvm"
 	      export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
+	elif [ $linuxFlavour == "suse" ]
+	then
+	      export RC_LOCAL_FILE="/etc/rc.d/after.local"
+              export KVM_BINARY="/usr/bin/kvm"
+              export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
         fi
 }
 
@@ -135,14 +144,30 @@ function installKVMPackages_ubuntu()
 	#chkconfig ntp on
 }
 
+function installKVMPackages_suse()
+{
+	zypper addrepo -f obs://Cloud:OpenStack:Icehouse/openSUSE_13.1 Icehouse
+	zypper -n in openstack-utils
+	zypper -n refresh
+	zypper -n dist-upgrade
+        zypper -n in libvirt libvirt-devel qemu-kvm
+	zypper -n in libyajl2 libpciaccess0 libnl3-200 libxml2-2
+        zypper -n in libyajl-devel libpciaccess-devel libnl3-devel libxml2-devel 
+        zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp wget
+        zypper -n in openssh
+        zypper -n in python-devel dos2unix
+	zypper -n in tboot  
+}
+
 function installKVMPackages()
 {
         if [ $FLAVOUR == "ubuntu" ] ; then
 		installKVMPackages_ubuntu
         elif [  $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
 		installKVMPackages_rhel
+	elif [ $FLAVOUR == "suse" ] ; then
+		installKVMPackages_suse
         fi
-
 }
 
 installLibvirtPackages_ubuntu()
@@ -171,12 +196,24 @@ installLibvirtPackages_rhel()
 	fi
 }
 
+installLibvirtPackages_suse()
+{
+	zypper -n in libvirt libvirt-devel libvirt-python
+        grep -c libvirtd /etc/groups
+        if [ $? -eq 1 ] ; then
+                groupadd libvirtd
+        fi
+ 
+}
+
 installLibvirtPackages()
 {
         if [ $FLAVOUR == "ubuntu" ] ; then
 		installLibvirtPackages_ubuntu
         elif [  $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
 		installLibvirtPackages_rhel
+	elif [ $FLAVOUR == "suse" ] ; then
+		installLibvirtPackages_suse
         fi
 	
 }
@@ -237,10 +274,11 @@ function installRPProxyAndListner()
 {
 	echo "Installing RPProxy and Starting RPListner...."
 	pkill -9 libvirtd
+	libvirtd -d
 
 	if [ -e $KVM_BINARY ] ; then
 		echo "#! /bin/sh" > $KVM_BINARY
-		echo "exec qemu-system-x86_64 -enable-kvm \"\$@\""  >> $KVM_BINARY
+		echo "exec $QEMU_INSTALL_LOCATION -enable-kvm \"\$@\""  >> $KVM_BINARY
 		chmod +x $KVM_BINARY
 	fi
 	# is_already_replaced=`strings /usr/bin/qemu-system-x86_64 | grep -c -t "rpcore"`
@@ -260,9 +298,10 @@ function installRPProxyAndListner()
 	cp "$INSTALL_DIR/rpcore/bin/scripts/rppy_ifc.py" $DIST_LOCATION/.
 	cp "$INSTALL_DIR/rpcore/lib/librpchannel-g.so" /usr/lib
 	ldconfig
+	echo "Stopping previous rp_listener processes if any..."
+	pkill -9 rp_listener
 	cd "$INSTALL_DIR/rpcore/bin/debug/"
 	nohup ./rp_listner > rp_listner.log 2>&1 &
-	libvirtd -d
 	cd "$INSTALL_DIR"
 
 }
@@ -276,6 +315,8 @@ function startNonTPMRpCore()
 	export LD_LIBRARY_PATH="$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH"
 	cp -r "$INSTALL_DIR/rpcore/rptmp" /tmp
 	cp /tmp/rptmp/config/TrustedOS/privatekey /tmp/rptmp/config/TrustedOS/privatekey.pem
+	echo "Stopping previous nontpmrpcore processes if any..."
+	pkill -9 nontpmrpcore
 	cd "$INSTALL_DIR/rpcore/bin/debug"
 	nohup ./nontpmrpcore > nontpmrpcore.log 2>&1 &
 	NON_TPM="true"
@@ -348,8 +389,8 @@ function validate()
 
 	# Validate qemu-kmv installation	
 	if [ ! -e $QEMU_INSTALL_LOCATION ] ; then
-		echo "ERROR : Could not find KVM installed on this machine"
-		echo "Please install qemu-kvm"
+		echo "ERROR : Could not find $QEMU_INSTALL_LOCATION installed on this machine"
+		echo "Please install qemu kvm"
 		exit
 	fi
 	
@@ -400,18 +441,12 @@ function main_default()
 
 	echo "Validating installation ... "
 	validate
-	#read
 
 	echo "Do you wish to install nontpmrpcore y/n (default: n)"
-	read INSTALL_NON_TPM
-	if [ "$INSTALL_NON_TPM" == "y" ]
-	then
-		startNonTPMRpCore	
-	fi
-	#read
+	startNonTPMRpCore
+
 	echo "Installing RPProxy and RPListener..."
 	installRPProxyAndListner
-	#read
 	
 	#echo "Applying openstack patches..."	
 	#patchOpenstackComputePkgs 

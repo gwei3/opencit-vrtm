@@ -17,7 +17,7 @@ TBOOT_REPO=${TBOOT_REPO:-"$SRC_ROOT_DIR/../dcg_security-tboot-xm"}
 BUILD_LIBVIRT="FALSE"
 PACKAGE="rpcore/scripts rpcore/bin rpcore/rptmp rpcore/lib"
 
-# This function returns either rhel, fedora or ubuntu
+# This function returns either rhel fedora ubuntu suse
 # TODO : This function can be moved out to some common file
 function getFlavour()
 {
@@ -34,6 +34,10 @@ function getFlavour()
         if [ $? -eq 0 ] ; then 
                 flavour="fedora"
         fi
+	grep -c -i suse /etc/*-release > /dev/null
+	if [ $? -eq 0 ] ; then
+		flavour="suse"
+	fi 
         if [ "$flavour" == "" ] ; then  
                 echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
                 exit
@@ -44,7 +48,7 @@ function getFlavour()
 
 function makeDirStructure()
 {
-	if [ -d "$SRC_ROOT_DIR/rpcore" -a -d "$SRC_ROOT_DIR/rpclient" -a -d "$SRC_ROOT_DIR/docs" -a -d "$SRC_ROOT_DIR/install" ] 
+	if [ -d "$SRC_ROOT_DIR/rpcore" -a -d "$SRC_ROOT_DIR/rpclient" -a -d "$SRC_ROOT_DIR/docs" -a -d "$SRC_ROOT_DIR/install" -a -d "$TBOOT_REPO/imvm" ] 
 	then
 		echo "All resources found"
 	else
@@ -182,12 +186,29 @@ function install_kvm_packages_ubuntu()
 
 }
 
+function install_kvm_packages_suse()
+{
+	echo "Installing Required Packages for sue ....."
+	zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI patch patchutils pbuilder quilt wget glib2-devel libjpeg8-devel libvdemgmt0-devel libvdeplug3-devel brlapi-devel libaio-devel libfdt1-devel texinfo libcap-devel libattr-devel libtspi1 libpixman-1-0-devel trousers-devel  ant
+	zypper -n in libvirt libvirt-devel qemu-kvm
+	zypper -n in libyajl-devel libpciaccess-devel libnl3-devel
+	zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp
+	zypper -n in openssh
+	zypper -n in python-devel dos2unix
+
+	echo "Starting ntp service ....."
+	service ntp start
+	chkconfig ntp on 
+}
+
 function install_kvm_packages()
 {
 	if [ $FLAVOUR == "ubuntu" ] ; then
 		install_kvm_packages_ubuntu
 	elif [  $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
 		install_kvm_packages_rhel
+	elif [ $FLAVOUR == "suse" ] ; then
+		install_kvm_packages_suse	
 	fi
 }
 
@@ -231,6 +252,7 @@ function main()
         tar czf KVM_install_$BUILD_VER.tar.gz $PACKAGE
         mv KVM_install_$BUILD_VER.tar.gz "$DIST_DIR"
         cp install/vRTM_KVM_install.sh "$DIST_DIR"
+	dos2unix "$DIST_DIR/vRTM_KVM_install.sh"
         
         arg=`cat "$BUILD_DIR/outfile" | grep -i -v "print*" | grep -c ' error'`
 
