@@ -404,9 +404,17 @@ function validate()
 	# validate for qemu-nbd as it is required for mount_vm script
 	qemuNbdLocation=`which qemu-nbd`
 	if [ "$qemuNbdLocation" == "" ] ; then
-		echo "ERROR : Could not find qemu-nbd over this host under system PATH"
-		echo "Please install qemu > 0.14 OR qemu-commons package"
-		exit
+		echo "WARNING : Could not find qemu-nbd over this host under system PATH"
+		echo "Please install qemu > 0.14 package"
+		echo "Since qemu-nbd is not installed, qcow2 images will fail to launch via vRTM"
+		echo "Do you wish to proceed (y/n) ?"
+		read PROCEED
+		if [ "$PROCEED" == "y" ] ; then
+			echo "Proceeding ahead without qcow2 support ... "
+		else
+			echo "User initiated exit ..."
+			exit
+		fi
 	fi
 }
 

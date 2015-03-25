@@ -226,7 +226,8 @@ function main()
 		cd "$BUILD_DIR"
 		cp $START_DIR/vRTM_libvirt_build.sh .
 		chmod +x ./vRTM_libvirt_build.sh
-		dos2unix ./vRTM_libvirt_build.sh
+		tr -d '\r' < ./vRTM_libvirt_build.sh > /tmp/output.file
+		mv /tmp/outfile ./vRTM_libvirt_build.sh
 		./vRTM_libvirt_build.sh
 		echo "Inclding modified libvirt-1.2.2.tar.gz into dist package"
 		PACKAGE=`echo $PACKAGE libvirt-1.2.2.tar.gz`
@@ -252,8 +253,8 @@ function main()
         tar czf KVM_install_$BUILD_VER.tar.gz $PACKAGE
         mv KVM_install_$BUILD_VER.tar.gz "$DIST_DIR"
         cp install/vRTM_KVM_install.sh "$DIST_DIR"
-	dos2unix "$DIST_DIR/vRTM_KVM_install.sh"
-        
+	tr -d '\r' < "$DIST_DIR/vRTM_KVM_install.sh" > /tmp/output.file
+	mv /tmp/output.file "$DIST_DIR/vRTM_KVM_install.sh"
         arg=`cat "$BUILD_DIR/outfile" | grep -i -v "print*" | grep -c ' error'`
 
 	if [ $arg -eq 0 ]
