@@ -1136,7 +1136,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
                 }
 		else {
                     fprintf(stdout, "IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used\n");
-                    flag=1;
+                    flag=0;
 		}
 
         if (flag == 0) {
