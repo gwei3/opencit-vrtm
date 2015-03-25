@@ -1115,7 +1115,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
         if (fq != NULL) {
             char line[1000];
             if(fgets(line,sizeof(line),fq)!= NULL)  {
-                line[strlen ( line ) - 1] = '\0';
+                //line[strlen ( line ) - 1] = '\0';
                 strcpy(imageHash, line);
 		}
   	}	
