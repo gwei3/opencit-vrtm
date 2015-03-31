@@ -73,7 +73,7 @@ function installLibvirtRequiredPackages_suse()
 {
 	zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI patch patchutils pbuilder quilt wget glib2-devel libjpeg8-devel libvdemgmt0-devel libvdeplug3-devel brlapi-devel libaio-devel libfdt1-devel texinfo libcap-devel libattr-devel libtspi1 libpixman-1-0-devel trousers-devel  ant
         zypper -n in libvirt libvirt-devel qemu-kvm 
-        zypper -n in libyajl-devel libpciaccess-devel libnl3-devel
+        zypper -n in libyajl-devel libpciaccess-devel libnl3-devel device-mapper-devel
         zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp
         zypper -n in openssh
         zypper -n in python-devel dos2unix
@@ -109,11 +109,8 @@ function buildLibvirt()
 		echo "Updating the timeout to $TIMEOUT"
 		# Updating the timeout for libvirt 
 		# TODO : use $TIMEOUT var in sed
-		sed -i 's/int timeout =.*/int timeout = 60;/g' src/qemu/qemu_monitor.c
+		sed -i 's/int timeout =.*/int timeout = 300;/g' src/qemu/qemu_monitor.c
 		# Package the updated libvirt
-		cd ..
-		tar czf libvirt-1.2.2.tar.gz libvirt-1.2.2
-		cd -
                 echo "Building libvirt - may take a few minutes"
                 ./configure > $BUILD_DIR/outfile 2>&1
 		if [ $? -ne 0 ] ; then
@@ -126,7 +123,20 @@ function buildLibvirt()
                         exit
                 fi
                 cd ..
-        fi
+	fi
+	# Package the updated libvirt
+	tar czf libvirt-1.2.2.tar.gz libvirt-1.2.2
+
+	if [ "$STANDALONE" == "FALSE" ] ; then
+		mv libvirt-1.2.2.tar.gz $BUILD_DIR/dist
+	else
+		mkdir -p $BUILD_DIR/../dist
+		mv libvirt-1.2.2.tar.gz $BUILD_DIR/../dist		
+	fi
+}
+
+function copyLibvirt
+{
         cp -a libvirt-1.2.2/include/libvirt rpcore/src/rpchannel
         # This dir is not created in the structure
         mkdir -p rpcore/lib
@@ -142,18 +152,25 @@ function main()
 	installLibvirtRequiredPackages
 	echo "Building libvirt packages ... This may also take some more time"
 	buildLibvirt
+	if [ "$STANDALONE" == "FALSE" ] ; then
+		copyLibvirt
+	fi
 }
 
 
 function help()
 {
 	echo "This script builds libvirt 1.2.2 and places the respective libraries in RPCore build locations"
+	echo "This also creates a libvirt tar which can be used to install"
+	echo "libvirt over different machines"
 	echo "Usage : ./$0"
-	
 }
 
 if [ $# -eq 0 ]; then
 	main
+elif [ $# -eq 1 -a $1 == "--standalone" ]; then
+        export STANDALONE="TRUE"
+        main
 else
 	help
 fi

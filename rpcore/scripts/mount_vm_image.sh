@@ -172,6 +172,19 @@ else
 	echo ""
 fi
 
+function mount_disk_guestmount()
+{
+	imagePath=$(readlink -f $imagePath)
+	guestMountBinary=`which guestmount`
+	if [ $guestMountBinary == "" ] ; then
+		echo "guestmount binary not found, please install libguestfs"
+		echo "and libguestfs-tools ( or its corresponding packages as per"
+		echo "your linux flavour)"
+	fi
+	## Proceed mounting with guestmount
+	time $guestMountBinary -a $imagePath -i $mountPath
+}
+
 imageFormat=$(qemu-img info $imagePath  | grep "file format" | awk -F ':' '{ print $2 }' | sed -e 's/ //g')
 
 echo "################ Original image format is $imageFormat"
@@ -210,7 +223,8 @@ case "$imageFormat" in
 	echo "################ Mounting qcow2 Image." 
 	#check_unmount_status
 	unmount_vm_image
-	mount_qcow2_image
+	# mount_qcow2_image
+	mount_disk_guestmount
         if [ $? ]
         then
                 echo "Successfully mounted qcow2 image, exiting ..."
@@ -221,7 +235,17 @@ case "$imageFormat" in
         fi
    ;;
    *)
-	echo "############### format other than vhd, raw, qcow2"
-	exit 1
+	echo "############### format other than vhd, raw, qcow2 using guestmount"
+	        unmount_vm_image
+        # mount_qcow2_image
+        mount_disk_guestmount
+        if [ $? ]
+        then
+                echo "Successfully mounted qcow2 image, exiting ..."
+                exit 0
+        else
+                echo "Error in mounting the image"
+                exit 1
+        fi
 esac
 

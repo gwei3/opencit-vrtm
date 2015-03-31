@@ -229,8 +229,8 @@ function main()
 		tr -d '\r' < ./vRTM_libvirt_build.sh > /tmp/output.file
 		mv /tmp/outfile ./vRTM_libvirt_build.sh
 		./vRTM_libvirt_build.sh
-		echo "Inclding modified libvirt-1.2.2.tar.gz into dist package"
-		PACKAGE=`echo $PACKAGE libvirt-1.2.2.tar.gz`
+		# echo "Inclding modified libvirt-1.2.2.tar.gz into dist package"
+		# PACKAGE=`echo $PACKAGE libvirt-1.2.2.tar.gz`
 	fi
 
 	echo "Building RPCore binaries... "
@@ -250,6 +250,10 @@ function main()
 	echo "Create the install tar file"
         mkdir -p "$DIST_DIR"
         cd "$BUILD_DIR"
+	if [ $BUILD_LIBVIRT == "TRUE" ] ; then
+		echo "Removing libvirt.so ..."
+		rm -rf ./rpcore/lib/libvirt.so	
+	fi
         tar czf KVM_install_$BUILD_VER.tar.gz $PACKAGE
         mv KVM_install_$BUILD_VER.tar.gz "$DIST_DIR"
         cp install/vRTM_KVM_install.sh "$DIST_DIR"
