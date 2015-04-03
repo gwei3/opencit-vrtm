@@ -113,12 +113,12 @@ function installKVMPackages_rhel()
         yum install -y yum-plugin-priorities
         yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
 
-        yum install -y libvirt-devel libvirt libvirt-python
+        yum install -y libvirt-devel libvirt libvirt-python libguestfs-tools-c
         #Libs required for compiling libvirt
         yum install -y gcc-c++ gcc make yajl yajl-devel device-mapper device-mapper-devel libpciaccess-devel libnl-devel libxml2
         yum install -y python-devel
         yum install -y openssh-server
-	yum install -y trousers tpm-tools cryptsetup
+	yum install -y trousers tpm-tools cryptsetup 
 	yum install -y tar procps
 
 }
@@ -135,7 +135,7 @@ function installKVMPackages_ubuntu()
 	apt-get -y install python-dev
 	apt-get -y install tboot trousers tpm-tools libtspi-dev cryptsetup-bin
 	apt-get -y install qemu-utils kpartx
-	apt-get -y install libvirt-bin qemu-kvm 
+	apt-get -y install libvirt-bin qemu-kvm libguestfs-tools 
 	apt-get -y install iptables libblkid1 libc6 libcap-ng0 libdevmapper1.02.1 libgnutls26 libnl-3-200 libnuma1  libparted0debian1  libpcap0.8 libpciaccess0 libreadline6  libudev0 libudev2 libxml2 libyajl1 libyajl2 procps
 	apt-get -y install libyajl-dev libxml2-dev libdevmapper-dev libpciaccess-dev libnl-dev uuid-dev
 	
