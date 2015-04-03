@@ -242,6 +242,7 @@ function main()
 	buildRplistener
 
 	BUILD_VER=`date +%Y%m%d%H%M%S`
+	BUILD_VER=$FLAVOUR.$BUILD_VER
 	grep -i ' error' "$BUILD_DIR/outfile"
 	
 	echo "Verifying for any errors, please verify the output below : "

@@ -190,9 +190,9 @@ installLibvirtPackages_rhel()
         # This is required because if one installs only libvirt then the eco-system for libvirt is not ready
         # For e.g the virtualisation group also creates libvirtd group over the system.
         yum groupinstall -y Virtualization	
-	grep -c libvirt /etc/groups
+	grep -c libvirtd /etc/groups
 	if [ $? -eq 1 ] ; then
-		groupadd libvirt
+		groupadd libvirtd
 	fi
 }
 
@@ -424,7 +424,7 @@ function main_default()
 	read INSTALL_DIR
 	if [ -z "$INSTALL_DIR" ] 
 	then 
-		BUILD_TIMESTAMP=`ls KVM_*.tar.gz | awk 'BEGIN{FS="_"} {print $3}' | cut -c-14`
+		BUILD_TIMESTAMP=`ls KVM_*.tar.gz | awk 'BEGIN{FS="_"} {print $3}' | awk 'BEGIN{FS="."}{print $2}'`
 		INSTALL_DIR="$DEFAULT_INSTALL_DIR/RP_$BUILD_TIMESTAMP"
 	fi
 	mkdir -p "$INSTALL_DIR"
