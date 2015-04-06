@@ -884,6 +884,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
     char    ramdisk_file[1024] = {0};
     char    disk_file[1024] = {0};
     char    manifest_file[1024] = {0};
+    char    formatted_manifest_file[1024] = {0};
     char    nohash_manifest_file[2048] = {0};
     char    cumulativehash_file[2048] = {0};
     char    kernel[1024] = {0};
@@ -928,16 +929,17 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
         		fprintf(g_logFile, "Manifest path %s\n", manifest_file);
         		fprintf(stdout, "Manifest path %s\n", manifest_file);
 	   	       
-		        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/manifest.xml"));
+		        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
         		fprintf(g_logFile, "Manifest list path %s\n", nohash_manifest_file);
         		fprintf(stdout, "Manifest list path %s\n", nohash_manifest_file);
 			strcpy(vm_manifest_dir, nohash_manifest_file);
+			sprintf(formatted_manifest_file, "%s%s", nohash_manifest_file, "/fmanifest.xml");
 		
 			sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
         		fprintf(g_logFile, "Manifest list path 2%s\n",nohash_manifest_file);
         		fprintf(stdout, "Manifest list path %s\n",nohash_manifest_file);
 		        
-			strncpy(cumulativehash_file, manifest_file, strlen(manifest_file)-strlen("/manifest.xml"));
+			strncpy(cumulativehash_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
 			sprintf(cumulativehash_file, "%s%s", cumulativehash_file, "/measurement.sha256");
                 }
     }
@@ -1020,12 +1022,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
 	char * end;
     	size_t length = 0;
 
-        		fprintf(g_logFile, "Before opening manifest \n");
-        		fprintf(stdout, "Before opening manifest \n");
-        fp=fopen(manifest_file,"r");
+//        		fprintf(g_logFile, "Before opening manifest \n");
+  //      		fprintf(stdout, "Before opening manifest \n");
+//        fp=fopen(manifest_file,"r");
 
-        		fprintf(g_logFile, "after opening manifest \n");
-        		fprintf(stdout, "after opening manifest \n");
+    //    		fprintf(g_logFile, "after opening manifest \n");
+      //  		fprintf(stdout, "after opening manifest \n");
 
    //Open Manifest to get list of files to hash
 	xmlDocPtr Doc;
@@ -1035,8 +1037,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
         We dont use libxml tools to parse but our own pointer legerdemain for the time being
         Main advantage is simplicity and speed ~O(n) provided space isn't an issue */
 
-    xmlSaveFormatFile (manifest_file, Doc, 1); /*This would render even inline XML perfect for line by line parsing*/
+    xmlSaveFormatFile (formatted_manifest_file, Doc, 1); /*This would render even inline XML perfect for line by line parsing*/
     xmlFreeDoc(Doc);
+        fp=fopen(formatted_manifest_file,"r");
 
   	while (getline(&line, &length, fp) != -1) {
 

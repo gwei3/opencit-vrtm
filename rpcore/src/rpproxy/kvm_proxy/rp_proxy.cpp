@@ -291,7 +291,7 @@ int main(int argc, char** argv) {
     strncpy(disk_path, disk_start_ptr, disk_end_ptr-disk_start_ptr);
     memset(manifest_path, '\0', sizeof(manifest_path));
     strncpy(manifest_path, disk_path, strlen(disk_path)-strlen("/disk"));
-    sprintf(manifest_path, "%s%s", manifest_path, "/manifest.xml");
+    sprintf(manifest_path, "%s%s", manifest_path, "/trustpolicy.xml");
 
     // If kernel and initrd are not passed then pass them as empty strings
     kernel_path = (kernel_path == NULL) ? "" : kernel_path;
