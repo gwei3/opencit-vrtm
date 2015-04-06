@@ -119,7 +119,7 @@ function installKVMPackages_rhel()
         yum install -y python-devel
         yum install -y openssh-server
 	yum install -y trousers tpm-tools cryptsetup 
-	yum install -y tar procps
+	yum install -y tar procps binutils
 
 }
 
@@ -134,7 +134,7 @@ function installKVMPackages_ubuntu()
 	apt-get -y install openssh-server
 	apt-get -y install python-dev
 	apt-get -y install tboot trousers tpm-tools libtspi-dev cryptsetup-bin
-	apt-get -y install qemu-utils kpartx
+	apt-get -y install qemu-utils kpartx binutils
 	apt-get -y install libvirt-bin qemu-kvm libguestfs-tools 
 	apt-get -y install iptables libblkid1 libc6 libcap-ng0 libdevmapper1.02.1 libgnutls26 libnl-3-200 libnuma1  libparted0debian1  libpcap0.8 libpciaccess0 libreadline6  libudev0 libudev2 libxml2 libyajl1 libyajl2 procps
 	apt-get -y install libyajl-dev libxml2-dev libdevmapper-dev libpciaccess-dev libnl-dev uuid-dev
@@ -155,7 +155,7 @@ function installKVMPackages_suse()
         zypper -n in libyajl-devel libpciaccess-devel libnl3-devel libxml2-devel 
         zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp wget
         zypper -n in openssh
-        zypper -n in python-devel dos2unix
+        zypper -n in python-devel dos2unix 
 	zypper -n in tboot  
 }
 
@@ -281,10 +281,10 @@ function installRPProxyAndListner()
 		echo "exec $QEMU_INSTALL_LOCATION -enable-kvm \"\$@\""  >> $KVM_BINARY
 		chmod +x $KVM_BINARY
 	fi
-	# is_already_replaced=`strings /usr/bin/qemu-system-x86_64 | grep -c -t "rpcore"`
-	if [ -e /usr/bin/qemu-system-x86_64_orig ]
+	is_already_replaced=`strings "$QEMU_INSTALL_LOCATION" | grep -c -i "rpcore"`
+	if [ $is_already_replaced -gt 0 ]
 	then	
-		echo "RP-Proxy binary is already updated, might be old" 
+		echo "RP-Proxy binary is already updated, might be old and will be replaced" 
 	else
 		echo "Backup of /usr/bin/qemu-system-x86_64 taken"
 		cp "$QEMU_INSTALL_LOCATION" /usr/bin/qemu-system-x86_64_orig
