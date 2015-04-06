@@ -626,6 +626,17 @@ bool tciodd_processService(void)
 			  fRet= false;
 		  }
 		  break;
+      case RP2VM_GETVMREPORT:
+         if(!queueforApp(pent, VM2RP_GETVMREPORT,  RP2VM_GETVMREPORT)) {
+                         fRet= false;
+                 }
+         break;
+      case VM2RP_GETVMREPORT:
+         if(!queueforService(pent, VM2RP_GETVMREPORT, RP2VM_GETVMREPORT)) {
+                         fRet= false;
+                 }
+                 break;
+
        case TCSERVICETERMINATE:
         if(!queueforService(pent, TCSERVICETERMINATE, TCSERVICETERMINATE)) {
             fRet= false;

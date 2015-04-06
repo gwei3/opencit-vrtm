@@ -600,7 +600,7 @@ bool decodeRP2VM_ISVERIFIED(int * psize, byte *data, const byte * buf)
 	#ifdef TEST
     fprintf(stdout, "decodeRP2VM_ISVERIFIED called\n");
     #endif
-    int status = xmlrpc_to_cbuf(RPC2BUF,psize,data,buf);
+      int status = xmlrpc_to_cbuf(RPC2BUF,psize,data,buf);
         return (status > 0);
 }
 
@@ -609,6 +609,25 @@ int encodeRP2VM_ISVERIFIED(int size, byte *data, int bufsize, byte * buf)
 	memset(buf,0,bufsize);
 	return  cbuf_to_xmlrpc("encode_response", "", size, data, bufsize, buf);
 }
+
+bool decodeRP2VM_GETVMREPORT( char ** psz, int * pnargs,
+                                      char** args, const byte* buf)
+{
+       #ifdef TEST
+    fprintf(stdout, "decodeRP2VM_GETVMREPORT called\n");
+    #endif
+ int status = xmlrpc_to_args (psz, pnargs, args, buf);
+ //   int status = xmlrpc_to_cbuf(RPC2BUF,psize,data,buf);
+        return (status > 0);
+}
+
+int encodeRP2VM_GETVMREPORT(int size, byte *data, int bufsize, byte * buf)
+{
+       memset(buf,0,bufsize);
+       return  cbuf_to_xmlrpc("encode_response", "", size, data, bufsize, buf);
+}
+
+
 
 //MH end of GETTPMQUOTE xmlrpc conversion
 

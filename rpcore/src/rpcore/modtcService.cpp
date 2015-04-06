@@ -332,7 +332,7 @@ bool serviceprocTable::updateprocEntry(int procid, char* uuid, char *vdi_uuid)
 }
 
 bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash,
-									char* vm_manifest_signature, char *launch_policy, bool verification_status) {
+									char* vm_manifest_signature, char *launch_policy, bool verification_status, char * vm_manifest_dir) {
     //geting the procentry related to this procid
     serviceprocEnt* pEnt= getEntfromprocId(procid);
     if(pEnt == NULL) {
@@ -371,6 +371,9 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
     strcpy(pEnt->m_vm_manifest_signature,vm_manifest_signature);
     pEnt->m_size_vm_manifest_signature = strlen(pEnt->m_vm_manifest_signature);
 
+    strcpy(pEnt->m_vm_manifest_dir,vm_manifest_dir);
+    pEnt->m_size_vm_manifest_dir = strlen(pEnt->m_vm_manifest_dir);
+   
     strcpy(pEnt->m_vm_launch_policy,launch_policy);
     pEnt->m_size_vm_launch_policy = strlen(pEnt->m_vm_launch_policy);
     pEnt->m_vm_verfication_status = verification_status;
@@ -557,6 +560,48 @@ TCSERVICE_RESULT tcServiceInterface::IsVerified(char *vm_uuid, int* verification
 	//fprintf(g_logFile,"launch policy for UUID is not found\n");
 	return TCSERVICE_RESULT_FAILED;
 }
+
+// Need to get nonce also as input
+TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *nonce, char* vm_manifest_dir)
+{
+        fprintf(g_logFile,"\nIn function Generate SAML report\n");
+        serviceprocMap* pMap = m_procTable.m_pMap;
+        serviceprocEnt *pEnt;
+        while(pMap != NULL)
+        {
+                pEnt = pMap->pElement;
+                if(strcmp(vm_uuid,pEnt->m_uuid) == 0)
+                {
+                        fprintf(g_logFile,"Match found for given UUID \n");
+		// Do not need to copy  these variables, just use these directly to create the XML 
+                     //   memcpy(vm_manifestHash,pEnt->m_vm_manifest_hash, pEnt->m_size_vm_manifest_hash + 1);
+		
+		//	memcpy(vm_manifest_dir,pEnt->m_vm_manifest_dir, pEnt->m_size_vm_manifest_dir + 1);
+		//	memcpy(vm_image_id,pEnt->m_vm_image_id, pEnt->m_size_vm_image_id + 1) ; 
+
+// Generate Signed  XML  in same vm_manifest_dir
+
+                  //      fprintf(g_logFile,"verfication status for UUID is %d\n",*verification_status);
+                        //*bufsize = strlen(pEnt->m_vm_launch_policy);
+                        //memcpy((char *)policybuf,pEnt->m_vm_launch_policy,*bufsize + 1);
+                        //fprintf(g_logFile,"launch policy for UUID is %s\n",policybuf);
+		char xmlstr[2048];
+ 		sprintf(xmlstr, "<?xml> \n  <VMQuote> \n  <nonce>%s</nonce>\n    <vm_instance_id>%s</vm_instance_id> \n  <digest_alg>%s</digest_alg> \n    <cumulative_hash>%s</cumulative_hash> \n  <ds:Signature></ds:signature> \n   </VMQuote> \n </xml>",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash); 
+                      
+// SIGN it now 
+// Create a new API 
+ 		return TCSERVICE_RESULT_SUCCESS;
+                }
+                pMap = pMap->pNext;
+        }
+        fprintf(g_logFile,"Match not found for given UUID \n");
+        //*verification_status = -1;
+        //fprintf(g_logFile,"verfication status for UUID is %d\n",*verification_status);
+        //*policybuf = NULL;
+        //fprintf(g_logFile,"launch policy for UUID is not found\n");
+        return TCSERVICE_RESULT_FAILED;
+}
+
 
 TCSERVICE_RESULT tcServiceInterface::GetOsPolicyKey(u32* pType, 
                                             int* psize, byte* rgBuf)
@@ -850,6 +895,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
     char*   vm_customer_id;
     char*   vm_manifest_hash;
     char*   vm_manifest_signature;
+    char   vm_manifest_dir[2048] ={0};
     bool 	verification_status = false;
 
     //char    command[512];
@@ -885,6 +931,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
 		        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/manifest.xml"));
         		fprintf(g_logFile, "Manifest list path %s\n", nohash_manifest_file);
         		fprintf(stdout, "Manifest list path %s\n", nohash_manifest_file);
+			strcpy(vm_manifest_dir, nohash_manifest_file);
 		
 			sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
         		fprintf(g_logFile, "Manifest list path 2%s\n",nohash_manifest_file);
@@ -1165,7 +1212,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
         return TCSERVICE_RESULT_FAILED;
     }
 
-   if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status)) {
+   if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir)) {
         fprintf(g_logFile, "SartApp : can't update proc table entry\n");
         return TCSERVICE_RESULT_FAILED;
     }
@@ -2054,35 +2101,81 @@ bool  serviceRequest(tcChannel& chan, bool* pfTerminate)
         }
 
         case RP2VM_ISVERIFIED:
+
         {
-        	fprintf(g_logFile, "\nin case ISVerified \n");
-        	if(!decodeRP2VM_ISVERIFIED(&outparamsize,outparams,inparams))
+               fprintf(g_logFile, "\nin case ISVerified \n");
+               if(!decodeRP2VM_ISVERIFIED(&outparamsize,outparams,inparams))
+                       {
+                               fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
+                               g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                               return false;
+                       }
+               fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
+               fprintf(g_logFile, "\noutparams after decode : %s \n",outparams);
+
+               inparamsize = PARAMSIZE;
+                       memset(inparams,0,inparamsize);
+                       char uuid[50];
+                       memcpy(uuid,outparams,outparamsize+1);
+                       int verification_status;
+                       if(g_myService.IsVerified(uuid,&verification_status))
+                       {
+                               fprintf(g_logFile, "RP2VM_ISVERIFIED : uuid does not exist\n");
+                                g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                                return false;
+                       }
+                       sprintf((char *)inparams,"%d",verification_status);
+                       inparamsize = strlen((char *)inparams);
+                       outparamsize = PARAMSIZE;
+
+                       outparamsize = encodeRP2VM_ISVERIFIED(inparamsize, inparams, outparamsize, outparams);
+                       if(outparamsize<0) {
+                               fprintf(g_logFile, "RP2VM_ISVERIFIED: encodeRP2VM_isverified buf too small\n");
+                               g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                               return false;
+                       }
+                       if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
+                               fprintf(g_logFile, "serviceRequest: sendtcBuf (isverified) failed\n");
+                               chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                               return false;
+                       }
+                       fprintf(g_logFile,"************succesfully send the response*************** ");
+                       return true;
+        }
+case RP2VM_GETVMREPORT:
+        {
+        	fprintf(g_logFile, "\nin case GETVMREPORT \n");
+               if(!decodeRP2VM_GETVMREPORT(&str_rp_id, &an, (char**) av, inparams)) 
+        //	if(!decodeRP2VM_ISVERIFIED(&outparamsize,outparams,inparams))
 			{
-				fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
+				fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETVMREPORT failed\n");
 				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
 				return false;
 			}
         	fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
-        	fprintf(g_logFile, "\noutparams after decode : %s \n",outparams);
+        	fprintf(g_logFile, "\noutparams after decode : %s %s \n", av[0], av[1]);
 
         	inparamsize = PARAMSIZE;
 			memset(inparams,0,inparamsize);
-			char uuid[50];
-			memcpy(uuid,outparams,outparamsize+1);
-			int verification_status;
-			if(g_myService.IsVerified(uuid,&verification_status))
+//			char uuid[50];
+//			memcpy(uuid,outparams,outparamsize+1);
+//			int verification_status;
+//			if(g_myService.IsVerified(uuid,&verification_status))
+			char * vm_manifest_dir = (char *) malloc(sizeof(char) * 1024);
+		//	if(g_myService.IsVerified(av[0],av[1], vm_manifest_dir))
+			if(g_myService.GenerateSAMLAndGetDir(av[0],av[1], vm_manifest_dir))
                 	{
-                        	fprintf(g_logFile, "RP2VM_ISVERIFIED : uuid does not exist\n");
+                        	fprintf(g_logFile, "RP2VM_GETVMREPORT : uuid does not exist\n");
                                 g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
                                 return false;
                 	}
-			sprintf((char *)inparams,"%d",verification_status);
+			sprintf((char *)inparams,"%s",vm_manifest_dir);
 			inparamsize = strlen((char *)inparams);
 			outparamsize = PARAMSIZE;
 
-			outparamsize = encodeRP2VM_ISVERIFIED(inparamsize, inparams, outparamsize, outparams);
+			outparamsize = encodeRP2VM_GETVMREPORT(inparamsize, inparams, outparamsize, outparams);
 			if(outparamsize<0) {
-				fprintf(g_logFile, "RP2VM_ISVERIFIED: encodeRP2VM_isverified buf too small\n");
+				fprintf(g_logFile, "RP2VM_GETVMREPORT: encodeRP2VM_isverified buf too small\n");
 				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
 				return false;
 			}

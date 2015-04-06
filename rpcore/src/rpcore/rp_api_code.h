@@ -61,6 +61,9 @@
 #define VM2RP_GETVMMETA			38
 #define RP2VM_ISVERIFIED		39
 #define VM2RP_ISVERIFIED		40
+#define RP2VM_GETVMREPORT              41
+#define VM2RP_GETVMREPORT              42
+
 
 #define TCSERVICETERMINATE 100
 
