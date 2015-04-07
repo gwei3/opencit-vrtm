@@ -585,11 +585,30 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
                         //*bufsize = strlen(pEnt->m_vm_launch_policy);
                         //memcpy((char *)policybuf,pEnt->m_vm_launch_policy,*bufsize + 1);
                         //fprintf(g_logFile,"launch policy for UUID is %s\n",policybuf);
-		char xmlstr[2048];
- 		sprintf(xmlstr, "<?xml> \n  <VMQuote> \n  <nonce>%s</nonce>\n    <vm_instance_id>%s</vm_instance_id> \n  <digest_alg>%s</digest_alg> \n    <cumulative_hash>%s</cumulative_hash> \n  <ds:Signature></ds:signature> \n   </VMQuote> \n </xml>",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash); 
-                      
-// SIGN it now 
-// Create a new API 
+		char xmlstr[2048]={0};
+ 		sprintf(xmlstr, "<?xml> \n  <VMQuote> \n  <nonce>%s</nonce>\n    <vm_instance_id>%s</vm_instance_id> \n  <digest_alg>%s</digest_alg> \n    <cumulative_hash>%s</cumulative_hash> \n    </VMQuote> \n </xml>",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash); 
+                FILE * fp = fopen("us_xml.xml","w");
+               fprintf(fp,"%s",xmlstr);
+               fclose(fp);      
+               system("openssl dgst -sha1 us_xml.xml >hash.input");
+              //two JB's commands tht use hash.in and store signature in hash.out
+               system("export SIGNING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2)"); 
+               system("tpm_signdata -i hash.input -k /opt/trustagent/configuration/signingkey.blob -o hash.sig -q SIGNING_KEY_PASSWORD -t –x");
+	
+
+               fp = fopen("hash.sig","r");
+               char* signature=(char *) malloc(100*sizeof(char));
+               fscanf(fp,"%s",signature);
+               fclose(fp);
+
+               sprintf(xmlstr, "<?xml> \n  <VMQuote> \n  <nonce>%s</nonce>\n    <vm_instance_id>%s</vm_instance_id> \n  <digest_alg>%s</digest_alg> \n    <cumulative_hash>%s</cumulative_hash> \n<ds:Signature>%s</ds:Signature>\n    </VMQuote> \n </xml>",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash,signature);
+                char filepath[1000]={0};
+                sprintf(filepath,"%ssigned_report.xml",vm_manifest_dir);
+                fp = fopen(filepath,"w");
+               fprintf(fp,"%s",xmlstr);
+               fclose(fp);
+	       system ("rm us_xml.xml hash.sig hash.input");
+ 
  		return TCSERVICE_RESULT_SUCCESS;
                 }
                 pMap = pMap->pNext;
