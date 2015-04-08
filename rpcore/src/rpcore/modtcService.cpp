@@ -601,7 +601,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
                fscanf(fp,"%s",signature);
                fclose(fp);
 
-               sprintf(xmlstr, "<?xml> \n  <VMQuote> \n  <nonce>%s</nonce>\n    <vm_instance_id>%s</vm_instance_id> \n  <digest_alg>%s</digest_alg> \n    <cumulative_hash>%s</cumulative_hash> \n<ds:Signature>%s</ds:Signature>\n    </VMQuote> \n </xml>",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash,signature);
+               sprintf(xmlstr, "<?xml version=\"1.0\"?> \n  <VMQuote> \n  <nonce>%s</nonce>\n    <vm_instance_id>%s</vm_instance_id> \n  <digest_alg>%s</digest_alg> \n    <cumulative_hash>%s</cumulative_hash>\n<Signature>%s</Signature>\n    </VMQuote>",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash,signature);
                 char filepath[1000]={0};
                 sprintf(filepath,"%ssigned_report.xml",vm_manifest_dir);
                 fp = fopen(filepath,"w");
