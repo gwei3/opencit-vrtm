@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#This script installs RPCore, RPProxy, RPListner, and openstack patches
+#This script installs RPCore, RPProxy, RPListener, and openstack patches
 
 
 RES_DIR=$PWD
@@ -272,7 +272,7 @@ function installLibvirt()
 
 function installRPProxyAndListner()
 {
-	echo "Installing RPProxy and Starting RPListner...."
+	echo "Installing RPProxy and Starting RPListener...."
 	pkill -9 libvirtd
 	libvirtd -d
 
@@ -301,7 +301,7 @@ function installRPProxyAndListner()
 	echo "Stopping previous rp_listener processes if any..."
 	pkill -9 rp_listener
 	cd "$INSTALL_DIR/rpcore/bin/debug/"
-	nohup ./rp_listner > rp_listner.log 2>&1 &
+	nohup ./rp_listener > rp_listener.log 2>&1 &
 	cd "$INSTALL_DIR"
 
 }
@@ -352,7 +352,7 @@ function updateRCLocal()
 		cp /tmp/rptmp/config/TrustedOS/privatekey /tmp/rptmp/config/TrustedOS/privatekey.pem
 		cd \"$INSTALL_DIR/rpcore/bin/debug\"
 		nohup ./nontpmrpcore > nontpmrpcore.log 2>&1 &
-	        nohup ./rp_listner > rp_listner.log 2>&1 &
+	        nohup ./rp_listener > rp_listener.log 2>&1 &
 	        libvirtd -d
 	        sleep 1
 	        /root/services.sh restart
@@ -363,7 +363,7 @@ function updateRCLocal()
                 killall -9 libvirtd
                 sleep 2
                 ldconfig
-                nohup ./rp_listner > rp_listner.log 2>&1 &
+                nohup ./rp_listener > rp_listener.log 2>&1 &
                 libvirtd -d
                 sleep 1
                 /root/services.sh restart
