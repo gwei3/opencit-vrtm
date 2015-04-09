@@ -92,12 +92,12 @@ int ch_write(int fd, void* buf, int len) {
 
 int ch_register(int fd)
 {
-	//register the domain with RP core service
-    char* rpid = getenv("THIS_RPID");
-	if (! rpid)
-		rpid = "100";
-	
-	ch_write(fd, rpid, strlen(rpid) +1 );
+    char rpid[64]={0};
+    pid_t rpproxyid;
+    rpproxyid = getpid();
+    sprintf(rpid,"%d",rpproxyid);
+    fprintf(g_logFile,"\nregisteration of rp_id %s", rpid);
+    ch_write(fd, rpid, strlen(rpid) +1 );
 }
 
 int ch_open(char* serverip, int port) {

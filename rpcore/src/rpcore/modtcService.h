@@ -39,7 +39,7 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <pthread.h>
 #include "domain.h"
 
 
@@ -98,6 +98,7 @@ typedef aNode<serviceprocEnt>  serviceprocMap;
 
 class serviceprocTable {
 public:
+	pthread_mutex_t		loc_proc_table;
     int                 m_numFree;
     int                 m_numFilled;
     serviceprocMap*     m_pFree;
@@ -134,7 +135,13 @@ public:
 
     timer               m_taoEnvInitializationTimer;
     timer               m_taoHostInitializationTimer;
-
+    // This is the lock used by asyncStartApp method
+	pthread_mutex_t startAppLock;
+	pthread_mutex_t max_thread_lock;
+	int maxThread;
+	pthread_attr_t pthreadInit;
+	bool THREAD_ENABLED;
+	int threadCount;
     tcServiceInterface();
     ~tcServiceInterface();
 
@@ -150,10 +157,10 @@ public:
     TCSERVICE_RESULT    GetHostedMeasurement(int pid, u32* phashType, int* psize, byte* rgBuf);
     TCSERVICE_RESULT    GetEntropy(int size, byte* buf);
     
-    TCSERVICE_RESULT    StartApp(tcChannel& oAppChannel, int procid, 
-                            const char* file, int an, char** av,
+    TCSERVICE_RESULT    StartApp(tcChannel& oAppChannel, int procid, const char *file, 
+                            int an, char** av,
                             int* poutsize, byte* out);
-
+	void 				        printErrorMessagge(int error);
     TCSERVICE_RESULT    SealFor(int procid, int sizeIn, byte* rgIn, 
                             int* psizeOut, byte* rgOut);
     TCSERVICE_RESULT    UnsealFor(int procid, int sizeIn, byte* rgIn, 
@@ -172,7 +179,17 @@ public:
     TCSERVICE_RESULT	IsVerified(char *vm_uuid, int* verification_status);
 };
 
+typedef struct requestData {
+	int                 procid;
+	int                 origprocid;
+	u32                 uReq;
+    int                 inparamsize;
+    byte                *inparams;
+}requestData;
 
+void* async_service_request(void * reqData);
+requestData* create_request_data(int procid, int origprocid, u32 uReq, int inparamsize, byte *inparams);
+void free_request_data(requestData *reqData);
 #endif
 
 
