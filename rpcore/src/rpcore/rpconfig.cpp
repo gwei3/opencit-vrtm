@@ -38,6 +38,7 @@ int 	g_kns_port = 0;
 
 char 	g_rpcore_ip [64] 		= "127.0.0.1";
 int 	g_rpcore_port = 16005;
+int	g_max_thread_limit = 64;
 
 extern tcChannel   g_reqChannel;
 
@@ -216,6 +217,7 @@ int read_config(const char* szInFile ){
 		const char* rpcore_port = findValueOf(pRoot, "rpcore_port"); 	//"6005";
 		const char* mtwproxy_ip = findValueOf(pRoot, "mtwproxy_ip");
 		const char* mtwproxy_port = findValueOf(pRoot, "mtwproxy_port");
+		const char* max_thread_limit = findValueOf(pRoot, "max_thread_limit");
 		
 		if (mode ) {
 			if ( strncasecmp( mode, "openstack", strlen("openstack")) == 0)
@@ -248,7 +250,10 @@ int read_config(const char* szInFile ){
 			fprintf(stdout, "cert domain  = %s\n", domain);
 		}
 		
-	
+		if ( max_thread_limit ) {
+			g_max_thread_limit = atoi(max_thread_limit);
+			fprintf(stdout,"max thread limit = %d", g_max_thread_limit);
+		}
 		
 		if ( mtwproxy_ip ) {
 			memcpy(g_mtwproxy_ip, mtwproxy_ip, strlen(mtwproxy_ip));

@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x
-mountPath="/tmp/mount"
-vhdMountPath="/tmp/vhdmnt"
+#mountPath="/tmp/mount"
+#vhdMountPath="/tmp/vhdmnt"
 
 function unmount_vm_image() {
         echo "################ Unmounting the mount path"
@@ -136,7 +136,7 @@ function mount_vhd_image() {
 }
 
 usage(){
-        echo "Usage: $0 Image-File"
+        echo "Usage: $0 Image-File mount-path"
         exit 1
 }
 
@@ -151,15 +151,21 @@ function check_unmount_status()
 	fi
 }
 
-if [ $# -eq 0 ]
+if [ $# -eq 1 ]
 then
 	#check_unmount_status
+	mountPath=$1
 	unmount_vm_image
 	exit 0
 fi
 
 imagePath=$1
-
+tmppath=$2
+mountPath="${tmppath}/mount"
+vhdMountPath="${tmppath}/vhdmnt"
+rm -rf $tmppath
+mkdir -p $mountPath
+mkdir -p $vhdMountPath
 checkVhd=$(tar tf $imagePath 2>/dev/null | grep 0.vhd)
 if [ ! -z $checkVhd ]
 then
