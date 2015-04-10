@@ -1207,25 +1207,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
     } // end of file parsing
     fclose(fp);
 // Only call verfier when measurement is required
-
-
-        pid_t pid=fork();
-        if (pid==0) { // child process
-            remove("/tmp/imvm-result.out");
-            char command[512];
-     //       if ((strcmp(ramdisk_file,"") == 0) && (strcmp(kernel_file,"") == 0))
-            	// append rpid to /tmp/imvm-result_.out
-                sprintf(command,"./verifier %s %s IMVM  > /tmp/imvm-result_%d.out 2>&1", nohash_manifest_file, disk_file,child);
-      //      else
-	//		                sprintf(command,"./verifier %s %s IMVM %s %d %s %s > /tmp/imvm-result.out 2>&1", manifest_file, disk_file, mtw_pubkey_file, child, kernel_file, ramdisk_file);
-
+	char command[512]={0};
+            	// append rpid to /tmp/imvm-result_"rpid".out
+	sprintf(command,"./verifier %s %s IMVM  > /tmp/imvm-result_%d.out 2>&1", nohash_manifest_file, disk_file,child);
             system(command);
-            exit(127); // only if execv fails
-        }
-        else { // pid!=0; parent process
-            waitpid(pid,0,0); // wait for child to exit
-        }
-
 // Open measurement log file at a specified location
         fq = fopen(cumulativehash_file, "rb");
         if(!fq) 
