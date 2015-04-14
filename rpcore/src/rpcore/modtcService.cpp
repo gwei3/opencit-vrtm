@@ -1734,14 +1734,14 @@ requestData* create_request_data(int procid, int origprocid, u32 uReq, int inpar
 	reqData->origprocid = origprocid;
 	reqData->uReq = uReq;
 	reqData->inparamsize = inparamsize;
-	reqData->inparams = (byte *)calloc(1,(sizeof(byte)*inparamsize));
+	//reqData->inparams = (byte *)calloc(1,(sizeof(byte)*inparamsize));
 	memcpy(reqData->inparams,inparams,inparamsize);
 	return reqData;
 }
 
 void free_request_data(requestData *reqData)
 {
-	free(reqData->inparams);
+	//free(reqData->inparams);
 	free(reqData);
 }
 
