@@ -172,7 +172,7 @@ function install_kvm_packages_ubuntu()
 	apt-get -y  install python-software-properties
 	add-apt-repository -y cloud-archive:icehouse
 	apt-get -y update
-	apt-get -y dist-upgrade
+	#apt-get -y dist-upgrade
 	apt-get -y install gcc libsdl1.2-dev zlib1g-dev libasound2-dev linux-kernel-headers pkg-config libgnutls-dev libpci-dev build-essential bzr bzr-builddeb cdbs debhelper devscripts dh-make diffutils dpatch fakeroot gnome-pkg-tools gnupg liburi-perl lintian patch patchutils pbuilder piuparts quilt ubuntu-dev-tools wget libglib2.0-dev libsdl1.2-dev libjpeg-dev libvde-dev libvdeplug2-dev libbrlapi-dev libaio-dev libfdt-dev texi2html texinfo info2man pod2pdf libnss3-dev libcap-dev libattr1-dev libtspi-dev gcc-4.6-multilib libpixman-1-dev libxml2-dev libssl-dev ant
 	apt-get -y install libvirt-bin libvirt-dev qemu-kvm
 	apt-get -y install libyajl-dev libdevmapper-dev libpciaccess-dev libnl-dev
@@ -211,6 +211,21 @@ function install_kvm_packages()
 		install_kvm_packages_suse	
 	fi
 }
+
+function makeUnixExecutable()
+{
+	dirName=$1
+	tempFile=$RANDOM
+	for file in `find "$dirName" -name "*.sh"`
+	do
+		# convert from dos2unix
+		tr -d '\r' < "$file" > /tmp/tempFile
+		mv /tmp/tempFile "$file"
+		# Apply executable permissions
+		chmod +x $file
+	done
+}
+
 
 function main()
 {
@@ -251,6 +266,7 @@ function main()
 	echo "Create the install tar file"
         mkdir -p "$DIST_DIR"
         cd "$BUILD_DIR"
+	makeUnixExecutable $BUILD_DIR
 	if [ $BUILD_LIBVIRT == "TRUE" ] ; then
 		echo "Removing libvirt.so ..."
 		rm -rf ./rpcore/lib/libvirt.so	
@@ -260,6 +276,7 @@ function main()
         cp install/vRTM_KVM_install.sh "$DIST_DIR"
 	tr -d '\r' < "$DIST_DIR/vRTM_KVM_install.sh" > /tmp/output.file
 	mv /tmp/output.file "$DIST_DIR/vRTM_KVM_install.sh"
+	chmod +x "$DIST_DIR/vRTM_KVM_install.sh"
         arg=`cat "$BUILD_DIR/outfile" | grep -i -v "print*" | grep -c ' error'`
 
 	if [ $arg -eq 0 ]

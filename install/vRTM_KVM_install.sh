@@ -129,7 +129,7 @@ function installKVMPackages_ubuntu()
 	apt-get -y  install python-software-properties
 	add-apt-repository -y cloud-archive:icehouse
 	apt-get -y update
-	apt-get -y dist-upgrade
+	#apt-get -y dist-upgrade
 	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp chkconfig guestfish
 	apt-get -y install openssh-server
 	apt-get -y install python-dev
@@ -149,7 +149,7 @@ function installKVMPackages_suse()
 	zypper addrepo -f obs://Cloud:OpenStack:Icehouse/openSUSE_13.1 Icehouse
 	zypper -n in openstack-utils
 	zypper -n refresh
-	zypper -n dist-upgrade
+	# zypper -n dist-upgrade
         zypper -n in libvirt libvirt-devel qemu-kvm
 	zypper -n in libyajl2 libpciaccess0 libnl3-200 libxml2-2
         zypper -n in libyajl-devel libpciaccess-devel libnl3-devel libxml2-devel 
@@ -181,7 +181,25 @@ installLibvirtPackages_ubuntu()
                echo "apt-get update failed, kindly resume after manually executing apt-get update"
         fi
         apt-get -y install libvirt-bin libvirt-dev libvirt0 python-libvirt
-
+	grep -c libvirtd /etc/group
+        if [ $? -eq 1 ] ; then
+                groupadd libvirtd
+        fi
+        id nova > /dev/null
+        if [ $? -eq 0 ] ; then
+                echo "Found nova user"
+                isNovaInLibvirtGroup=`id nova | grep -i -c libvirtd`
+                if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
+                        echo "nova user is present but not a part of libvirtd group"
+                        echo -n "Adding nova as a part of libvirtd group... "
+                        usermod -G -a libvirtd nova
+                        if [ $? -eq 0 ] ; then
+                                echo "success"
+                        else
+                                echo "failed"
+                        fi
+                fi      
+        fi
 }
 
 installLibvirtPackages_rhel()
@@ -190,20 +208,49 @@ installLibvirtPackages_rhel()
         # This is required because if one installs only libvirt then the eco-system for libvirt is not ready
         # For e.g the virtualisation group also creates libvirtd group over the system.
         yum groupinstall -y Virtualization	
-	grep -c libvirtd /etc/groups
+	grep -c libvirtd /etc/group
 	if [ $? -eq 1 ] ; then
 		groupadd libvirtd
+	fi
+	id nova > /dev/null
+	if [ $? -eq 0 ] ; then
+		echo "Found nova user"
+		isNovaInLibvirtGroup=`id nova | grep -i -c libvirtd`
+		if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
+			echo "nova user is present but not a part of libvirtd group"
+			echo -n "Adding nova as a part of libvirtd group... "
+			usermod -G -a libvirtd nova
+			if [ $? -eq 0 ] ; then
+				echo "success"
+			else
+				echo "failed"
+			fi
+		fi
 	fi
 }
 
 installLibvirtPackages_suse()
 {
 	zypper -n in libvirt libvirt-devel libvirt-python
-        grep -c libvirtd /etc/groups
+        grep -c libvirtd /etc/group
         if [ $? -eq 1 ] ; then
                 groupadd libvirtd
         fi
- 
+	id nova > /dev/null
+        if [ $? -eq 0 ] ; then
+                echo "Found nova user"
+                isNovaInLibvirtGroup=`id nova | grep -i -c libvirtd`
+                if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
+                        echo "nova user is present but not a part of libvirtd group"
+                        echo -n "Adding nova as a part of libvirtd group... "
+                        usermod -G -a libvirtd nova
+                        if [ $? -eq 0 ] ; then
+                                echo "success"
+                        else
+                                echo "failed"
+                        fi
+                fi
+        fi
 }
 
 installLibvirtPackages()

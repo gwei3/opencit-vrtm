@@ -28,7 +28,7 @@ int ch_read(int fd, void* buf, int bufsize){
    ssize_t data_len = 0;
      do {
    
-      ssize_t ret = read(fd, buf + bytesRead, sz_header - bytesRead);
+      ssize_t ret = read(fd, (char*)buf + bytesRead, sz_header - bytesRead);
       if (ret < 0) {
         fprintf(g_logFile, "Could not read a bufferfrom the network after %d bytes were read\n",  bytesRead);
         return ret;
@@ -56,7 +56,7 @@ int ch_read(int fd, void* buf, int bufsize){
    
    do {
    
-      ssize_t ret = read(fd, buf + bytesRead, bufsize - bytesRead);
+      ssize_t ret = read(fd, (char*)buf + bytesRead, bufsize - bytesRead);
       if (ret < 0) {
         fprintf(g_logFile, "Could not read a bufferfrom the network after %d bytes were read\n",  bytesRead);
         return ret;
@@ -77,7 +77,7 @@ int ch_read(int fd, void* buf, int bufsize){
 int ch_write(int fd, void* buf, int len) {
 	ssize_t bytesWritten = 0;
     do {
-      ssize_t ret = write(fd, buf + bytesWritten, len - bytesWritten);
+      ssize_t ret = write(fd, (char*)buf + bytesWritten, len - bytesWritten);
       if (ret < 0) {
         fprintf(stdout, "Could not write the full buffer of length %d to the network after %d bytes were written\n", len, bytesWritten);
         return ret;

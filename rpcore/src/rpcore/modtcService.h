@@ -187,7 +187,7 @@ typedef struct requestData {
 	int                 origprocid;
 	u32                 uReq;
     int                 inparamsize;
-    byte                *inparams;
+    byte                inparams[65536];
 }requestData;
 
 void* async_service_request(void * reqData);
