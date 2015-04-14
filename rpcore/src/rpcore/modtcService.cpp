@@ -120,7 +120,7 @@ serviceprocTable::serviceprocTable()
     m_pMap= NULL;
     m_rgProcMap= NULL;
     m_rgProcEnts= NULL;
-    loc_proc_table = PTHREAD_MUTEX_INITIALIZER;
+    loc_proc_table = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 }
 
 
@@ -470,8 +470,8 @@ void tcServiceInterface::printErrorMessagge(int error) {
 tcServiceInterface::tcServiceInterface()
 {
 	int error;
-	startAppLock = PTHREAD_MUTEX_INITIALIZER;
-	max_thread_lock = PTHREAD_MUTEX_INITIALIZER;
+	startAppLock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
+	max_thread_lock = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 	maxThread  = g_max_thread_limit;
 	threadCount = 0;
 	if ( (error = pthread_attr_init (&pthreadInit)) ) {

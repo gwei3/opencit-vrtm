@@ -97,7 +97,7 @@ static int domainEventCallback(virConnectPtr conn ATTRIBUTE_UNUSED, virDomainPtr
                 notifyRPCore = true;
                 break;
         }
-    } else if (eventType == VIR_DOMAIN_EVENT_CRASHED) {
+    } else if (eventType == VIR_DOMAIN_CRASHED) {
         notifyRPCore = true;
     } else if (eventType == VIR_DOMAIN_EVENT_STARTED) {
 		fprintf(stdout, "In VIR_DOMAIN_EVENT_STARTED event");

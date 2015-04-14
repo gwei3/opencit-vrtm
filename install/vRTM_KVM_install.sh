@@ -181,7 +181,7 @@ installLibvirtPackages_ubuntu()
                echo "apt-get update failed, kindly resume after manually executing apt-get update"
         fi
         apt-get -y install libvirt-bin libvirt-dev libvirt0 python-libvirt
-	grep -c libvirtd /etc/groups
+	grep -c libvirtd /etc/group
         if [ $? -eq 1 ] ; then
                 groupadd libvirtd
         fi
@@ -208,7 +208,7 @@ installLibvirtPackages_rhel()
         # This is required because if one installs only libvirt then the eco-system for libvirt is not ready
         # For e.g the virtualisation group also creates libvirtd group over the system.
         yum groupinstall -y Virtualization	
-	grep -c libvirtd /etc/groups
+	grep -c libvirtd /etc/group
 	if [ $? -eq 1 ] ; then
 		groupadd libvirtd
 	fi
@@ -232,7 +232,7 @@ installLibvirtPackages_rhel()
 installLibvirtPackages_suse()
 {
 	zypper -n in libvirt libvirt-devel libvirt-python
-        grep -c libvirtd /etc/groups
+        grep -c libvirtd /etc/group
         if [ $? -eq 1 ] ; then
                 groupadd libvirtd
         fi
