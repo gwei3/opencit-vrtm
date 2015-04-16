@@ -192,7 +192,7 @@ installLibvirtPackages_ubuntu()
                 if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
                         echo "nova user is present but not a part of libvirtd group"
                         echo -n "Adding nova as a part of libvirtd group... "
-                        usermod -G -a libvirtd nova
+                        usermod -a -G libvirtd nova
                         if [ $? -eq 0 ] ; then
                                 echo "success"
                         else
@@ -219,7 +219,7 @@ installLibvirtPackages_rhel()
 		if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
 			echo "nova user is present but not a part of libvirtd group"
 			echo -n "Adding nova as a part of libvirtd group... "
-			usermod -G -a libvirtd nova
+			usermod -a -G libvirtd nova
 			if [ $? -eq 0 ] ; then
 				echo "success"
 			else
@@ -243,7 +243,7 @@ installLibvirtPackages_suse()
                 if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
                         echo "nova user is present but not a part of libvirtd group"
                         echo -n "Adding nova as a part of libvirtd group... "
-                        usermod -G -a libvirtd nova
+                        usermod -a -G libvirtd nova
                         if [ $? -eq 0 ] ; then
                                 echo "success"
                         else
