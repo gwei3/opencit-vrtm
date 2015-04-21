@@ -1802,8 +1802,6 @@ case RP2VM_GETVMREPORT:
         	fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
         	fprintf(g_logFile, "\noutparams after decode : %s %s \n", av[0], av[1]);
 
-        	inparamsize = PARAMSIZE;
-			memset(inparams,0,inparamsize);
 //			char uuid[50];
 //			memcpy(uuid,outparams,outparamsize+1);
 //			int verification_status;
@@ -1816,11 +1814,10 @@ case RP2VM_GETVMREPORT:
                                 g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
                                 return false;
                 	}
-			sprintf((char *)inparams,"%s",vm_manifest_dir);
-			inparamsize = strlen((char *)inparams);
+			int vm_manifest_dir_size = strlen(vm_manifest_dir);
 			outparamsize = PARAMSIZE;
 
-			outparamsize = encodeRP2VM_GETVMREPORT(inparamsize, inparams, outparamsize, outparams);
+			outparamsize = encodeRP2VM_GETVMREPORT(vm_manifest_dir_size, (byte *)vm_manifest_dir, outparamsize, outparams);
 			if(outparamsize<0) {
 				fprintf(g_logFile, "RP2VM_GETVMREPORT: encodeRP2VM_isverified buf too small\n");
 				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
@@ -1831,6 +1828,7 @@ case RP2VM_GETVMREPORT:
 				chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
 				return false;
 			}
+			free(vm_manifest_dir);
 			fprintf(g_logFile,"************succesfully send the response*************** ");
 			return true;
         }
