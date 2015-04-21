@@ -654,6 +654,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
                sprintf(xmlstr, "<?xml version=\"1.0\"?> \n  <VMQuote> \n  <nonce>%s</nonce>\n    <vm_instance_id>%s</vm_instance_id> \n  <digest_alg>%s</digest_alg> \n    <cumulative_hash>%s</cumulative_hash>\n<Signature>%s</Signature>\n    </VMQuote>",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash,signature);
                 char filepath[1000]={0};
+		sprintf(vm_manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
                 sprintf(filepath,"%ssigned_report.xml",vm_manifest_dir);
                 fp = fopen(filepath,"w");
                fprintf(fp,"%s",xmlstr);
