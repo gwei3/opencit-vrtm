@@ -1492,7 +1492,7 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
     fprintf(g_logFile, "serviceRequest after get procid: %d, req, %d, origprocid %d\n", 
            procid, uReq, origprocid); 
 #endif
-
+	fprintf(g_logFile,"Input Parameters before switch case : %s\n",inparams);
     char response;
     //inparamsize = outparamsize = PARAMSIZE;
     switch(uReq) {
@@ -1625,22 +1625,24 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
         	}
             fprintf(g_logFile,"Inparams after decoding : %s\n",inparams);
             fprintf(g_logFile,"outparams after decoding: %s\n",outparams);
-        	inparamsize = PARAMSIZE;
-        	memset(inparams,0,inparamsize);
+        	//inparamsize = PARAMSIZE;
+        	//memset(inparams,0,inparamsize);
         	char uuid[50];
+		char rpid[16];
+		int rpidsize=16;
         	memcpy(uuid,outparams,outparamsize+1);
         	//call getRPID(outparams,&inparams)
-        	if(g_myService.GetRpId(uuid,inparams,&inparamsize))
+        	if(g_myService.GetRpId(uuid,(byte *)rpid,&rpidsize))
         	{
         		fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETRPID uuid does not exist\n");
 				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
 				return false;
         	}
-            fprintf(g_logFile,"rpid : %s\n",inparams);
+            fprintf(g_logFile,"rpid : %s\n",rpid);
 
         	//then encode the result
         	outparamsize = PARAMSIZE;
-        	outparamsize = encodeRP2VM_GETRPID(inparamsize,inparams,outparamsize,outparams);
+        	outparamsize = encodeRP2VM_GETRPID(rpidsize,(byte *)rpid,outparamsize,outparams);
             fprintf(g_logFile,"after encode : %s",outparams);
         	if(outparamsize<0) {
 				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETRPID buf too small\n");
@@ -1748,48 +1750,50 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
         }
 
         case RP2VM_ISVERIFIED:
-
         {
-               fprintf(g_logFile, "\nin case ISVerified \n");
-               if(!decodeRP2VM_ISVERIFIED(&outparamsize,outparams,inparams))
-                       {
-                               fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
-                               g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-                               return false;
-                       }
-               fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
-               fprintf(g_logFile, "\noutparams after decode : %s \n",outparams);
-
-               inparamsize = PARAMSIZE;
-                       memset(inparams,0,inparamsize);
-                       char uuid[50];
-                       memcpy(uuid,outparams,outparamsize+1);
-                       int verification_status;
-                       if(g_myService.IsVerified(uuid,&verification_status))
-                       {
-                               fprintf(g_logFile, "RP2VM_ISVERIFIED : uuid does not exist\n");
+                fprintf(g_logFile, "\nin case ISVerified \n");
+                if(!decodeRP2VM_ISVERIFIED(&outparamsize,outparams,inparams))
+                        {
+                                fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
                                 g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
                                 return false;
-                       }
-                       sprintf((char *)inparams,"%d",verification_status);
-                       inparamsize = strlen((char *)inparams);
-                       outparamsize = PARAMSIZE;
+                        }
+                fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
+                fprintf(g_logFile, "\noutparams after decode : %s \n",outparams);
 
-                       outparamsize = encodeRP2VM_ISVERIFIED(inparamsize, inparams, outparamsize, outparams);
-                       if(outparamsize<0) {
-                               fprintf(g_logFile, "RP2VM_ISVERIFIED: encodeRP2VM_isverified buf too small\n");
-                               g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-                               return false;
-                       }
-                       if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
-                               fprintf(g_logFile, "serviceRequest: sendtcBuf (isverified) failed\n");
-                               chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-                               return false;
-                       }
-                       fprintf(g_logFile,"************succesfully send the response*************** ");
-                       return true;
+                        //inparamsize = PARAMSIZE;
+                        //memset(inparams,0,inparamsize);
+                        char uuid[50];
+                        char verificationstat[8];
+                        int  verificationstatsize=8;
+                        memcpy(uuid,outparams,outparamsize+1);
+                        int verification_status;
+                        if(g_myService.IsVerified(uuid,&verification_status))
+                        {
+                                fprintf(g_logFile, "RP2VM_ISVERIFIED : uuid does not exist\n");
+                                g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                                return false;
+                        }
+                        sprintf(verificationstat,"%d",verification_status);
+                        verificationstatsize = strlen((char *)verificationstat);
+                        outparamsize = PARAMSIZE;
+
+                        outparamsize = encodeRP2VM_ISVERIFIED(verificationstatsize, (byte *)verificationstat, outparamsize, outparams);
+                        if(outparamsize<0) {
+                                fprintf(g_logFile, "RP2VM_ISVERIFIED: encodeRP2VM_isverified buf too small\n");
+                                g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                                return false;
+                        }
+                        if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
+                                fprintf(g_logFile, "serviceRequest: sendtcBuf (isverified) failed\n");
+                                chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+                                return false;
+                        }
+                        fprintf(g_logFile,"************succesfully send the response*************** ");
+                        return true;
         }
-case RP2VM_GETVMREPORT:
+
+	case RP2VM_GETVMREPORT:
         {
         	fprintf(g_logFile, "\nin case GETVMREPORT \n");
                if(!decodeRP2VM_GETVMREPORT(&str_rp_id, &an, (char**) av, inparams)) 
@@ -1848,14 +1852,14 @@ requestData* create_request_data(int procid, int origprocid, u32 uReq, int inpar
 	reqData->origprocid = origprocid;
 	reqData->uReq = uReq;
 	reqData->inparamsize = inparamsize;
-	//reqData->inparams = (byte *)calloc(1,(sizeof(byte)*inparamsize));
+	reqData->inparams = (byte *)calloc(1,(sizeof(byte)*inparamsize));
 	memcpy(reqData->inparams,inparams,inparamsize);
 	return reqData;
 }
 
 void free_request_data(requestData *reqData)
 {
-	//free(reqData->inparams);
+	free(reqData->inparams);
 	free(reqData);
 }
 

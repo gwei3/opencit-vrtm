@@ -19,6 +19,7 @@ RP-proxy will call qemu with VM launch options after the VM image measurement is
 #include <fcntl.h>
 #include <time.h>
 #include <errno.h>
+#include <unistd.h>
 #include "tcpchan.h"
 #include "channelcoding.h"
 #include "pyifc.h"
@@ -292,6 +293,15 @@ int main(int argc, char** argv) {
     memset(manifest_path, '\0', sizeof(manifest_path));
     strncpy(manifest_path, disk_path, strlen(disk_path)-strlen("/disk"));
     sprintf(manifest_path, "%s%s", manifest_path, "/trustpolicy.xml");
+
+// If not measured launch then execute command without calling vRTM
+    if(access(manifest_path, F_OK)!=0){
+	fprintf(f, "Trustpolicy.xml doesn't exist at  %s\n", manifest_path);
+	fprintf(f, "Forwarding request for normal non-measured VM launch");
+        fclose(f);
+        execve(argv[0], argv, NULL);
+        return 0;
+    }
 
     // If kernel and initrd are not passed then pass them as empty strings
     kernel_path = (kernel_path == NULL) ? "" : kernel_path;
