@@ -636,6 +636,63 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
                         //*bufsize = strlen(pEnt->m_vm_launch_policy);
                         //memcpy((char *)policybuf,pEnt->m_vm_launch_policy,*bufsize + 1);
                         //fprintf(g_logFile,"launch policy for UUID is %s\n",policybuf);
+
+
+
+		 char xmlstr[2048]={0};
+                sprintf(xmlstr, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<VMQuote>\n<nonce>%s</nonce>\n<vm_instance_id>%s</vm_instance_id>\n<digest_alg>%s</digest_alg>\n<cumulative_hash>%s</cumulative_hash>\n</VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
+                FILE * fp = fopen("us_xml.xml","w");
+               fprintf(fp,"%s",xmlstr);
+               fclose(fp);
+               system("openssl dgst -sha1 us_xml.xml >hash.input");
+              //two JB's commands tht use hash.in and store signature in hash.out
+               system("export SIGNING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2)");
+               system("tpm_signdata -i hash.input -k /opt/trustagent/configuration/signingkey.blob -o hash.sig -q SIGNING_KEY_PASSWORD -t –x");
+
+
+               fp = fopen("hash.sig","r");
+               char* signature=(char *) malloc(1000*sizeof(char));
+               fscanf(fp,"%s",signature);
+               fclose(fp);
+
+                fp = fopen("hash.in","r");
+               char* digval=(char *) malloc(1000*sizeof(char));
+               fscanf(fp,"%s",digval);
+               fclose(fp);
+               char *path = "/opt/trustagent/configuration/signingkey.pem";
+               char command[200];
+
+               sprintf(command,"openssl x509 -in %s -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' > file",path);
+               system(command);
+               system("grep -vwE \"(-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----)\" file  > file2");
+               char *file_contents;
+               long input_file_size;
+               FILE *input_file = fopen("file2", "rb");
+               fseek(input_file, 0, SEEK_END);
+               input_file_size = ftell(input_file);
+               rewind(input_file);
+
+               file_contents = (char*)malloc((input_file_size + 1) * (sizeof(char)));
+               fread(file_contents, sizeof(char), input_file_size, input_file);
+               fclose(input_file);
+               file_contents[input_file_size] = 0;
+               // printf("\nCertificate is : %s \n",file_contents);
+
+                sprintf(xmlstr, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<VMQuote>\n<nonce>%s</nonce>\n<vm_instance_id>%s</vm_instance_id>\n<digest_alg>%s</digest_alg>\n<cumulative_hash>%s</cumulative_hash>\n<Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">\n<SignedInfo>\n<CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments\"/>\n<SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/>\n<Reference URI=\"#HostTrustAssertion\">\n<Transforms>\n<Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/>\n</Transforms>\n<DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/>\n<DigestValue>%s</DigestValue>\n</Reference>\n</SignedInfo>\n<SignatureValue>%s</SignatureValue>\n<KeyInfo>\n<X509Data>\n<X509Certificate>%s</X509Certificate>\n</X509Data>\n</KeyInfo>\n</Signature>\n</VMQuote>","SHA256",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash,digval,signature,file_contents);
+
+               system("rm -rf file file2");
+                char filepath[1000]={0};
+		sprintf(vm_manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
+                sprintf(filepath,"%ssigned_report.xml",vm_manifest_dir);
+                fp = fopen(filepath,"w");
+               fprintf(fp,"%s",xmlstr);
+               fclose(fp);
+               system ("rm us_xml.xml hash.sig hash.input");
+
+
+
+
+/*
 		char xmlstr[2048]={0};
  		sprintf(xmlstr, "<?xml> \n  <VMQuote> \n  <nonce>%s</nonce>\n    <vm_instance_id>%s</vm_instance_id> \n  <digest_alg>%s</digest_alg> \n    <cumulative_hash>%s</cumulative_hash> \n    </VMQuote> \n </xml>",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash); 
                 FILE * fp = fopen("us_xml.xml","w");
@@ -660,7 +717,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
                fprintf(fp,"%s",xmlstr);
                fclose(fp);
 	       system ("rm us_xml.xml hash.sig hash.input");
- 
+ */
  		return TCSERVICE_RESULT_SUCCESS;
                 }
                 pMap = pMap->pNext;
