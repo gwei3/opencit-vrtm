@@ -679,7 +679,9 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
                // printf("\nCertificate is : %s \n",file_contents);
 
                 sprintf(xmlstr, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<VMQuote>\n<nonce>%s</nonce>\n<vm_instance_id>%s</vm_instance_id>\n<digest_alg>%s</digest_alg>\n<cumulative_hash>%s</cumulative_hash>\n<Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">\n<SignedInfo>\n<CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments\"/>\n<SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/>\n<Reference URI=\"#HostTrustAssertion\">\n<Transforms>\n<Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/>\n</Transforms>\n<DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/>\n<DigestValue>%s</DigestValue>\n</Reference>\n</SignedInfo>\n<SignatureValue>%s</SignatureValue>\n<KeyInfo>\n<X509Data>\n<X509Certificate>%s</X509Certificate>\n</X509Data>\n</KeyInfo>\n</Signature>\n</VMQuote>","SHA256",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash,digval,signature,file_contents);
-
+		free(file_contents);
+		free(signature);
+		free(digval);
                system("rm -rf file file2");
                 char filepath[1000]={0};
 		sprintf(vm_manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
