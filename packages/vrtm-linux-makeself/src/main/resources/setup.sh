@@ -107,7 +107,7 @@ if [ -d $VRTM_CONFIGURATION ]; then
 fi
 
 # create application directories (chown will be repeated near end of this script, after setup)
-for directory in $VRTM_HOME $VRTM_CONFIGURATION $VRTM_ENV $VRTM_REPOSITORY $VRTM_LOGS; do
+for directory in $VRTM_HOME $VRTM_CONFIGURATION $VRTM_REPOSITORY $VRTM_JAVA $VRTM_BIN $VRTM_LOGS $VRTM_ENV; do
   mkdir -p $directory
   chmod 700 $directory
 done
@@ -132,7 +132,7 @@ if [ $? -ne 0 ]; then echo_failure "Failed to install prerequisites through pack
 # delete existing java files, to prevent a situation where the installer copies
 # a newer file but the older file is also there
 if [ -d $VRTM_HOME/java ]; then
-  rm $VRTM_HOME/java/*.jar
+  rm $VRTM_HOME/java/*.jar 2>/dev/null
 fi
 
 # extract vrtm  (vrtm-zip-0.1-SNAPSHOT.zip)
@@ -145,8 +145,10 @@ cp $UTIL_SCRIPT_FILE $VRTM_HOME/bin/functions.sh
 
 # set permissions
 chmod 700 $VRTM_HOME/bin/*
+chmod 700 $VRTM_HOME/dist/*
 
-$VRTM_BIN/generate_initrd.sh
-$VRTM_BIN/configure_host.sh
+(cd $VRTM_HOME/dist && ./vRTM_KVM_install.sh)
+rm -rf /$VRTM_HOME/dist
+ln -s /opt/tbootxm/bin/verifier $INSTALL_DIR/rpcore/bin/debug
 
 echo_success "Installation complete"

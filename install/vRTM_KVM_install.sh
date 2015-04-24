@@ -4,7 +4,7 @@
 
 
 RES_DIR=$PWD
-DEFAULT_INSTALL_DIR=/opt
+DEFAULT_INSTALL_DIR=/opt/vrtm
 
 OPENSTACK_DIR="Openstack/patch"
 DIST_LOCATION=`/usr/bin/python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())"`
@@ -467,19 +467,23 @@ function validate()
 
 function main_default()
 {
-	echo "Please enter the install location (default : /opt/RP_<BUILD_TIMESTAMP> )"
-	read INSTALL_DIR
-	if [ -z "$INSTALL_DIR" ] 
-	then 
-		BUILD_TIMESTAMP=`ls KVM_*.tar.gz | awk 'BEGIN{FS="_"} {print $3}' | awk 'BEGIN{FS="."}{print $2}'`
-		INSTALL_DIR="$DEFAULT_INSTALL_DIR/RP_$BUILD_TIMESTAMP"
-	fi
-	mkdir -p "$INSTALL_DIR"
-	while : ; do
-		echo "Please enter current machine IP"
-		read CURRENT_IP
-		if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
-	done
+  if [ -z "$INSTALL_DIR" ]; then
+    echo "Please enter the install location (default : /opt/RP_<BUILD_TIMESTAMP> )"
+    read INSTALL_DIR
+  fi
+  if [ -z "$INSTALL_DIR" ]; then
+    BUILD_TIMESTAMP=`ls KVM_*.tar.gz | awk 'BEGIN{FS="_"} {print $3}' | awk 'BEGIN{FS="."}{print $2}'`
+    INSTALL_DIR="$DEFAULT_INSTALL_DIR/RP_$BUILD_TIMESTAMP"
+  fi
+  mkdir -p "$INSTALL_DIR"
+  
+  if ! valid_ip $CURRENT_IP; then
+    while : ; do
+      echo "Please enter current machine IP"
+      read CURRENT_IP
+      if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
+    done
+  fi
 
 	FLAVOUR=`getFlavour`
 	updateFlavourVariables
@@ -512,14 +516,15 @@ function main_default()
 
 function installNovaCompute()
 {
-	while : ; do
-           echo "Please enter current machine IP"
-           read CURRENT_IP
-           if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
-        done
-	echo "Installing Nova compute"
-	apt-get install 
-
+  if ! valid_ip $CURRENT_IP; then
+    while : ; do
+      echo "Please enter current machine IP"
+      read CURRENT_IP
+      if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
+    done
+  fi
+  echo "Installing Nova compute"
+  apt-get install
 }
 
 function configNovaCompute()
