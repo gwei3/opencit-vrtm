@@ -230,8 +230,8 @@ function makeUnixExecutable()
 function main()
 {
 	FLAVOUR=`getFlavour`
-	#echo "Installing the packages required for KVM... "	
-	#install_kvm_packages
+	echo "Installing the packages required for KVM... "	
+	install_kvm_packages
 
         echo "Creating the required build structure... "
         makeDirStructure
