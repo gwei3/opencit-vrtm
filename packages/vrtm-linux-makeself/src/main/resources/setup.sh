@@ -151,4 +151,4 @@ chmod 700 $VRTM_HOME/dist/*
 rm -rf /$VRTM_HOME/dist
 ln -s /opt/tbootxm/bin/verifier $INSTALL_DIR/rpcore/bin/debug
 
-echo_success "Installation complete"
+echo_success "VRTM Installation complete"
