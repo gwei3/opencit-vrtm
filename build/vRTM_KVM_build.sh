@@ -40,7 +40,7 @@ function getFlavour()
 	fi 
         if [ "$flavour" == "" ] ; then  
                 echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
-                exit
+                exit -1
         else
                 echo $flavour
         fi
@@ -48,17 +48,17 @@ function getFlavour()
 
 function makeDirStructure()
 {
-	if [ -d "$SRC_ROOT_DIR/rpcore" -a -d "$SRC_ROOT_DIR/rpclient" -a -d "$SRC_ROOT_DIR/docs" -a -d "$SRC_ROOT_DIR/install" -a -d "$TBOOT_REPO/imvm" ] 
+	if [ -d "$SRC_ROOT_DIR/rpcore" -a -d "$SRC_ROOT_DIR/rpclient" -a -d "$SRC_ROOT_DIR/blueprints" -a -d "$SRC_ROOT_DIR/install" ]  #-a -d "$TBOOT_REPO/imvm" ] 
 	then
 		echo "All resources found"
 	else
 		echo "One or more of the required dirs absent please check the following dir existence :"
-		echo "1. rpcore, rpclient, docs and install at $SRC_ROOT_DIR"
-		echo "2. Measurement Agent (imvm) is present at $TBOOT_REPO/imvm"
-		exit
+		echo "1. rpcore, rpclient, blueprints and install at $SRC_ROOT_DIR"
+		#echo "2. Measurement Agent (imvm) is present at $TBOOT_REPO/imvm"
+		exit -1
 	fi
 	mkdir -p "$BUILD_DIR"
-	cp -r "$SRC_ROOT_DIR/rpcore" "$SRC_ROOT_DIR/rpclient" "$SRC_ROOT_DIR/docs" "$SRC_ROOT_DIR/install" "$BUILD_DIR"
+	cp -r "$SRC_ROOT_DIR/rpcore" "$SRC_ROOT_DIR/rpclient" "$SRC_ROOT_DIR/blueprints" "$SRC_ROOT_DIR/install" "$BUILD_DIR"
 }
 
 function buildVerifier()
@@ -67,14 +67,14 @@ function buildVerifier()
     make -f verifier-g.mak clean >> $BUILD_DIR/outfile 2>&1
     if [ $? -ne 0 ]; then
         echo "Verifier clean failed...Please see outfile for more details"
-        exit
+        exit -1
 	else
 		echo "Verifier clean successful"
     fi
 	make -f verifier-g.mak >> "$BUILD_DIR/outfile" 2>&1
     if [ $? -ne 0 ]; then
         echo "Verifier build failed...Please see outfile for more details"
-        exit
+        exit -1
     else
         echo "Verifier build successful"
     fi
@@ -88,7 +88,7 @@ function buildRplistener()
    	make -f rp-proxy.mak clean >> "$BUILD_DIR/outfile" 2>&1
 	if [ $? -ne 0 ]; then
         echo "RP-Proxy clean failed...Please see outfile for more details"
-        exit
+        exit -1
     else
         echo "RPProxy clean successful"
 	fi
@@ -96,7 +96,7 @@ function buildRplistener()
         make -f rp-proxy.mak >> "$BUILD_DIR/outfile" 2>&1
 	if [ $? -ne 0 ]; then
                 echo "RP-Proxy build failed...Please see outfile for more details"
-                exit
+                exit -1
         else
                 echo "RPProxy build successful"
         fi
@@ -118,7 +118,7 @@ function buildRpcore()
     make clean >> "$BUILD_DIR/outfile" 2>&1
     if [ $? -ne 0 ]; then
         echo "RPcore clean failed...Please see outfile for more details"
-        exit
+        exit -1
     else
         echo "RPCore clean successful"
     fi
@@ -139,7 +139,7 @@ function buildRpcore()
     make $PYTHON_HEADERS >> "$BUILD_DIR/outfile" 2>&1
 	if [ $? -ne 0 ]; then
 		echo "RPcore build failed...Please see outfile for more details"
-		exit
+		exit -1
 	else
         echo "RPCore build successful"
 	fi
@@ -251,8 +251,8 @@ function main()
 	echo "Building RPCore binaries... "
         buildRpcore
 	cd "$BUILD_DIR"
-	echo "Building Verifier binaries..."
-	buildVerifier
+	#echo "Building Verifier binaries..."
+	#buildVerifier
 	echo "Building RPListener binaries..."
 	buildRplistener
 
@@ -320,11 +320,11 @@ if [ $# -eq 0 ] || [ "$1" == "--build" ]
 then
 	echo "Building vRTM"
 	main
-elif [ "$1" == "--with-libvirt" ]
-then
-	echo "Building libvirt and vRTM"
-	export BUILD_LIBVIRT="TRUE"
-	main
+#elif [ "$1" == "--with-libvirt" ]
+#then
+#	echo "Building libvirt and vRTM"
+#	export BUILD_LIBVIRT="TRUE"
+#	main
 	
 elif [ "$1" == "--clean" ]
 then
