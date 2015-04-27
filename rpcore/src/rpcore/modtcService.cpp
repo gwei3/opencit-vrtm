@@ -621,6 +621,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
         while(pMap != NULL)
         {
                 pEnt = pMap->pElement;
+                fprintf(g_logFile,"Checking : Match found or not for given UUID  %s %s \n", vm_uuid, pEnt->m_uuid);
                 if(strcmp(vm_uuid,pEnt->m_uuid) == 0)
                 {
                         fprintf(g_logFile,"Match found for given UUID \n");
@@ -680,7 +681,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
                ////OLD CODE HERE 
 
-               char xmlstr[2048]={0};
+               char xmlstr[8192]={0};
                 sprintf(xmlstr, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<VMQuote>\n<nonce>%s</nonce>\n<vm_instance_id>%s</vm_instance_id>\n<digest_alg>%s</digest_alg>\n<cumulative_hash>%s</cumulative_hash>\n</VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
                char tempfile1[50];
                sprintf(tempfile1,"%sus_xml.xml",vm_manifest_dir);
@@ -688,22 +689,37 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
                fprintf(fp,"%s",xmlstr);
                fclose(fp);
-               char command1[200];
+               char command1[200]={0};
                sprintf(command1,"openssl dgst -sha1 -binary -out %shash.input %s",vm_manifest_dir,tempfile1);
                system(command1);
               //two JB's commands tht use hash.in and store signature in hash.out
                system("export SIGNING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2)");
-               char command2[200];
-               sprintf(command2,"/opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q SIGNING_KEY_PASSWORD -t –x",vm_manifest_dir,vm_manifest_dir);
-               system(command2);
-               char tempfile2[50];
-               sprintf(tempfile2,"%shash.sig",vm_manifest_dir);
+               char command2[400]={0};
+               sprintf(command2,"/opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig 495b2740ddbca3fdbc2c9f61066b4683608c565f -x",vm_manifest_dir,vm_manifest_dir);
+               char command3[800]={0};
+               sprintf(command3,"export SIGNING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2); /opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q SIGNING_KEY_PASSWORD -t -x",vm_manifest_dir,vm_manifest_dir);
+
+               fprintf(g_logFile,"%s \n\n \n ", command2); 
+			   fflush(stdout);
+               system(command3);
+			   
+               char convertHashInputToBase64[200]={0};
+               sprintf(convertHashInputToBase64,"openssl base64 -in %shash.input -out %shash.input.b64",vm_manifest_dir, vm_manifest_dir);
+               system(convertHashInputToBase64);
+			   
+               char convertHashSigToBase64[200]={0};
+               sprintf(convertHashSigToBase64,"openssl base64 -A -in %shash.sig -out %shash.sig.b64",vm_manifest_dir, vm_manifest_dir);
+               system(convertHashSigToBase64);
+
+               char tempfile2[200];
+               sprintf(tempfile2,"%shash.sig.b64",vm_manifest_dir);
                fp = fopen(tempfile2,"r");
                char* signature=(char *) malloc(1000*sizeof(char));
                fscanf(fp,"%s",signature);
                fclose(fp);
-               char tempfile3[50];
-               sprintf(tempfile3,"%shash.input",vm_manifest_dir);
+			   
+               char tempfile3[200];
+               sprintf(tempfile3,"%shash.input.b64",vm_manifest_dir);
                 fp = fopen(tempfile3,"r");
                char* digval=(char *) malloc(1000*sizeof(char));
                fscanf(fp,"%s",digval);
@@ -720,7 +736,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
                long input_file_size;
                char tempfile4[50];
                sprintf(tempfile4,"%sfile2",vm_manifest_dir);
-               FILE *input_file = fopen(tempfile4, "rb");
+               FILE *input_file = fopen(tempfile4, "r");
                fseek(input_file, 0, SEEK_END);
                input_file_size = ftell(input_file);
                rewind(input_file);
@@ -736,7 +752,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 /////OLD CODE HERE
 
-               sprintf(xmlstr, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<VMQuote>\n<nonce>%s</nonce>\n<vm_instance_id>%s</vm_instance_id>\n<digest_alg>%s</digest_alg>\n<cumulative_hash>%s</cumulative_hash>\n<Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">\n<SignedInfo>\n<CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments\"/>\n<SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/>\n<Reference URI=\"#HostTrustAssertion\">\n<Transforms>\n<Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/>\n</Transforms>\n<DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/>\n<DigestValue>%s</DigestValue>\n</Reference>\n</SignedInfo>\n<SignatureValue>%s</SignatureValue>\n<KeyInfo>\n<X509Data>\n<X509Certificate>%s</X509Certificate>\n</X509Data>\n</KeyInfo>\n</Signature>\n</VMQuote>","SHA256",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash,digval,signature,file_contents);
+               sprintf(xmlstr, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<VMQuote>\n<nonce>%s</nonce>\n<vm_instance_id>%s</vm_instance_id>\n<digest_alg>%s</digest_alg>\n<cumulative_hash>%s</cumulative_hash>\n<Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">\n<SignedInfo>\n<CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments\"/>\n<SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/>\n<Reference URI=\"#HostTrustAssertion\">\n<Transforms>\n<Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/>\n</Transforms>\n<DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/>\n<DigestValue>%s</DigestValue>\n</Reference>\n</SignedInfo>\n<SignatureValue>%s</SignatureValue>\n<KeyInfo>\n<X509Data>\n<X509Certificate>%s</X509Certificate>\n</X509Data>\n</KeyInfo>\n</Signature>\n</VMQuote>",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash,digval,signature,file_contents);
 		free(file_contents);
 		free(signature);
 		free(digval);
