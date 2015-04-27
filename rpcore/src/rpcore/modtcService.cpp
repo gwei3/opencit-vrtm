@@ -682,7 +682,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
                ////OLD CODE HERE 
 
                char xmlstr[8192]={0};
-                sprintf(xmlstr, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<VMQuote>\n<nonce>%s</nonce>\n<vm_instance_id>%s</vm_instance_id>\n<digest_alg>%s</digest_alg>\n<cumulative_hash>%s</cumulative_hash>\n</VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
+                sprintf(xmlstr, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
                char tempfile1[50];
                sprintf(tempfile1,"%sus_xml.xml",vm_manifest_dir);
                FILE * fp = fopen(tempfile1,"w");
@@ -752,7 +752,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 /////OLD CODE HERE
 
-               sprintf(xmlstr, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<VMQuote>\n<nonce>%s</nonce>\n<vm_instance_id>%s</vm_instance_id>\n<digest_alg>%s</digest_alg>\n<cumulative_hash>%s</cumulative_hash>\n<Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">\n<SignedInfo>\n<CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments\"/>\n<SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/>\n<Reference URI=\"#HostTrustAssertion\">\n<Transforms>\n<Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/>\n</Transforms>\n<DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/>\n<DigestValue>%s</DigestValue>\n</Reference>\n</SignedInfo>\n<SignatureValue>%s</SignatureValue>\n<KeyInfo>\n<X509Data>\n<X509Certificate>%s</X509Certificate>\n</X509Data>\n</KeyInfo>\n</Signature>\n</VMQuote>",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash,digval,signature,file_contents);
+               sprintf(xmlstr, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">\n<SignedInfo>\n<CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments\"/>\n<SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/>\n<Reference URI=\"#HostTrustAssertion\">\n<Transforms>\n<Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/>\n</Transforms>\n<DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/>\n<DigestValue>%s</DigestValue>\n</Reference>\n</SignedInfo>\n<SignatureValue>%s</SignatureValue>\n<KeyInfo>\n<X509Data>\n<X509Certificate>%s</X509Certificate>\n</X509Data>\n</KeyInfo>\n</Signature></VMQuote>",nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash,digval,signature,file_contents);
 		free(file_contents);
 		free(signature);
 		free(digval);
