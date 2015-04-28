@@ -120,6 +120,10 @@ function installKVMPackages_rhel()
         yum install -y openssh-server
 	yum install -y trousers tpm-tools cryptsetup 
 	yum install -y tar procps binutils
+	selinuxenabled
+	if [ $? -eq 0 ] ; then
+		yum install -y policycoreutils-python
+	fi
 
 }
 
@@ -344,6 +348,20 @@ function installRPProxyAndListner()
 	chown nova:nova /var/log/rp_proxy.log
 	cp "$INSTALL_DIR/rpcore/bin/scripts/rppy_ifc.py" $DIST_LOCATION/.
 	cp "$INSTALL_DIR/rpcore/lib/librpchannel-g.so" /usr/lib
+	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
+		selinuxenabled
+		if [ $? -eq 0 ] ; then
+			echo "Updating the selinux policies for vRTM files"
+			 semanage fcontext -a -t virt_log_t /var/log/rp_proxy.log
+			 restorecon -v /var/log/rp_proxy.log
+			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
+			 restorecon -v "$QEMU_INSTALL_LOCATION"
+			 semanage fcontext -a -t qemu_exec_t /usr/lib/librpchannel-g.so
+			 restorecon -v /usr/lib/librpchannel-g.so
+		else
+			echo "WARN : Selinux is disabled, enabling SELinux later will conflict vRTM"
+		fi
+	fi
 	ldconfig
 	echo "Stopping previous rp_listener processes if any..."
 	pkill -9 rp_listener
@@ -468,7 +486,7 @@ function validate()
 function main_default()
 {
   if [ -z "$INSTALL_DIR" ]; then
-    echo "Please enter the install location (default : /opt/RP_<BUILD_TIMESTAMP> )"
+    echo "Please enter the install location (default : /opt/vrtm/RP_<BUILD_TIMESTAMP> )"
     read INSTALL_DIR
   fi
   if [ -z "$INSTALL_DIR" ]; then
