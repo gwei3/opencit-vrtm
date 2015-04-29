@@ -39,7 +39,7 @@
 #include <time.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <pthread.h>
 #include "domain.h"
 
 
@@ -76,6 +76,7 @@ public:
     int                 m_size_vm_manifest_hash;
     int                 m_size_vm_manifest_signature;
     int 				m_size_vm_launch_policy;
+    int 				m_size_vm_manifest_dir;
     byte                m_rgHash[32];
     char 				m_uuid[48];
     char				m_vdi_uuid[48];
@@ -90,6 +91,7 @@ public:
     char                m_vm_manifest_signature[512];
     char				m_vm_launch_policy[15];
     bool				m_vm_verfication_status;
+    char                m_vm_manifest_dir[1024];
 };
 
 
@@ -98,6 +100,7 @@ typedef aNode<serviceprocEnt>  serviceprocMap;
 
 class serviceprocTable {
 public:
+	pthread_mutex_t		loc_proc_table;
     int                 m_numFree;
     int                 m_numFilled;
     serviceprocMap*     m_pFree;
@@ -113,7 +116,7 @@ public:
     			int sizeHash, byte* hash);
     bool                checkprocEntry(char* uuid, char* vdi_uuid);
     bool 				updateprocEntry(int procid, char* uuid, char* vdi_uuid);
-    bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature,char* launch_policy,bool status);
+    bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature,char* launch_policy,bool status, char * vm_manifest_dir);
     void                removeprocEntry(int procid);
     void                removeprocEntry(char* procid);
     serviceprocEnt*     getEntfromprocId(int procid);
@@ -134,7 +137,13 @@ public:
 
     timer               m_taoEnvInitializationTimer;
     timer               m_taoHostInitializationTimer;
-
+    // This is the lock used by asyncStartApp method
+	pthread_mutex_t startAppLock;
+	pthread_mutex_t max_thread_lock;
+	int maxThread;
+	pthread_attr_t pthreadInit;
+	bool THREAD_ENABLED;
+	int threadCount;
     tcServiceInterface();
     ~tcServiceInterface();
 
@@ -150,10 +159,10 @@ public:
     TCSERVICE_RESULT    GetHostedMeasurement(int pid, u32* phashType, int* psize, byte* rgBuf);
     TCSERVICE_RESULT    GetEntropy(int size, byte* buf);
     
-    TCSERVICE_RESULT    StartApp(tcChannel& oAppChannel, int procid, 
-                            const char* file, int an, char** av,
+    TCSERVICE_RESULT    StartApp(tcChannel& oAppChannel, int procid, const char *file, 
+                            int an, char** av,
                             int* poutsize, byte* out);
-
+	void 				        printErrorMessagge(int error);
     TCSERVICE_RESULT    SealFor(int procid, int sizeIn, byte* rgIn, 
                             int* psizeOut, byte* rgOut);
     TCSERVICE_RESULT    UnsealFor(int procid, int sizeIn, byte* rgIn, 
@@ -170,9 +179,20 @@ public:
     						byte * vm_customerId, int * vm_customerIdsize, byte * vm_manifestHash, int * vm_manifestHashsize,
     						byte * vm_manifestSignature, int * vm_manifestSignaturesize);
     TCSERVICE_RESULT	IsVerified(char *vm_uuid, int* verification_status);
+    TCSERVICE_RESULT	GenerateSAMLAndGetDir(char *vm_uuid, char * nonce, char * vm_manifest_dir);
 };
 
+typedef struct requestData {
+	int                 procid;
+	int                 origprocid;
+	u32                 uReq;
+    int                 inparamsize;
+    byte                *inparams;
+}requestData;
 
+void* async_service_request(void * reqData);
+requestData* create_request_data(int procid, int origprocid, u32 uReq, int inparamsize, byte *inparams);
+void free_request_data(requestData *reqData);
 #endif
 
 

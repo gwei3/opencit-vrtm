@@ -23,6 +23,8 @@ VM’s UUID to clean up the VM’s record in RPCore.
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
 #include <config.h>
+#include <map>
+#include <iostream>
 #include "tcpchan.h"
 #include "channelcoding.h"
 #include "pyifc.h"
@@ -51,7 +53,8 @@ virConnectPtr dconn = NULL;
 int g_fd = 0;
 int run = 1;
 int delete_rp_uuid(char*);
-
+int map_rpid_uuid(int, char*);
+std::map<std::string, int> rp_id_map;
 int channel_open() {
     int fd = -1;
 
@@ -94,9 +97,22 @@ static int domainEventCallback(virConnectPtr conn ATTRIBUTE_UNUSED, virDomainPtr
                 notifyRPCore = true;
                 break;
         }
-    } else if (eventType == VIR_DOMAIN_EVENT_CRASHED) {
+    } else if (eventType == VIR_DOMAIN_CRASHED) {
         notifyRPCore = true;
-    }
+    } else if (eventType == VIR_DOMAIN_EVENT_STARTED) {
+		fprintf(stdout, "In VIR_DOMAIN_EVENT_STARTED event");
+		char vm_uuid[UUID_LENGTH+1];
+		std::string vm_name_str(virDomainGetName(dom));
+		fprintf(stdout, "VM Name: %s", vm_name_str.c_str());
+		int rp_domid=rp_id_map[vm_name_str];
+		fprintf(stdout, "RP Dom ID: %d", rp_domid);
+		if(rp_domid!=0) {
+			rp_id_map.erase(vm_name_str);
+			virDomainGetUUIDString(dom, vm_uuid);
+			fprintf(stdout, "Updating rp_dom_id:UUID mapping: replacing %d with %s\n", rp_domid, vm_uuid);
+			map_rpid_uuid(rp_domid, vm_uuid);
+		}
+	}
 
     if (notifyRPCore) {
         char vm_uuid[UUID_LENGTH+1];
@@ -341,12 +357,8 @@ fail:
 // wrapper on map_rpid_uuid. 
 // get VM UUID using VM name and call the function to replace the domid with actual VM UUID.
 void update_rp_domid(int rp_domid, char* vm_name) {
-
-    char vm_uuid[UUID_LENGTH+1];
-    virDomainPtr dom = virDomainLookupByName(dconn, vm_name);
-    virDomainGetUUIDString(dom, vm_uuid);
-    fprintf(stdout, "update_rp_id(): replacing %d with %s\n", rp_domid, vm_uuid);
-    map_rpid_uuid(rp_domid, vm_uuid);
+	std::string vm_name_str(vm_name);
+	rp_id_map[vm_name_str]=rp_domid; 
 }
 
 // read the data over the socket from RP Proxy. Extract dom id and VM name from the request and 

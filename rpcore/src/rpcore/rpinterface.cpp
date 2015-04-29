@@ -86,7 +86,7 @@ int         tciodd_servicepid= 0;
 typedef unsigned char byte;
 #endif
 
-static int domid = 100;
+//static int domid = 100;
 
 // Q's for read and write
 struct tciodd_Qent {
@@ -626,6 +626,17 @@ bool tciodd_processService(void)
 			  fRet= false;
 		  }
 		  break;
+      case RP2VM_GETVMREPORT:
+         if(!queueforApp(pent, VM2RP_GETVMREPORT,  RP2VM_GETVMREPORT)) {
+                         fRet= false;
+                 }
+         break;
+      case VM2RP_GETVMREPORT:
+         if(!queueforService(pent, VM2RP_GETVMREPORT, RP2VM_GETVMREPORT)) {
+                         fRet= false;
+                 }
+                 break;
+
        case TCSERVICETERMINATE:
         if(!queueforService(pent, TCSERVICETERMINATE, TCSERVICETERMINATE)) {
             fRet= false;
@@ -700,7 +711,8 @@ ssize_t tc_read(int pid, char *buf, size_t count)
   
     // if something is on the response queue, fill buffer, otherwise wait
      for(;;) {
-	
+		fprintf(stdout,"before sem pid is : %d\n",pid);
+		fflush(stdout);	
 		sem_wait(&sem_resp);
 			
 		pent= tciodd_findQentbypid(tciodd_resserviceq, pid);
@@ -708,28 +720,37 @@ ssize_t tc_read(int pid, char *buf, size_t count)
 		sem_post(&sem_resp);
 			
 		if(pent!=NULL) {
-			   //fprintf(stdout, "pent found for %d\n", pid);
+			   fprintf(stdout, "pent found for %d\n", pid);
+			fprintf(stdout,"data size of entry %d against data %d\n",pent->m_sizedata,count);
+			fflush(stdout);
 				break;
 		}
 		
 	   //wait_event_timeout(dev->waitq, tciodd_resserviceq!=NULL, TIMEOUT);
 		//fprintf(stdout, "tc_read pid %d, waiting for write to happen\n", pid);
-		
+		fprintf(stdout,"pid : %d not found in queue\n",pid);
+		fflush(stdout);
 		pthread_mutex_lock(&gm);
+		fprintf(stdout,"pid:%d lock applied going to conditional wait\n",pid);
+		fflush(stdout);
 		pthread_cond_wait(&gc, &gm);
 		pthread_mutex_unlock(&gm);
+		fprintf(stdout,"pid : %d lock released\n",pid);
     }
 
 
     if(pent->m_sizedata <= count) {
         memcpy(buf, pent->m_data, pent->m_sizedata);
         retval= pent->m_sizedata;
+	fprintf(stdout,"copied data in buff\n ");
+	
 //        PrintBytes("Data in tc_read", (byte*)buf, (retval > sizeof(tcBuffer))? sizeof(tcBuffer): retval);
     }
     else {
         retval= -EFAULT;
     }
-
+	fprintf(stdout,"before removing from q and sem_wait\n");
+	fflush(stdout);
 	sem_wait(&sem_resp);
    
 	tciodd_removeQent(&tciodd_resserviceq, pent);
@@ -742,7 +763,8 @@ ssize_t tc_read(int pid, char *buf, size_t count)
         
 	pent->m_data= NULL;
         tciodd_deleteQent(pent);
-	
+	fprintf(stdout,"removed from queue pid:%d\n",pid);
+	fflush(stdout);
 	sem_post(&sem_resp);
 
     return retval;
@@ -757,7 +779,7 @@ ssize_t tc_write(int pid, const char *buf, size_t count )
     tcBuffer*               pCBuf= NULL;
 
 
-//    fprintf(stdout, "tc_write pid %d, count %d\n", pid, count);
+    fprintf(stdout, "tc_write pid %d, size %d\n", pid, count);
 
     // add to tciodd_reqserviceQ then process
     if(count < sizeof(tcBuffer)) {
@@ -782,15 +804,19 @@ ssize_t tc_write(int pid, const char *buf, size_t count )
 //    fprintf(stdout, "tc_write pid %d, before calling tciodd_makeQent\n", pid);
 
     pent= tciodd_makeQent(pid, count, databuf, NULL);
+	fprintf(stdout,"creation of queue node\n");
     if(pent==NULL) {
         retval= -EFAULT;
+	fprintf(stdout,"failed\n");
+	fflush(stdout);
         goto out;
     }
-
+	fprintf(stdout,"successful\nbefore sem pid:%d\n",pid);
+	fflush(stdout);
     sem_wait(&sem_req);
 
     tciodd_appendQent(&tciodd_reqserviceq, pent);
-
+	fprintf(stdout,"added to queue pid:%d\n",pid);
     sem_post(&sem_req);
 
     retval= count;
@@ -799,9 +825,10 @@ out:
 
     if(retval>=0)
         while(tciodd_processService());
-
+	fprintf(stdout,"processed the service pid:%d\n",pid);
     //wake_up(&(dev->waitq));sem_wait
-//    fprintf(stdout, "tc_write pid %d, waking up waiting reads\n", pid);
+    fprintf(stdout, "tc_write pid %d, waking up waiting reads\n", pid);
+	fflush(stdout);
     pthread_cond_broadcast(&gc);
     
      return retval;
@@ -987,6 +1014,8 @@ bool tcChannel::gettcBuf(int* procid, u32* puReq, u32* pstatus, int* porigprocid
         return false;
     }
     i= ReadBuf(rgBuf, n);
+	fprintf(stdout,"tc_read returned size of data read : %d\n",i);
+	fflush(stdout);
     if(i<0) {
         fprintf(g_logFile, "ReadBufRequest failed in gettcBuf %d %d\n", i, n);
         return false;
@@ -1016,6 +1045,8 @@ bool tcChannel::gettcBuf(int* procid, u32* puReq, u32* pstatus, int* porigprocid
         return false;
     *paramsize= i;
     memcpy(params, &rgBuf[sizeof(tcBuffer)], i);
+	fprintf(stdout,"pass by value parameters are set\n");
+	fflush(stdout);
     return true;
 }
 
@@ -1078,18 +1109,17 @@ sem_t   g_sem_sess;
 
 void* handle_session(void* p) {
 
-	tcSession* ps = (tcSession* )p ;
 	
 	char buf[PARAMSIZE] = {0};
 
 	const int sz_buf = sizeof(buf);
 	int sz_data = 0;
 	int err = -1;
-//	int domid = -1;
-	int fd1 = ps->fd;
-
+	int domid = -1;
+	//int fd1 = ps->fd;
+	int fd1 = *(int *)p;
 	fprintf(g_logFile, "Entered handle_session() with fd1 as %d\n",fd1);
-	fprintf(g_logFile, "handle_session(): Client connection from %s domid %d\n", inet_ntoa(ps->addr), domid);
+	fprintf(g_logFile, "handle_session(): Client connection from domid %d\n", domid);
 	//read domid
 	do {
 		err = read(fd1, buf+sz_data, 1);
@@ -1105,14 +1135,8 @@ void* handle_session(void* p) {
 
 	
 	buf[sz_data] = '\0';
-	
-	ps->dom_id = atoi(buf);
-	
-	if (ps->dom_id == 0 )
-		ps->dom_id = domid++;
-		
-	domid = ps->dom_id;
-	
+	domid = atoi(buf);
+			
 	fprintf(g_logFile, "handle_session():inter-domain channel registered for id %d\n", domid);
 	
 	while(!g_quit)
@@ -1129,7 +1153,8 @@ void* handle_session(void* p) {
 			fprintf(g_logFile, "handle_session():inter-domain channel read failed ... closing thread\n");
 			goto fail;
 		}
-
+		fprintf(stdout,"g_quit = %d\n",g_quit);
+		fflush(stdout);
 		if (g_quit)
 			continue;
 
@@ -1138,7 +1163,10 @@ void* handle_session(void* p) {
 #ifdef TEST			
 		fprintf(stdout,"handle_session(): XXXX dom_listener received data from domid = %d len= %d \n ", domid, sz_data);
 #endif
+		
 		err = tc_write(domid, (const char*)buf, sz_data);
+		fprintf(stdout,"tcwrite written size %d for pid : %d\n",err,domid);
+		fflush(stdout);
 		if (err < 0)	
 			goto fail;
 
@@ -1149,6 +1177,8 @@ void* handle_session(void* p) {
 		
 		//write response from server
 		err = tc_read(domid, (char*)buf, sz_buf);
+		fprintf(stdout,"tc_read read data of size %d for pid : %d",err,domid);
+		fflush(stdout);
 		if (err < 0)	
 			goto fail;
 		
@@ -1161,6 +1191,7 @@ void* handle_session(void* p) {
 #endif
 
 		err = ch_write(fd1, buf, sz_data);
+		fprintf(stdout,"ch_write wrote data of size %d for domid:%d\n",err,domid);
 		if (err < 0) {
 			fprintf(g_logFile,"handle_session():dom_listener error data sending %d \n", err);
 			goto fail;
@@ -1177,14 +1208,11 @@ void* handle_session(void* p) {
 fail:
 		
 #ifdef TEST
-	fprintf(g_logFile,"handle_session():closing fd1 = %d ps->fd= %d\n",fd1,ps->fd);		
+	fprintf(g_logFile,"handle_session():closing fd1 = %d \n",fd1);
 #endif
+	fprintf(stdout,"closing connection for fd : %d\n",fd1);
+	fflush(stdout);
 	close(fd1);
-	sem_wait(&g_sem_sess);
-	if (fd1 == ps->fd) {
-		ps->fd = -1;
-	}
-	sem_post(&g_sem_sess);
 	fprintf(g_logFile,"handle_session():exiting\n");		
 	return 0;
 }
@@ -1200,6 +1228,8 @@ void* dom_listener_main ( void* p)
     int                 iError;
     //int 		iQueueSize = 10;
     int 		iQueueSize = 100;
+    int 		flag = 0;
+    int*		thread_fd;
     tcSession* 		cur_session = NULL;
     pthread_t tid;
     pthread_attr_t  attr;
@@ -1253,84 +1283,32 @@ void* dom_listener_main ( void* p)
 
 	g_ifc_status = IFC_UP;
 
-    while(!g_quit) 
+    while(!g_quit)
     {
         newfd= accept(fd, (struct sockaddr*) &client_addr, (socklen_t*)&clen);
+        flag = fcntl(newfd, F_GETFD);
+        if (flag >= 0) {
+			flag =  fcntl (newfd, F_SETFD, flag|FD_CLOEXEC);
+			if (flag < 0) {
+				fprintf(g_logFile, "Socket resource may leak to child process..", strerror(errno));
+			}
+		}else {
+				fprintf(g_logFile, "Socket resources may leak to child process", strerror(errno));
+		}
+
         if(newfd<0) {
             fprintf(g_logFile, "dom_listener_main():Can't accept socket %s", strerror(errno));
             continue;
         }
 		
 		fprintf(g_logFile, "dom_listener_main():Client connection from %s \n", inet_ntoa(client_addr.sin_addr));
-		if (g_quit)
-			continue;
+	if (g_quit)                                                       
+		continue;
+	thread_fd = (int *)malloc(sizeof(int));
+	*thread_fd=newfd;
+		pthread_create(&tid, &attr, handle_session, (void*)thread_fd);
 
-		cur_session= NULL; 
-			//find if the session from this address exists
-		for (int i = 0; i < g_sessId; i++) {
-			
-			if (ctx[i].addr.s_addr == client_addr.sin_addr.s_addr){
-				cur_session  =  &ctx[i];
-				
-	#ifdef TEST_SEG
-				fprintf(g_logFile, "dom_listener_main():address matched with i= %d ctx[%d].addr= %s client_addr= %s\n", i, i,inet_ntoa(ctx[i].addr), inet_ntoa(client_addr.sin_addr));
-	#endif
-				break;
-			}
-		}
-		
-		if (! cur_session) {
-			sem_wait(&g_sem_sess);
-			g_sessId++;
-
-	#ifdef TEST_SEG
-			fprintf(g_logFile, "dom_listener_main():g_sessId after increment=   %d\n", g_sessId);
-	#endif
-			if ( g_sessId > g_mx_sess ) {
-				g_sessId--;  
-				fprintf(g_logFile, "dom_listener_main():Closing newfd and doing continue. No session created. g_sessId  after decrement=  %d\n", g_sessId);
-				close(newfd);
-				sem_post(&g_sem_sess);
-				continue; 
-			}
-				
-			sem_post(&g_sem_sess);			
-				
-			fprintf(g_logFile, "dom_listener_main():creating session with domid %d(g_sessId -1)\n", g_sessId - 1);
-				
-			cur_session  =  &ctx[g_sessId - 1 ];				
-			cur_session->fd = -1;
-			cur_session->dom_id = g_sessId - 1;
-			cur_session->addr.s_addr = client_addr.sin_addr.s_addr;
-		}
-		
-#ifdef TEST_SEG
-	fprintf(g_logFile, "dom_listener_main(): IP addr %s \n", inet_ntoa(cur_session->addr));
-#endif
-#ifdef TEST_SEG
-	fprintf(g_logFile, " cur_session->fd before setting%d \n", cur_session->fd);
-#endif
-		sem_wait(&g_sem_sess);
-		//Allow only one session.
-		if(cur_session->fd == -1) {
-			cur_session->fd = newfd;
-		} else {
-			close(newfd);
-			sem_post(&g_sem_sess);
-			continue; 
-		}
-#ifdef TEST_SEG
-	fprintf(g_logFile, " cur_session->fd after setting%d \n", cur_session->fd);
-#endif
-	sem_post(&g_sem_sess);
-		
-#ifdef TEST_SEG
-	fprintf(g_logFile,  " Launching new thread to handle the connection\n");
-#endif
-		pthread_create(&tid, &attr, handle_session, (void*)cur_session); 
- 
     }
-
     close(fd);
     return NULL;
 }

@@ -1,13 +1,13 @@
 #!/bin/bash
 
-#This script installs RPCore, RPProxy, RPListner, and openstack patches
+#This script installs RPCore, RPProxy, RPListener, and openstack patches
 
 
 RES_DIR=$PWD
-DEFAULT_INSTALL_DIR=/opt
+DEFAULT_INSTALL_DIR=/opt/vrtm
 
 OPENSTACK_DIR="Openstack/patch"
-DIST_LOCATION=`/usr/bin/python -c "import site; print ( site.getsitepackages()[1] )" `
+DIST_LOCATION=`/usr/bin/python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())"`
 
 LINUX_FLAVOUR="ubuntu"
 NON_TPM="false"
@@ -32,35 +32,62 @@ function valid_ip()
     return $stat
 }
 
+# This function returns either rhel fedora ubuntu suse
+# TODO : This function can be moved out to some common file
 function getFlavour()
 {
-        if [ -e /etc/lsb-release ] ; then
-                echo "ubuntu"
-        elif [ -e /etc/redhat-release  ] ; then
-                isRedhat=`grep -c -i redhat /etc/redhat-release`
-                isFedora=`grep -c -i fedora /etc/redhat-release`
-                if [ $isRedhat -ne 0 ] ; then
-                        echo "redhat"	
-                elif [ $isFedora -ne 0 ] ; then
-                        echo "fedora"
-		fi
-        else
+        flavour=""
+        grep -c -i ubuntu /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="ubuntu"
+        fi
+        grep -c -i "red hat" /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="rhel"
+        fi
+        grep -c -i fedora /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="fedora"
+        fi
+        grep -c -i suse /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="suse"
+        fi
+        if [ "$flavour" == "" ] ; then
                 echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
                 exit
+        else
+                echo $flavour
         fi
 }
 
 function updateFlavourVariables()
 {
         linuxFlavour=`getFlavour`
-        if [ $linuxFlavour == "fedora" -o $linuxFlavour == "rhel" ]
+        if [ $linuxFlavour == "fedora" ]
         then
              export RC_LOCAL_FILE="/etc/rc.d/rc.local"
              export KVM_BINARY="/usr/bin/qemu-kvm"
+	     export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
+	elif [ $linuxFlavour == "rhel" ]
+	then
+	     export RC_LOCAL_FILE="/etc/rc.d/rc.local"
+	     export KVM_BINARY="/usr/bin/qemu-kvm"
+	     if [ -x /usr/bin/qemu-system-x86_64 ] ; then
+		export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
+	     else
+	        export QEMU_INSTALL_LOCATION="/usr/libexec/qemu-kvm"
+	     fi
 	elif [ $linuxFlavour == "ubuntu" ]
 	then
               export RC_LOCAL_FILE="/etc/rc.local"
               export KVM_BINARY="/usr/bin/kvm"
+	      export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
+	elif [ $linuxFlavour == "suse" ]
+	then
+	      export RC_LOCAL_FILE="/etc/rc.d/after.local"
+              export KVM_BINARY="/usr/bin/kvm"
+              export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
         fi
 }
 
@@ -81,34 +108,59 @@ function installKVMPackages_rhel()
 {
         echo "Installing Required Packages ....."
         yum -y update
-        yum install "kernel-devel-uname-r == $(uname -r)"
+        yum install -y "kernel-devel-uname-r == $(uname -r)"
         # Install the openstack repo
         yum install -y yum-plugin-priorities
         yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
 
-        yum install libvirt-devel libvirt libvirt-python
+        yum install -y libvirt-devel libvirt libvirt-python libguestfs-tools-c
         #Libs required for compiling libvirt
-        yum install -y gcc-c++ gcc make yajl yajl-devel device-mapper device-mapper-devel libpciaccess-devel libnl-devel
+        yum install -y gcc-c++ gcc make yajl yajl-devel device-mapper device-mapper-devel libpciaccess-devel libnl-devel libxml2
         yum install -y python-devel
         yum install -y openssh-server
-	yum install -y trousers tpm-tools cryptsetup
-	yum install -y tar
+	yum install -y trousers tpm-tools cryptsetup 
+	yum install -y tar procps binutils
+	selinuxenabled
+	if [ $? -eq 0 ] ; then
+		yum install -y policycoreutils-python
+	fi
 
 }
 
 function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
+	apt-get -y  install python-software-properties
+	add-apt-repository -y cloud-archive:icehouse
+	apt-get -y update
+	#apt-get -y dist-upgrade
 	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp chkconfig guestfish
 	apt-get -y install openssh-server
 	apt-get -y install python-dev
 	apt-get -y install tboot trousers tpm-tools libtspi-dev cryptsetup-bin
-	apt-get -y install qemu-utils kpartx
-	apt-get -y install iptables libblkid1 libc6 libcap-ng0 libdevmapper1.02.1 libgnutls26 libnl-3-200 libnuma1  libparted0debian1  libpcap0.8 libpciaccess0 libreadline6  libudev0  libxml2  libyajl1
+	apt-get -y install qemu-utils kpartx binutils
+	apt-get -y install libvirt-bin qemu-kvm libguestfs-tools 
+	apt-get -y install iptables libblkid1 libc6 libcap-ng0 libdevmapper1.02.1 libgnutls26 libnl-3-200 libnuma1  libparted0debian1  libpcap0.8 libpciaccess0 libreadline6  libudev0 libudev2 libxml2 libyajl1 libyajl2 procps
+	apt-get -y install libyajl-dev libxml2-dev libdevmapper-dev libpciaccess-dev libnl-dev uuid-dev
 	
 	echo "Starting ntp service ....."
 	service ntp start
-	chkconfig ntp on
+	#chkconfig ntp on
+}
+
+function installKVMPackages_suse()
+{
+	zypper addrepo -f obs://Cloud:OpenStack:Icehouse/openSUSE_13.1 Icehouse
+	zypper -n in openstack-utils
+	zypper -n refresh
+	# zypper -n dist-upgrade
+        zypper -n in libvirt libvirt-devel qemu-kvm
+	zypper -n in libyajl2 libpciaccess0 libnl3-200 libxml2-2
+        zypper -n in libyajl-devel libpciaccess-devel libnl3-devel libxml2-devel 
+        zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp wget
+        zypper -n in openssh
+        zypper -n in python-devel dos2unix 
+	zypper -n in tboot  
 }
 
 function installKVMPackages()
@@ -117,8 +169,9 @@ function installKVMPackages()
 		installKVMPackages_ubuntu
         elif [  $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
 		installKVMPackages_rhel
+	elif [ $FLAVOUR == "suse" ] ; then
+		installKVMPackages_suse
         fi
-
 }
 
 installLibvirtPackages_ubuntu()
@@ -132,7 +185,25 @@ installLibvirtPackages_ubuntu()
                echo "apt-get update failed, kindly resume after manually executing apt-get update"
         fi
         apt-get -y install libvirt-bin libvirt-dev libvirt0 python-libvirt
-
+	grep -c libvirtd /etc/group
+        if [ $? -eq 1 ] ; then
+                groupadd libvirtd
+        fi
+        id nova > /dev/null
+        if [ $? -eq 0 ] ; then
+                echo "Found nova user"
+                isNovaInLibvirtGroup=`id nova | grep -i -c libvirtd`
+                if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
+                        echo "nova user is present but not a part of libvirtd group"
+                        echo -n "Adding nova as a part of libvirtd group... "
+                        usermod -a -G libvirtd nova
+                        if [ $? -eq 0 ] ; then
+                                echo "success"
+                        else
+                                echo "failed"
+                        fi
+                fi      
+        fi
 }
 
 installLibvirtPackages_rhel()
@@ -141,10 +212,49 @@ installLibvirtPackages_rhel()
         # This is required because if one installs only libvirt then the eco-system for libvirt is not ready
         # For e.g the virtualisation group also creates libvirtd group over the system.
         yum groupinstall -y Virtualization	
-	grep -c libvirt /etc/groups
+	grep -c libvirtd /etc/group
 	if [ $? -eq 1 ] ; then
-		groupadd libvirt
+		groupadd libvirtd
 	fi
+	id nova > /dev/null
+	if [ $? -eq 0 ] ; then
+		echo "Found nova user"
+		isNovaInLibvirtGroup=`id nova | grep -i -c libvirtd`
+		if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
+			echo "nova user is present but not a part of libvirtd group"
+			echo -n "Adding nova as a part of libvirtd group... "
+			usermod -a -G libvirtd nova
+			if [ $? -eq 0 ] ; then
+				echo "success"
+			else
+				echo "failed"
+			fi
+		fi
+	fi
+}
+
+installLibvirtPackages_suse()
+{
+	zypper -n in libvirt libvirt-devel libvirt-python
+        grep -c libvirtd /etc/group
+        if [ $? -eq 1 ] ; then
+                groupadd libvirtd
+        fi
+	id nova > /dev/null
+        if [ $? -eq 0 ] ; then
+                echo "Found nova user"
+                isNovaInLibvirtGroup=`id nova | grep -i -c libvirtd`
+                if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
+                        echo "nova user is present but not a part of libvirtd group"
+                        echo -n "Adding nova as a part of libvirtd group... "
+                        usermod -a -G libvirtd nova
+                        if [ $? -eq 0 ] ; then
+                                echo "success"
+                        else
+                                echo "failed"
+                        fi
+                fi
+        fi
 }
 
 installLibvirtPackages()
@@ -153,6 +263,8 @@ installLibvirtPackages()
 		installLibvirtPackages_ubuntu
         elif [  $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
 		installLibvirtPackages_rhel
+	elif [ $FLAVOUR == "suse" ] ; then
+		installLibvirtPackages_suse
         fi
 	
 }
@@ -211,32 +323,50 @@ function installLibvirt()
 
 function installRPProxyAndListner()
 {
-	echo "Installing RPProxy and Starting RPListner...."
-	killall -9 libvirtd
-	
-	echo "#! /bin/sh" > $KVM_BINARY
-	echo "exec qemu-system-x86_64 -enable-kvm \"\$@\""  >> $KVM_BINARY
-	chmod +x $KVM_BINARY
-	# is_already_replaced=`strings /usr/bin/qemu-system-x86_64 | grep -c -t "rpcore"`
-	if [ -e /usr/bin/qemu-system-x86_64_orig ]
+	echo "Installing RPProxy and Starting RPListener...."
+	pkill -9 libvirtd
+	libvirtd -d
+
+	if [ -e $KVM_BINARY ] ; then
+		echo "#! /bin/sh" > $KVM_BINARY
+		echo "exec $QEMU_INSTALL_LOCATION -enable-kvm \"\$@\""  >> $KVM_BINARY
+		chmod +x $KVM_BINARY
+	fi
+	is_already_replaced=`strings "$QEMU_INSTALL_LOCATION" | grep -c -i "rpcore"`
+	if [ $is_already_replaced -gt 0 ]
 	then	
-		echo "RP-Proxy binary is already updated, might be old" 
+		echo "RP-Proxy binary is already updated, might be old and will be replaced" 
 	else
 		echo "Backup of /usr/bin/qemu-system-x86_64 taken"
-	    	cp /usr/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64_orig
+		cp "$QEMU_INSTALL_LOCATION" /usr/bin/qemu-system-x86_64_orig
 	fi
-	cp "$INSTALL_DIR/rpcore/bin/debug/rp_proxy" /usr/bin/qemu-system-x86_64
+	cp "$INSTALL_DIR/rpcore/bin/debug/rp_proxy" "$QEMU_INSTALL_LOCATION"
 
-	chmod +x /usr/bin/qemu-system-x86_64
+	chmod +x "$QEMU_INSTALL_LOCATION"
 	touch /var/log/rp_proxy.log
 	chmod 666 /var/log/rp_proxy.log
 	chown nova:nova /var/log/rp_proxy.log
 	cp "$INSTALL_DIR/rpcore/bin/scripts/rppy_ifc.py" $DIST_LOCATION/.
 	cp "$INSTALL_DIR/rpcore/lib/librpchannel-g.so" /usr/lib
+	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
+		selinuxenabled
+		if [ $? -eq 0 ] ; then
+			echo "Updating the selinux policies for vRTM files"
+			 semanage fcontext -a -t virt_log_t /var/log/rp_proxy.log
+			 restorecon -v /var/log/rp_proxy.log
+			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
+			 restorecon -v "$QEMU_INSTALL_LOCATION"
+			 semanage fcontext -a -t qemu_exec_t /usr/lib/librpchannel-g.so
+			 restorecon -v /usr/lib/librpchannel-g.so
+		else
+			echo "WARN : Selinux is disabled, enabling SELinux later will conflict vRTM"
+		fi
+	fi
 	ldconfig
+	echo "Stopping previous rp_listener processes if any..."
+	pkill -9 rp_listener
 	cd "$INSTALL_DIR/rpcore/bin/debug/"
-	nohup ./rp_listner > rp_listner.log 2>&1 &
-	libvirtd -d
+	nohup ./rp_listener > rp_listener.log 2>&1 &
 	cd "$INSTALL_DIR"
 
 }
@@ -249,6 +379,9 @@ function startNonTPMRpCore()
 	export RPCORE_PORT=16005
 	export LD_LIBRARY_PATH="$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH"
 	cp -r "$INSTALL_DIR/rpcore/rptmp" /tmp
+	cp /tmp/rptmp/config/TrustedOS/privatekey /tmp/rptmp/config/TrustedOS/privatekey.pem
+	echo "Stopping previous nontpmrpcore processes if any..."
+	pkill -9 nontpmrpcore
 	cd "$INSTALL_DIR/rpcore/bin/debug"
 	nohup ./nontpmrpcore > nontpmrpcore.log 2>&1 &
 	NON_TPM="true"
@@ -281,9 +414,10 @@ function updateRCLocal()
 		export RPCORE_PORT=16005
 		export LD_LIBRARY_PATH=\"$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH\"
 		cp -r \"$INSTALL_DIR/rpcore/rptmp\" /tmp
+		cp /tmp/rptmp/config/TrustedOS/privatekey /tmp/rptmp/config/TrustedOS/privatekey.pem
 		cd \"$INSTALL_DIR/rpcore/bin/debug\"
 		nohup ./nontpmrpcore > nontpmrpcore.log 2>&1 &
-	        nohup ./rp_listner > rp_listner.log 2>&1 &
+	        nohup ./rp_listener > rp_listener.log 2>&1 &
 	        libvirtd -d
 	        sleep 1
 	        /root/services.sh restart
@@ -294,7 +428,7 @@ function updateRCLocal()
                 killall -9 libvirtd
                 sleep 2
                 ldconfig
-                nohup ./rp_listner > rp_listner.log 2>&1 &
+                nohup ./rp_listener > rp_listener.log 2>&1 &
                 libvirtd -d
                 sleep 1
                 /root/services.sh restart
@@ -319,9 +453,9 @@ function validate()
 	# checks for xenbr0 interface
 
 	# Validate qemu-kmv installation	
-	if [ ! -e $KVM_BINARY ] ; then
-		echo "ERROR : Could not find KVM installed on this machine"
-		echo "Please install it using apt-get qemu-kvm"
+	if [ ! -e $QEMU_INSTALL_LOCATION ] ; then
+		echo "ERROR : Could not find $QEMU_INSTALL_LOCATION installed on this machine"
+		echo "Please install qemu kvm"
 		exit
 	fi
 	
@@ -331,23 +465,43 @@ function validate()
                 echo "ERROR : xenbr0 device not available, please setup xenbr0 over this machine"
                 exit
         fi
+	
+	# validate for qemu-nbd as it is required for mount_vm script
+	qemuNbdLocation=`which qemu-nbd`
+	if [ "$qemuNbdLocation" == "" ] ; then
+		echo "WARNING : Could not find qemu-nbd over this host under system PATH"
+		echo "Please install qemu > 0.14 package"
+		echo "Since qemu-nbd is not installed, qcow2 images will fail to launch via vRTM"
+		echo "Do you wish to proceed (y/n) ?"
+		read PROCEED
+		if [ "$PROCEED" == "y" ] ; then
+			echo "Proceeding ahead without qcow2 support ... "
+		else
+			echo "User initiated exit ..."
+			exit
+		fi
+	fi
 }
 
 function main_default()
 {
-	echo "Please enter the install location (default : /opt/RP_<BUILD_TIMESTAMP> )"
-	read INSTALL_DIR
-	if [ -z "$INSTALL_DIR" ] 
-	then 
-		BUILD_TIMESTAMP=`ls KVM_*.tar.gz | awk 'BEGIN{FS="_"} {print $3}' | cut -c-14`
-		INSTALL_DIR="$DEFAULT_INSTALL_DIR/RP_$BUILD_TIMESTAMP"
-	fi
-	mkdir -p "$INSTALL_DIR"
-	while : ; do
-		echo "Please enter current machine IP"
-		read CURRENT_IP
-		if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
-	done
+  if [ -z "$INSTALL_DIR" ]; then
+    echo "Please enter the install location (default : /opt/vrtm/RP_<BUILD_TIMESTAMP> )"
+    read INSTALL_DIR
+  fi
+  if [ -z "$INSTALL_DIR" ]; then
+    BUILD_TIMESTAMP=`ls KVM_*.tar.gz | awk 'BEGIN{FS="_"} {print $3}' | awk 'BEGIN{FS="."}{print $2}'`
+    INSTALL_DIR="$DEFAULT_INSTALL_DIR/RP_$BUILD_TIMESTAMP"
+  fi
+  mkdir -p "$INSTALL_DIR"
+  
+  if ! valid_ip $CURRENT_IP; then
+    while : ; do
+      echo "Please enter current machine IP"
+      read CURRENT_IP
+      if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
+    done
+  fi
 
 	FLAVOUR=`getFlavour`
 	updateFlavourVariables
@@ -364,18 +518,12 @@ function main_default()
 
 	echo "Validating installation ... "
 	validate
-	#read
 
 	echo "Do you wish to install nontpmrpcore y/n (default: n)"
-	read INSTALL_NON_TPM
-	if [ "$INSTALL_NON_TPM" == "y" ]
-	then
-		startNonTPMRpCore	
-	fi
-	#read
+	startNonTPMRpCore
+
 	echo "Installing RPProxy and RPListener..."
 	installRPProxyAndListner
-	#read
 	
 	#echo "Applying openstack patches..."	
 	#patchOpenstackComputePkgs 
@@ -386,14 +534,15 @@ function main_default()
 
 function installNovaCompute()
 {
-	while : ; do
-           echo "Please enter current machine IP"
-           read CURRENT_IP
-           if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
-        done
-	echo "Installing Nova compute"
-	apt-get install 
-
+  if ! valid_ip $CURRENT_IP; then
+    while : ; do
+      echo "Please enter current machine IP"
+      read CURRENT_IP
+      if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
+    done
+  fi
+  echo "Installing Nova compute"
+  apt-get install
 }
 
 function configNovaCompute()

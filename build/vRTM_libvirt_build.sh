@@ -11,22 +11,32 @@
 BUILD_DIR=${BUILD_DIR:-"."}
 TIMEOUT=60
 
-# THis function returns either rhel, fedora or ubuntu
+# This function returns either rhel fedora ubuntu suse
+# TODO : This function can be moved out to some common file
 function getFlavour()
 {
-        if [ -e /etc/lsb-release ] ; then
-                echo "ubuntu"
-        elif [ -e /etc/redhat-release  ] ; then
-                isRedhat=`grep -c -i redhat /etc/redhat-release`
-                isFedora=`grep -c -i fedora /etc/redhat-release`
-                if [ $isRedhat -ne 0 ] ; then
-                        echo "redhat"
-                elif [ $isFedora -ne 0 ] ; then
-                        echo "fedora"
-                else
-                        echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
-                        exit
-                fi
+        flavour=""
+        grep -c -i ubuntu /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="ubuntu"
+        fi
+        grep -c -i "red hat" /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="rhel"
+        fi
+        grep -c -i fedora /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="fedora"
+        fi
+        grep -c -i suse /etc/*-release > /dev/null
+        if [ $? -eq 0 ] ; then
+                flavour="suse"
+        fi
+        if [ "$flavour" == "" ] ; then
+                echo "Unsupported linux flavor, Supported versions are ubuntu, rhel, fedora"
+                exit
+        else
+                echo $flavour
         fi
 }
 
@@ -35,14 +45,14 @@ function installLibvirtRequiredPackages_rhel()
         echo "Installing Required Packages ....."
         yum update
         yum groupinstall -y "Development Tools" "Development Libraries"
-        yum install "kernel-devel-uname-r == $(uname -r)"
+        yum install -y "kernel-devel-uname-r == $(uname -r)"
         # Install the openstack repo
         yum install -y yum-plugin-priorities
         yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
 
-        yum install libvirt-devel libvirt libvirt-python
+        yum install -y libvirt-devel libvirt libvirt-python
         #Libs required for compiling libvirt
-        yum install -y gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel
+        yum install -y gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel libxml2-devel
         yum install -y python-devel
         yum install -y openssh-server
 	yum install -y wget	
@@ -59,12 +69,24 @@ function installLibvirtRequiredPackages_ubuntu()
 	apt-get -y install wget
 }
 
+function installLibvirtRequiredPackages_suse()
+{
+	zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI patch patchutils pbuilder quilt wget glib2-devel libjpeg8-devel libvdemgmt0-devel libvdeplug3-devel brlapi-devel libaio-devel libfdt1-devel texinfo libcap-devel libattr-devel libtspi1 libpixman-1-0-devel trousers-devel  ant
+        zypper -n in libvirt libvirt-devel qemu-kvm 
+        zypper -n in libyajl-devel libpciaccess-devel libnl3-devel device-mapper-devel
+        zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp
+        zypper -n in openssh
+        zypper -n in python-devel dos2unix
+}
+
 function  installLibvirtRequiredPackages()
 {
         if [ $FLAVOUR == "ubuntu" ] ; then
               installLibvirtRequiredPackages_ubuntu
         elif [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
                installLibvirtRequiredPackages_rhel
+	elif [ $FLAVOUR == "suse" ] ; then
+		installLibvirtRequiredPackages_suse
         fi
 }
 
@@ -87,11 +109,8 @@ function buildLibvirt()
 		echo "Updating the timeout to $TIMEOUT"
 		# Updating the timeout for libvirt 
 		# TODO : use $TIMEOUT var in sed
-		sed -i 's/int timeout =.*/int timeout = 60;/g' src/qemu/qemu_monitor.c
+		sed -i 's/int timeout =.*/int timeout = 300;/g' src/qemu/qemu_monitor.c
 		# Package the updated libvirt
-		cd ..
-		tar czf libvirt-1.2.2.tar.gz libvirt-1.2.2
-		cd -
                 echo "Building libvirt - may take a few minutes"
                 ./configure > $BUILD_DIR/outfile 2>&1
 		if [ $? -ne 0 ] ; then
@@ -104,7 +123,20 @@ function buildLibvirt()
                         exit
                 fi
                 cd ..
-        fi
+	fi
+	# Package the updated libvirt
+	tar czf libvirt-1.2.2.tar.gz libvirt-1.2.2
+
+	if [ "$STANDALONE" == "FALSE" ] ; then
+		mv libvirt-1.2.2.tar.gz $BUILD_DIR/dist
+	else
+		mkdir -p $BUILD_DIR/../dist
+		mv libvirt-1.2.2.tar.gz $BUILD_DIR/../dist		
+	fi
+}
+
+function copyLibvirt
+{
         cp -a libvirt-1.2.2/include/libvirt rpcore/src/rpchannel
         # This dir is not created in the structure
         mkdir -p rpcore/lib
@@ -120,18 +152,25 @@ function main()
 	installLibvirtRequiredPackages
 	echo "Building libvirt packages ... This may also take some more time"
 	buildLibvirt
+	if [ "$STANDALONE" == "FALSE" ] ; then
+		copyLibvirt
+	fi
 }
 
 
 function help()
 {
 	echo "This script builds libvirt 1.2.2 and places the respective libraries in RPCore build locations"
+	echo "This also creates a libvirt tar which can be used to install"
+	echo "libvirt over different machines"
 	echo "Usage : ./$0"
-	
 }
 
 if [ $# -eq 0 ]; then
 	main
+elif [ $# -eq 1 -a $1 == "--standalone" ]; then
+        export STANDALONE="TRUE"
+        main
 else
 	help
 fi

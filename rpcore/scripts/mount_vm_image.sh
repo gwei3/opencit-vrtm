@@ -1,7 +1,7 @@
 #!/bin/bash
 set -x
-mountPath="/tmp/mount"
-vhdMountPath="/tmp/vhdmnt"
+#mountPath="/tmp/mount"
+#vhdMountPath="/tmp/vhdmnt"
 
 function unmount_vm_image() {
         echo "################ Unmounting the mount path"
@@ -136,7 +136,7 @@ function mount_vhd_image() {
 }
 
 usage(){
-        echo "Usage: $0 Image-File"
+        echo "Usage: $0 Image-File mount-path"
         exit 1
 }
 
@@ -151,15 +151,21 @@ function check_unmount_status()
 	fi
 }
 
-if [ $# -eq 0 ]
+if [ $# -eq 1 ]
 then
 	#check_unmount_status
+	mountPath=$1
 	unmount_vm_image
 	exit 0
 fi
 
 imagePath=$1
-
+tmppath=$2
+mountPath="${tmppath}/mount"
+vhdMountPath="${tmppath}/vhdmnt"
+rm -rf $tmppath
+mkdir -p $mountPath
+mkdir -p $vhdMountPath
 checkVhd=$(tar tf $imagePath 2>/dev/null | grep 0.vhd)
 if [ ! -z $checkVhd ]
 then
@@ -171,6 +177,19 @@ then
 else
 	echo ""
 fi
+
+function mount_disk_guestmount()
+{
+	imagePath=$(readlink -f $imagePath)
+	guestMountBinary=`which guestmount`
+	if [ $guestMountBinary == "" ] ; then
+		echo "guestmount binary not found, please install libguestfs"
+		echo "and libguestfs-tools ( or its corresponding packages as per"
+		echo "your linux flavour)"
+	fi
+	## Proceed mounting with guestmount
+	time $guestMountBinary -a $imagePath -i $mountPath
+}
 
 imageFormat=$(qemu-img info $imagePath  | grep "file format" | awk -F ':' '{ print $2 }' | sed -e 's/ //g')
 
@@ -210,7 +229,8 @@ case "$imageFormat" in
 	echo "################ Mounting qcow2 Image." 
 	#check_unmount_status
 	unmount_vm_image
-	mount_qcow2_image
+	# mount_qcow2_image
+	mount_disk_guestmount
         if [ $? ]
         then
                 echo "Successfully mounted qcow2 image, exiting ..."
@@ -221,7 +241,17 @@ case "$imageFormat" in
         fi
    ;;
    *)
-	echo "############### format other than vhd, raw, qcow2"
-	exit 1
+	echo "############### format other than vhd, raw, qcow2 using guestmount"
+	        unmount_vm_image
+        # mount_qcow2_image
+        mount_disk_guestmount
+        if [ $? ]
+        then
+                echo "Successfully mounted qcow2 image, exiting ..."
+                exit 0
+        else
+                echo "Error in mounting the image"
+                exit 1
+        fi
 esac
 
