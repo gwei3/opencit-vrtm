@@ -22,16 +22,17 @@
 #include "jlmTypes.h"
 #include "logging.h"
 #include "tcIO.h"
-#include "jlmcrypto.h"
+//#include "jlmcrypto.h"
 #include "modtcService.h"
-#include "keys.h"
-#include "sha256.h"
+//#include "keys.h"
+#include "algs.h"
+//#include "sha256.h"
 #include "channelcoding.h"
-#include "fileHash.h"
-#include "jlmUtility.h"
-#include "cryptoHelper.h"
-#include "tao.h"
-#include "TPMHostsupport.h"
+//#include "fileHash.h"
+//#include "jlmUtility.h"
+//#include "cryptoHelper.h"
+//#include "tao.h"
+//#include "TPMHostsupport.h"
 #include "linuxHostsupport.h"
 
 //#include "vault.h"
@@ -55,7 +56,7 @@
 #endif
 #include <errno.h>
 
-#include "dombuilder.h"
+//#include "dombuilder.h"
 #include "tcconfig.h"
 #include "tcpchan.h"
 #include "rp_api_code.h"
@@ -72,6 +73,10 @@ byte                    g_servicehash[32]= {
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                         };
 
+uint32_t	g_rpdomid = 1000;
+char 		g_mtwproxy_ip[64] = "127.0.0.1";
+int 		g_mtwproxy_on = 0;
+int 		g_mtwproxy_port = 16006;
 #define NUMPROCENTS 200
 #define LAUNCH_ALLOWED		"launch allowed"	 
 #define LAUNCH_NOT_ALLOWED	"launch not allowed"
@@ -805,136 +810,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
         //fprintf(g_logFile,"launch policy for UUID is not found\n");
         return TCSERVICE_RESULT_FAILED;
 }
-
-
-TCSERVICE_RESULT tcServiceInterface::GetOsPolicyKey(u32* pType, 
-                                            int* psize, byte* rgBuf)
-{
-	/*
-    if(!m_trustedHome.m_policyKeyValid)
-        return TCSERVICE_RESULT_DATANOTVALID ;
-    if(*psize<m_trustedHome.m_sizepolicyKey)
-        return TCSERVICE_RESULT_BUFFERTOOSMALL;
-    memcpy(rgBuf, m_trustedHome.m_policyKey, m_trustedHome.m_sizepolicyKey);
-    *pType= m_trustedHome.m_policyKeyType;
-    *psize= m_trustedHome.m_sizepolicyKey;
-*/
-    return TCSERVICE_RESULT_FAILED;
-}
-
-
-TCSERVICE_RESULT tcServiceInterface::tcServiceInterface::GetOsCert(u32* pType,
-                        int* psizeOut, byte* rgOut)
-{
-    if(!m_trustedHome.m_myCertificateValid)
-        return TCSERVICE_RESULT_DATANOTVALID ;
-        
-    if(*psizeOut<m_trustedHome.m_myCertificateSize)
-        return TCSERVICE_RESULT_BUFFERTOOSMALL;
-    
-    memcpy(rgOut, m_trustedHome.m_myCertificate, 
-           m_trustedHome.m_myCertificateSize);
-    
-    *psizeOut= m_trustedHome.m_myCertificateSize;
-    
-    if(m_trustedHome.m_myCertificateType==KEYTYPERSA1024INTERNALSTRUCT)
-        *pType= KEYTYPERSA1024SERIALIZED;
-    else if(m_trustedHome.m_myCertificateType==KEYTYPERSA2048INTERNALSTRUCT)
-        *pType= KEYTYPERSA2048SERIALIZED;
-    else
-        *pType= m_trustedHome.m_myCertificateType;
-
-    return TCSERVICE_RESULT_SUCCESS;
-}
-
-/*
-MH start of GetAIKCert.
-This function returns dummy value as cert
-TODO: relace codeto get actual aik cert
-*/
-TCSERVICE_RESULT tcServiceInterface::GetAIKCert(u32* pType,
-                        int* psizeOut, byte* rgOut)
-{
-    char *dummy_aik_cert="This is dummy aik cert";
-    memcpy(rgOut, dummy_aik_cert,
-           strlen(dummy_aik_cert));
-
-    *psizeOut= strlen(dummy_aik_cert);
-    //*pType= "AIK_CERT";
-    return TCSERVICE_RESULT_SUCCESS;
-}
-/*
-MH start of GetTPMQuote.
-This function returns dummy value as tpm quote
-TODO: relace codeto get actual tpm quote
-*/
-
-TCSERVICE_RESULT tcServiceInterface::GetTPMQuote(char *nonceStr, byte* rgOut, int* psizeOut)
-{
-    char *dummy_tpm_quote="This is dummy tpm quote";
-    memcpy(rgOut, dummy_tpm_quote,
-           strlen(dummy_tpm_quote));
-
-    *psizeOut= strlen(dummy_tpm_quote);
-    //*pType= "AIK_CERT";
-    return true;
-}
-
-
-TCSERVICE_RESULT tcServiceInterface::GetOsEvidence(int* psizeOut, byte* rgOut)
-{
-    if(!m_trustedHome.m_ancestorEvidenceValid)
-        return TCSERVICE_RESULT_DATANOTVALID ;
-    if(*psizeOut<m_trustedHome.m_ancestorEvidenceSize)
-        return TCSERVICE_RESULT_BUFFERTOOSMALL;
-    *psizeOut= m_trustedHome.m_ancestorEvidenceSize;
-    memcpy(rgOut, m_trustedHome.m_ancestorEvidence, *psizeOut);
-
-    return TCSERVICE_RESULT_SUCCESS;
-}
-
-
-TCSERVICE_RESULT tcServiceInterface::GetHostedMeasurement(int pid, u32* phashType, int* psize, byte* rgBuf)
-{
-    if(!m_procTable.gethashfromprocId(pid, psize, rgBuf)) {
-        return TCSERVICE_RESULT_FAILED;
-    }
-    *phashType= HASHTYPEHOSTEDPROGRAM;
-    return TCSERVICE_RESULT_SUCCESS;
-}
-
-
-TCSERVICE_RESULT tcServiceInterface::GetOsHash(u32* phashType, int* psize, byte* rgOut)
-{
-    if(!m_trustedHome.m_myMeasurementValid)
-        return TCSERVICE_RESULT_DATANOTVALID ;
-        
-    if(*psize<m_trustedHome.m_myMeasurementSize)
-        return TCSERVICE_RESULT_BUFFERTOOSMALL;
-        
-    *psize= m_trustedHome.m_myMeasurementSize;
-    memcpy(rgOut, m_trustedHome.m_myMeasurement, *psize);
-    *phashType= m_trustedHome.m_myMeasurementType;
-
-    return TCSERVICE_RESULT_SUCCESS;
-}
-
-
-TCSERVICE_RESULT tcServiceInterface::GetServiceHash(u32* phashType, 
-                    int* psize, byte* rgOut)
-{
-    if(!g_fservicehashValid)
-        return TCSERVICE_RESULT_FAILED;
-    *phashType= g_servicehashType;
-    if(*psize<g_servicehashSize)
-        return TCSERVICE_RESULT_FAILED;
-    *psize= g_servicehashSize;
-    memcpy(rgOut, g_servicehash, *psize);
-
-    return TCSERVICE_RESULT_SUCCESS;
-}
-
-
 TCSERVICE_RESULT tcServiceInterface::TerminateApp(int sizeIn, byte* rgIn, int* psizeOut, byte* out)
 {
 	//remove entry from table.
@@ -954,57 +829,6 @@ TCSERVICE_RESULT tcServiceInterface::TerminateApp(int sizeIn, byte* rgIn, int* p
 	return TCSERVICE_RESULT_SUCCESS;
 }
 
-TCSERVICE_RESULT tcServiceInterface::CheckAppID(char* in_uuid, char *vdi_uuid, int* psizeOut, byte* out)
-{
-        //remove entry from table.
-        char uuid[48] = {0};
-        char vuuid[48] = {0};
-	bool match;
-        if ((in_uuid == NULL) || (out == NULL))
-                return TCSERVICE_RESULT_FAILED;
-
-        memset(uuid, 0, g_max_uuid);
-        memcpy(uuid, in_uuid, g_sz_uuid);
-
-        memset(vuuid, 0, g_max_uuid);
-        memcpy(vuuid, vdi_uuid, g_sz_uuid);
-        match = g_myService.m_procTable.checkprocEntry(uuid, vuuid);
-
-        *psizeOut = sizeof(int);
-	if(match==true){
-        	*((int*)out) = (int)0;
-	}
-	else{
-		*((int*)out) = (int)1;
-	}
-
-        return TCSERVICE_RESULT_SUCCESS;
-}
-
-TCSERVICE_RESULT tcServiceInterface::CheckIS_MEASURED(char* in_uuid,  int* psizeOut, byte* out)
-{
-        //remove entry from table.
-        char uuid[48] = {0};
-        if ((in_uuid == NULL) || (out == NULL))
-                return TCSERVICE_RESULT_FAILED;
-
-
-        memset(uuid, 0, g_max_uuid);
-        memcpy(uuid, in_uuid, g_sz_uuid);
-
-	bool match;
-        match = g_myService.m_procTable.getEntfromuuid(uuid);
-
-	*psizeOut = sizeof(int);
-	if(match==true){
-                *((int*)out) = (int)0;
-        }
-        else{
-                *((int*)out) = (int)1;
-        }
-
-        return TCSERVICE_RESULT_SUCCESS;
-}
 
 TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid, char *vdi_uuid, int* psizeOut, byte* out)
 {
@@ -1433,164 +1257,6 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
 }
 
 
-
-
-
-
-#ifdef SEALUNSEAL_DOM0_STORAGE
-// Debug Begin
-bool SaveSealedData(const char* szFile, byte* buf, int size)
-{
-    fprintf(g_logFile, "SaveSealedData() %s %d\n",szFile, size);
-    if(szFile==NULL)
-        return false;
-    int iWrite= open(szFile, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-    if(iWrite<0)
-        return false;
-    ssize_t result = write(iWrite, buf, size);
-    close(iWrite);
-    return true;
-}
-
-bool GetSavedSealedData(const char* szFile, byte* buf, int* psize)
-{
-    fprintf(g_logFile, "GetSavedSealedData() %s\n",szFile);
-
-    if(szFile==NULL) {
-        return false;
-    }
-
-    int iRead= open(szFile, O_RDONLY);
-    if(iRead<0) {
-        fprintf(g_logFile, "GetSavedSealedData: Open failed\n");
-        return false;
-    }
-
-    int n= read(iRead, buf, *psize);
-    if(n<0) {
-        fprintf(g_logFile, "GetSavedSealedData: Read error\n");
-        close(iRead);
-        return false;
-    }
-    *psize= n;
-    close(iRead);
-    fprintf(g_logFile, "GetSavedSealedData: Success Read *psize %d\n",n);
-    return true;
-}
-//Debug End
-#endif
-
-TCSERVICE_RESULT tcServiceInterface::SealFor(int procid, int sizeIn, byte* rgIn, 
-                                             int* psizeOut, byte* rgOut)
-//  Sealed value is hash-size hash size-in rgIn
-{
-    byte    rgHash[32];
-    int     hashSize= 0;
-
-    if(!m_procTable.gethashfromprocId(procid, &hashSize, rgHash)) {
-        fprintf(g_logFile, "SealFor can't find hash in procTable %ld\n", (long int)procid);
-        return TCSERVICE_RESULT_FAILED;
-    }
-#ifdef TCTEST
-    fprintf(g_logFile, "SealFor: %ld(proc), %d(hashsize), %d (size seal)\n",
-           (long int)procid, hashSize, sizeIn);
-#endif
-    if(!m_trustedHome.Seal(hashSize, rgHash, sizeIn, rgIn,
-                       psizeOut, rgOut)) {
-        fprintf(g_logFile, "SealFor: seal failed\n");
-        return TCSERVICE_RESULT_FAILED;
-    }
-#ifdef SEALUNSEAL_DOM0_STORAGE
-	//debug code
-   PrintBytes("SealFor: In Bytes\n", rgIn, sizeIn );
-   fprintf(g_logFile, "SealFor: sizeIn %d\n", sizeIn);
-   SaveSealedData("/home/s1/rp/config/Sealed", rgOut, *psizeOut);
-   fprintf(g_logFile, "SealFor: *psizeOut %d\n", *psizeOut);
-   PrintBytes("SealFor: Sealed Bytes\n", rgOut, *psizeOut);
-#endif
-
-#ifdef TCTEST
-    fprintf(g_logFile, "tcServiceInterface::SealFor\n");
-#endif
-    
-    return TCSERVICE_RESULT_SUCCESS;
-}
-
-
-TCSERVICE_RESULT tcServiceInterface::UnsealFor(int procid, int sizeIn, byte* rgIn, 
-                            int* psizeOut, byte* rgOut)
-{
-    byte    rgHash[32];
-    int     hashSize= 0;
-
-    if(!m_procTable.gethashfromprocId(procid, &hashSize, rgHash)) {
-        fprintf(g_logFile, "UnsealFor can't find hash in procTable %ld\n", (long int)procid);
-        return TCSERVICE_RESULT_FAILED;
-    }
-#ifdef TCTEST
-    fprintf(g_logFile, "UnsealFor: %ld(proc), %d(hashsize), %d (size seal)\n",
-           (long int)procid, hashSize, sizeIn);
-#endif
-
-#ifdef SEALUNSEAL_DOM0_STORAGE
-   // BEGIN
-   int fileSize= 500;
-   fprintf(g_logFile, "UnsealFor: sizeIn %d\n", sizeIn);
-   //GetSavedSealedData("/home/s1/rp/config/Sealed", rgIn, sizeIn);
-   PrintBytes("UnsealFor: rgIn\n", rgIn, sizeIn);
-   GetSavedSealedData("/home/s1/rp/config/Sealed", rgIn, &fileSize);
-   PrintBytes("UnsealFor: read rgIn\n", rgIn, fileSize);
-   fprintf(g_logFile, "UnsealFor: fileSize %d\n", fileSize);
-   PrintBytes("UnsealFor: Sealed Bytes\n", rgIn, fileSize);
-   sizeIn= fileSize;
-  // END
-#endif
-
-    if(!m_trustedHome.Unseal(hashSize, rgHash, sizeIn, rgIn,
-                       psizeOut, rgOut)) {
-        fprintf(g_logFile, "UnsealFor: unseal failed\n");
-        return TCSERVICE_RESULT_FAILED;
-    }
-
-#ifdef SEALUNSEAL_DOM0_STORAGE
-    // BEGIN
-    PrintBytes("UnsealFor: Unsealed Bytes\n", rgOut, *psizeOut);
-    // END
-#endif
-
-    return TCSERVICE_RESULT_SUCCESS;
-}
-
-
-TCSERVICE_RESULT tcServiceInterface::AttestFor(int procid, int sizeIn, byte* rgIn, 
-                            int* psizeOut, byte* rgOut)
-{
-    byte    rgHash[32];
-    int     hashSize= 32;
-
-    if(!m_procTable.gethashfromprocId(procid, &hashSize, rgHash)) {
-#ifdef TCTEST
-        fprintf(g_logFile, "tcServiceInterface::AttestFor lookup failed\n");
-        m_procTable.print();
-#endif
-        return TCSERVICE_RESULT_FAILED;
-    }
-#ifdef TEST
-    fprintf(g_logFile, "tcServiceInterface::AttestFor procid: %d\n", 
-            procid);
-#endif
-    if(!m_trustedHome.Attest(hashSize, rgHash, sizeIn, rgIn,
-                       psizeOut, rgOut)) {
-        return TCSERVICE_RESULT_FAILED;
-    }
-#ifdef TEST
-        fprintf(g_logFile, "tcServiceInterface::AttestFor new output buf size\n",
-               *psizeOut);
-#endif
-    return TCSERVICE_RESULT_SUCCESS;
-}
-
-
 // ------------------------------------------------------------------------------
 
 
@@ -1976,6 +1642,14 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
     }
 }
 
+int create_domain(int argc, char **argv)
+{
+        int ret = -1;
+
+        ret = g_rpdomid++;
+
+        return ret;
+}
 
 requestData* create_request_data(int procid, int origprocid, u32 uReq, int inparamsize, byte *inparams)
 {
@@ -2094,7 +1768,7 @@ int modmain(int an, char** av)
     g_servicepid = 0;//v: getpid();
     g_myService.maxThread=g_max_thread_limit;
     
-    const char** parameters = NULL;
+ /*   const char** parameters = NULL;
     directory = &g_config_dir[0];
     int parameterCount = 0;
     
@@ -2133,7 +1807,7 @@ int modmain(int an, char** av)
         iRet= 1;
         goto cleanup;
     }
-
+*/
     /*
     if(fInitKeys) {
         // EnvInit should have initialized keys
@@ -2158,8 +1832,7 @@ int modmain(int an, char** av)
 
     // add self proctable entry
     g_myService.m_procTable.addprocEntry(g_servicepid, strdup(szexecFile), 0, NULL,
-                                      g_myService.m_trustedHome.m_myMeasurementSize,
-                                      g_myService.m_trustedHome.m_myMeasurement);
+                                      0,NULL );
     while(!g_fterminateLoop) {
         fServiceStart= start_request_processing();
         UNUSEDVAR(fServiceStart);
@@ -2167,8 +1840,6 @@ int modmain(int an, char** av)
 
 cleanup:
 
-    g_myService.m_trustedHome.EnvClose();
-    g_myService.m_host.HostClose();
     closeLog();
     return iRet;
 }

@@ -15,14 +15,14 @@
 #include <errno.h>
 #include <sys/stat.h>
 
-#include "tcService.h"
+#include "modtcService.h"
 #include "tcIO.h"
 #include "logging.h"
 #include "tcconfig.h"
 #include "rp_api_code.h"
 #include "channelcoding.h"
 #include "jlmUtility.h"
-#include "dombuilder.h"
+//#include "dombuilder.h"
 
 //global variables. 
 // note: handle with care, may buf overflow
@@ -299,13 +299,12 @@ int LoadConfig(const char* szInFile ){
         return rc;
 
     if(is_statted) {
-            fprintf (stdout, "Host IP is %s\n", g_rpcore_ip );
-    } else {
-        rc = get_rp_configuration(g_reqChannel);
-        if (rc == TCSERVICE_RESULT_SUCCESS )
-            tftp_get_and_uncompress("/tmp/rptmp/", g_config_file);
+            fprintf (stdout, "Host IP is %s\n", g_rpcore_ip );	    
     }
-
+    else {
+	fprintf (stdout, "rptmp dir is not found at required locations");
+	return -1;
+    }
     sprintf(cmd_line, "%s/%s", g_config_dir, g_config_file);
 	read_config(cmd_line);
 	rc = TCSERVICE_RESULT_SUCCESS;

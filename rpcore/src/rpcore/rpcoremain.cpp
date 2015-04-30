@@ -36,15 +36,88 @@
 #include <sys/un.h>
 #endif
 #include <errno.h>
+#include <stdlib.h>
+#include <map>
+#include <string>
 
 #include "tcIO.h"
 #include "logging.h"
 #include "tcconfig.h"
-#include "jlmcrypto.h"
+//#include "jlmcrypto.h"
+
+char    g_python_scripts[256] = "../scripts";
+char    g_config_file[256]      = "vRTM.cfg";
+char    g_rpcore_ip [64]        = "127.0.0.1";
+int     g_rpcore_port 		= 16005;
+int     g_max_thread_limit 	= 64;
+
+std:: map<std::string, std::string> config_map;
 
 int  g_quit = 0;
 
 int g_fdLock;
+
+inline std::string trim_right_copy(const std::string &s, const std::string &delimiters)
+{
+	return s.substr(0,s.find_last_not_of(delimiters) +1 );
+}
+
+inline std::string trim_left_copy(const std::string &s, const std::string &delimiters)
+{
+	return s.substr(s.find_first_not_of(delimiters));
+}
+
+inline std::string trim_copy(const std::string &s, const std::string delimiters)
+{
+	return trim_left_copy(trim_right_copy(s,delimiters),delimiters);
+}
+
+int LoadConfig(const char * configFile)
+{
+	FILE *fp = fopen(configFile,"r");
+	char *line;
+	int line_size = 512;
+	char *key;
+	char *value;
+	if(fp == NULL)
+	{
+		return -1;
+	}
+	while(true)
+	{
+		line = (char *) calloc(1,sizeof(char) * 512);
+		fgets(line,line_size,fp);
+		if(feof(fp))
+			break;
+		key=strtok(line,"=");
+		value=strtok(NULL,"=");
+		std::string map_key (key);
+		std::string map_value (value);
+		std::pair<std::string, std::string> config_pair (trim_copy(map_key," \t\n"),trim_copy(map_value," \t\n"));
+		config_map.insert(config_pair);
+		free(line);
+	}
+	return config_map.size();
+}
+
+int read_config()
+{
+	int count=0;
+	std::string rpcore_ip, rpcore_port, max_thread_limit;
+	rpcore_ip = config_map["rpcore_ip"];
+	if(rpcore_ip == "") return -1;else count++;		
+	rpcore_port = config_map["rpcore_port"];
+	if(rpcore_port == "") return -1;else count++;		
+	max_thread_limit = config_map["max_thread_limit"];
+	if(max_thread_limit == "") return -1;else count++;		
+	strcpy(g_rpcore_ip,rpcore_ip.c_str());
+	//sprintf(g_rpcore_port,"%d", rpcore_port);
+	//sprintf(g_max_thread_limit,"%d",max_thread_limit);
+	g_rpcore_port = atoi(rpcore_port.c_str());
+	g_max_thread_limit = atoi(max_thread_limit.c_str());
+	return count;
+}
+
 int singleInstanceRpcoreservice()
 {
     //const char *pidPath="/var/run/rpcoreservice.pid";
@@ -86,7 +159,7 @@ int main(int an, char** av)
 {
     int            	iRet= 0;
     int 			instanceValid = 0;
-    const char*		configfile = "./tcconfig.xml";
+    const char*		configfile = "../../config/vRTM.cfg";
 //------------------------------------------------------------------
     
     if ((instanceValid = singleInstanceRpcoreservice()) == -2) {
@@ -114,21 +187,17 @@ int main(int an, char** av)
 		goto cleanup;
 	}
 
-//------------------------------------------------------------------
-   if(!initAllCrypto()) {
-        //fprintf(g_logFile, "tcService main: can't initcrypto\n");
-        iRet= 1;
-        goto cleanup;
-    }
-//------------------------------------------------------------------       
-
-    //
 	// initialize configuration
 	//
 	
 
 	if ( LoadConfig(configfile) < 0 ) {
 		fprintf(stdout, "tcService main: can't load config file %s\n", configfile);
+		goto cleanup;
+	}
+	if ( read_config() < 0)
+	{
+		fprintf(stdout,"tcService main : cant't find required values in config file");
 		goto cleanup;
 	}
 	
@@ -146,3 +215,5 @@ cleanup:
 	  closeLog();
 	  return iRet;
 }
+
+

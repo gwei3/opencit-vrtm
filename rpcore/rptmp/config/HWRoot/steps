@@ -1,3 +1,0 @@
-xxd -p aikblob   <-- This guy has the mod + the priv exp
-xxd -p aikKeyFile.txt
-xxd -p  aikhexmod.txt
