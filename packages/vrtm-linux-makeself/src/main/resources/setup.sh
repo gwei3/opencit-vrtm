@@ -151,10 +151,14 @@ chmod 700 $VRTM_HOME/dist/*
 rm -rf /$VRTM_HOME/dist
 
 #verifier
-vrtmVerifier="$INSTALL_DIR/rpcore/bin/debug"
-if [ -n "$vrtmVerifier" ]; then
+tbootxmVerifier="/opt/tbootxm/bin/verifier"
+vrtmVerifier="$INSTALL_DIR/rpcore/bin/debug/verifier"
+if [ ! -f "$tbootxmVerifier" ]; then
+  echo_warning "Could not find $tbootxmVerifier"
+fi
+if [ -f "$vrtmVerifier" ]; then
   rm -f "$vrtmVerifier"
 fi
-ln -s "/opt/tbootxm/bin/verifier" "$vrtmVerifier"
+ln -s "$tbootxmVerifier" "$vrtmVerifier"
 
 echo_success "VRTM Installation complete"
