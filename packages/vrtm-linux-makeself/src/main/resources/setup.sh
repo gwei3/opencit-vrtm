@@ -149,6 +149,12 @@ chmod 700 $VRTM_HOME/dist/*
 
 (cd $VRTM_HOME/dist && ./vRTM_KVM_install.sh)
 rm -rf /$VRTM_HOME/dist
-ln -s /opt/tbootxm/bin/verifier $INSTALL_DIR/rpcore/bin/debug
+
+#verifier
+vrtmVerifier="$INSTALL_DIR/rpcore/bin/debug"
+if [ -n "$vrtmVerifier" ]; then
+  rm -f "$vrtmVerifier"
+fi
+ln -s "/opt/tbootxm/bin/verifier" "$vrtmVerifier"
 
 echo_success "VRTM Installation complete"
