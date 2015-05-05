@@ -146,21 +146,22 @@ unzip -oq $VRTM_ZIPFILE -d $VRTM_HOME
 cp $UTIL_SCRIPT_FILE $VRTM_HOME/bin/functions.sh
 
 # set permissions
-chmod 700 $VRTM_HOME/bin/*
-chmod 700 $VRTM_HOME/dist/*
+chmod 700 $VRTM_HOME/bin/*.sh
+chmod 700 $VRTM_HOME/dist/*.sh
 
 (cd $VRTM_HOME/dist && ./vRTM_KVM_install.sh)
 rm -rf /$VRTM_HOME/dist
 
-#verifier
-tbootxmVerifier="/opt/tbootxm/bin/verifier"
-vrtmVerifier="$INSTALL_DIR/rpcore/bin/debug/verifier"
-if [ ! -f "$tbootxmVerifier" ]; then
-  echo_warning "Could not find $tbootxmVerifier"
-fi
-if [ -f "$vrtmVerifier" ]; then
-  rm -f "$vrtmVerifier"
-fi
-ln -s "$tbootxmVerifier" "$vrtmVerifier"
+### CURRENTLY DONE IN vRTM_KVM_install.sh
+##verifier
+#tbootxmVerifier="/opt/tbootxm/bin/verifier"
+#vrtmVerifier="$INSTALL_DIR/rpcore/bin/debug/verifier"
+#if [ ! -f "$tbootxmVerifier" ]; then
+#  echo_warning "Could not find $tbootxmVerifier"
+#fi
+#if [ -f "$vrtmVerifier" ]; then
+#  rm -f "$vrtmVerifier"
+#fi
+#ln -s "$tbootxmVerifier" "$vrtmVerifier"
 
 echo_success "VRTM Installation complete"

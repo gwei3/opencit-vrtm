@@ -490,10 +490,6 @@ function validate()
 function main_default()
 {
   if [ -z "$INSTALL_DIR" ]; then
-    echo "Please enter the install location (default : /opt/vrtm/RP_<BUILD_TIMESTAMP> )"
-    read INSTALL_DIR
-  fi
-  if [ -z "$INSTALL_DIR" ]; then
     BUILD_TIMESTAMP=`ls KVM_*.tar.gz | awk 'BEGIN{FS="_"} {print $3}' | awk 'BEGIN{FS="."}{print $2}'`
     INSTALL_DIR="$DEFAULT_INSTALL_DIR/RP_$BUILD_TIMESTAMP"
   fi
@@ -533,7 +529,19 @@ function main_default()
 	#patchOpenstackComputePkgs 
 
 	updateRCLocal
-	echo "Install completed successfully !"
+	
+    #verifier symlink
+    tbootxmVerifier="/opt/tbootxm/bin/verifier"
+    vrtmVerifier="$INSTALL_DIR/rpcore/bin/debug/verifier"
+    if [ ! -f "$tbootxmVerifier" ]; then
+      echo "Could not find $tbootxmVerifier"
+    fi
+    if [ -f "$vrtmVerifier" ]; then
+      rm -f "$vrtmVerifier"
+    fi
+    ln -s "$tbootxmVerifier" "$vrtmVerifier"
+
+    echo "Install completed successfully !"
 }
 
 function installNovaCompute()
