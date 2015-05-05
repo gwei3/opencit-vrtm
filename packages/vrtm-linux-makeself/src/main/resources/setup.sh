@@ -84,6 +84,7 @@ vrtm_backup_configuration() {
   if [ -n "$VRTM_CONFIGURATION" ] && [ -d "$VRTM_CONFIGURATION" ]; then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/vrtm.configuration.$datestr
+    mkdir -p "$backupdir"
     cp -r $VRTM_CONFIGURATION $backupdir
   fi
 }
@@ -92,6 +93,7 @@ vrtm_backup_repository() {
   if [ -n "$VRTM_REPOSITORY" ] && [ -d "$VRTM_REPOSITORY" ]; then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/vrtm.repository.$datestr
+    mkdir -p "$backupdir"
     cp -r $VRTM_REPOSITORY $backupdir
   fi
 }
