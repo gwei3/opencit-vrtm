@@ -152,7 +152,11 @@ function install_kvm_packages_rhel()
 	echo "Installing Required Packages ....."
 	yum -y update
 	yum -y groupinstall -y "Development Tools" "Development Libraries"
-	yum install -y "kernel-devel-uname-r == $(uname -r)" 
+	yum install -y "kernel-devel-uname-r == $(uname -r)"
+	if [ $FLAVOUR == "rhel" ]; then
+      yum install -y yum-utils
+      yum-config-manager --enable rhel-6-server-optional-rpms
+    fi
 	# Install the openstack repo
 	yum install -y yum-plugin-priorities
 	yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
