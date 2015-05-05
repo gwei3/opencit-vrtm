@@ -319,9 +319,15 @@ function installLibvirt()
 	sed -i 's/^#.*auth_unix_ro.*/auth_unix_ro="none"/g' /etc/libvirt/libvirtd.conf
 	sed -i 's/^#.*auth_unix_rw.*/auth_unix_rw="none"/g' /etc/libvirt/libvirtd.conf
 
-	# Disable the apparmor profile for libvirt
-	ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/
-	apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd 
+	if [ $FLAVOUR == "ubuntu" ]; then
+		# Disable the apparmor profile for libvirt for ubuntu
+		if [ -e /etc/apparmor.d/disable/usr.sbin.libvirtd ] ; then
+			echo "libvirt apparmor already disabled"
+		else
+			ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/
+			apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd 
+		fi
+	fi
 
 }
 
@@ -470,21 +476,6 @@ function validate()
                 exit
         fi
 	
-	# validate for qemu-nbd as it is required for mount_vm script
-	qemuNbdLocation=`which qemu-nbd`
-	if [ "$qemuNbdLocation" == "" ] ; then
-		echo "WARNING : Could not find qemu-nbd over this host under system PATH"
-		echo "Please install qemu > 0.14 package"
-		echo "Since qemu-nbd is not installed, qcow2 images will fail to launch via vRTM"
-		echo "Do you wish to proceed (y/n) ?"
-		read PROCEED
-		if [ "$PROCEED" == "y" ] ; then
-			echo "Proceeding ahead without qcow2 support ... "
-		else
-			echo "User initiated exit ..."
-			exit
-		fi
-	fi
 }
 
 function main_default()
