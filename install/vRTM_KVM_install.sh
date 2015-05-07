@@ -109,6 +109,10 @@ function installKVMPackages_rhel()
         echo "Installing Required Packages ....."
         yum -y update
         yum install -y "kernel-devel-uname-r == $(uname -r)"
+        if [ $FLAVOUR == "rhel" ]; then
+          yum install -y yum-utils
+          yum-config-manager --enable rhel-6-server-optional-rpms
+        fi
         # Install the openstack repo
         yum install -y yum-plugin-priorities
         yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
@@ -120,6 +124,10 @@ function installKVMPackages_rhel()
         yum install -y openssh-server
 	yum install -y trousers tpm-tools cryptsetup 
 	yum install -y tar procps binutils
+	selinuxenabled
+	if [ $? -eq 0 ] ; then
+		yum install -y policycoreutils-python
+	fi
 
 }
 
@@ -311,9 +319,15 @@ function installLibvirt()
 	sed -i 's/^#.*auth_unix_ro.*/auth_unix_ro="none"/g' /etc/libvirt/libvirtd.conf
 	sed -i 's/^#.*auth_unix_rw.*/auth_unix_rw="none"/g' /etc/libvirt/libvirtd.conf
 
-	# Disable the apparmor profile for libvirt
-	ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/
-	apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd 
+	if [ $FLAVOUR == "ubuntu" ]; then
+		# Disable the apparmor profile for libvirt for ubuntu
+		if [ -e /etc/apparmor.d/disable/usr.sbin.libvirtd ] ; then
+			echo "libvirt apparmor already disabled"
+		else
+			ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/
+			apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd 
+		fi
+	fi
 
 }
 
@@ -344,6 +358,20 @@ function installRPProxyAndListner()
 	chown nova:nova /var/log/rp_proxy.log
 	cp "$INSTALL_DIR/rpcore/bin/scripts/rppy_ifc.py" $DIST_LOCATION/.
 	cp "$INSTALL_DIR/rpcore/lib/librpchannel-g.so" /usr/lib
+	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
+		selinuxenabled
+		if [ $? -eq 0 ] ; then
+			echo "Updating the selinux policies for vRTM files"
+			 semanage fcontext -a -t virt_log_t /var/log/rp_proxy.log
+			 restorecon -v /var/log/rp_proxy.log
+			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
+			 restorecon -v "$QEMU_INSTALL_LOCATION"
+			 semanage fcontext -a -t qemu_exec_t /usr/lib/librpchannel-g.so
+			 restorecon -v /usr/lib/librpchannel-g.so
+		else
+			echo "WARN : Selinux is disabled, enabling SELinux later will conflict vRTM"
+		fi
+	fi
 	ldconfig
 	echo "Stopping previous rp_listener processes if any..."
 	pkill -9 rp_listener
@@ -448,29 +476,10 @@ function validate()
                 exit
         fi
 	
-	# validate for qemu-nbd as it is required for mount_vm script
-	qemuNbdLocation=`which qemu-nbd`
-	if [ "$qemuNbdLocation" == "" ] ; then
-		echo "WARNING : Could not find qemu-nbd over this host under system PATH"
-		echo "Please install qemu > 0.14 package"
-		echo "Since qemu-nbd is not installed, qcow2 images will fail to launch via vRTM"
-		echo "Do you wish to proceed (y/n) ?"
-		read PROCEED
-		if [ "$PROCEED" == "y" ] ; then
-			echo "Proceeding ahead without qcow2 support ... "
-		else
-			echo "User initiated exit ..."
-			exit
-		fi
-	fi
 }
 
 function main_default()
 {
-  if [ -z "$INSTALL_DIR" ]; then
-    echo "Please enter the install location (default : /opt/RP_<BUILD_TIMESTAMP> )"
-    read INSTALL_DIR
-  fi
   if [ -z "$INSTALL_DIR" ]; then
     BUILD_TIMESTAMP=`ls KVM_*.tar.gz | awk 'BEGIN{FS="_"} {print $3}' | awk 'BEGIN{FS="."}{print $2}'`
     INSTALL_DIR="$DEFAULT_INSTALL_DIR/RP_$BUILD_TIMESTAMP"
@@ -511,7 +520,19 @@ function main_default()
 	#patchOpenstackComputePkgs 
 
 	updateRCLocal
-	echo "Install completed successfully !"
+	
+    #verifier symlink
+    tbootxmVerifier="/opt/tbootxm/bin/verifier"
+    vrtmVerifier="$INSTALL_DIR/rpcore/bin/debug/verifier"
+    if [ ! -f "$tbootxmVerifier" ]; then
+      echo "Could not find $tbootxmVerifier"
+    fi
+    if [ -f "$vrtmVerifier" ]; then
+      rm -f "$vrtmVerifier"
+    fi
+    ln -s "$tbootxmVerifier" "$vrtmVerifier"
+
+    echo "Install completed successfully !"
 }
 
 function installNovaCompute()
