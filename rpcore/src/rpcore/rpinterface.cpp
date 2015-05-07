@@ -51,10 +51,6 @@
 #include "rp_api_code.h"
 #include "pyifc.h"
 
-/*
-#include "../jlmcrypto/algs.h"
-#include "serviceHash.inc"
-#include "policyKey.inc"*/
 #include "tcconfig.h"
 
 #include "tcpchan.h"
@@ -403,62 +399,6 @@ bool tciodd_processService(void)
     // don't forget to wake up reading processes
     switch(hdr->m_reqID) {
 
-      // For first four, no need to go to service
-      case VM2RP_GETRPHOSTQUOTE:
-        if(!queueforService(pent, VM2RP_GETRPHOSTQUOTE, RP2VM_GETRPHOSTQUOTE)) {
-            fRet= false;
-        }
-        break;
-      case RP2VM_GETRPHOSTQUOTE:
-        if(!queueforApp(pent, VM2RP_GETRPHOSTQUOTE, RP2VM_GETRPHOSTQUOTE)) {
-            fRet= false;
-        }
-        break;
-
-	case VM2RP_GETTPMQUOTE:
-        if(!queueforService(pent, VM2RP_GETTPMQUOTE, RP2VM_GETTPMQUOTE)) {
-            fRet= false;
-        }
-        break;
-      case RP2VM_GETTPMQUOTE:
-        if(!queueforApp(pent, VM2RP_GETTPMQUOTE, RP2VM_GETTPMQUOTE)) {
-            fRet= false;
-        }
-        break;
-
-      case VM2RP_RPHOSTQUOTERESPONSE:
-        if(!queueforService(pent, VM2RP_RPHOSTQUOTERESPONSE, RP2VM_RPHOSTQUOTERESPONSE)) {
-            fRet= false;
-        }
-        break;
-      case RP2VM_RPHOSTQUOTERESPONSE:
-        if(!queueforApp(pent, VM2RP_RPHOSTQUOTERESPONSE, RP2VM_RPHOSTQUOTERESPONSE)) {
-            fRet= false;
-        }
-        break;
-        
-      case VM2RP_SETFILE:
-        if(!queueforService(pent, VM2RP_SETFILE, RP2VM_SETFILE)) {
-            fRet= false;
-        }
-        break;
-      case RP2VM_SETFILE:
-        if(!queueforApp(pent, VM2RP_SETFILE, RP2VM_SETFILE)) {
-            fRet= false;
-        }
-        break;
-
-     case VM2RP_CHECK_VM_VDI:
-        if(!queueforService(pent, VM2RP_CHECK_VM_VDI, RP2VM_CHECK_VM_VDI)) {
-            fRet= false;
-        }
-        break;
-      case RP2VM_CHECK_VM_VDI:
-        if(!queueforApp(pent, VM2RP_CHECK_VM_VDI, RP2VM_CHECK_VM_VDI)) {
-            fRet= false;
-        }
-        break;
-
      case VM2RP_SETUUID:
         if(!queueforService(pent, VM2RP_SETUUID, RP2VM_SETUUID)) {
             fRet= false;
@@ -470,89 +410,7 @@ bool tciodd_processService(void)
         }
         break;
 
-      case VM2RP_GETOSHASH:
-        if(!queueforService(pent, VM2RP_GETOSHASH, RP2VM_GETOSHASH)) {
-            fRet= false;
-        }
-        break;
-      case RP2VM_GETOSHASH:
-        if(!queueforApp(pent, VM2RP_GETOSHASH,  RP2VM_GETOSHASH)) {
-            fRet= false;
-        }
-        break;
-
       // forward to service or app as appropriate
-      case VM2RP_GETOSCREDS:
-        if(!queueforService(pent, VM2RP_GETOSCREDS,  RP2VM_GETOSCREDS)) {
-            fRet= false;
-        }
-        break;
-      case RP2VM_GETOSCREDS:
-        if(!queueforApp(pent, VM2RP_GETOSCREDS,  RP2VM_GETOSCREDS)) {
-            fRet= false;
-        }
-        break;
-		
-	  case VM2RP_GETOSCERT:
-        if(!queueforService(pent, VM2RP_GETOSCERT, RP2VM_GETOSCERT)) {
-            fRet= false;
-        }
-        break;
-      
-      case RP2VM_GETOSCERT:
-        if(!queueforApp(pent, VM2RP_GETOSCERT,   RP2VM_GETOSCERT)) {
-            fRet= false;
-        }
-        
-        break;
-
-       case VM2RP_GETAIKCERT:
-        if(!queueforService(pent, VM2RP_GETAIKCERT, RP2VM_GETAIKCERT)) {
-            fRet= false;
-        }
-        break;
-
-      case RP2VM_GETAIKCERT:
-        if(!queueforApp(pent, VM2RP_GETAIKCERT,   RP2VM_GETAIKCERT)) {
-            fRet= false;
-        }
-
-        break;
-
-      case VM2RP_SEALFOR:
-        if(!queueforService(pent, VM2RP_SEALFOR,   RP2VM_SEALFOR)) {
-            fRet= false;
-        }
-        break;
-      case RP2VM_SEALFOR:
-        if(!queueforApp(pent, VM2RP_SEALFOR,  RP2VM_SEALFOR)) {
-            fRet= false;
-        }
-        break;
-
-      case VM2RP_UNSEALFOR:
-        if(!queueforService(pent, VM2RP_UNSEALFOR,  RP2VM_UNSEALFOR)) {
-            fRet= false;
-        }
-        break;
-
-      case RP2VM_UNSEALFOR:
-        if(!queueforApp(pent, VM2RP_UNSEALFOR, 
-                        RP2VM_UNSEALFOR)) {
-            fRet= false;
-        }
-        break;
-
-      case VM2RP_ATTESTFOR:
-        if(!queueforService(pent, VM2RP_ATTESTFOR,   RP2VM_ATTESTFOR)) {
-            fRet= false;
-        }
-        break;
-      case RP2VM_ATTESTFOR:
-        if(!queueforApp(pent, VM2RP_ATTESTFOR, RP2VM_ATTESTFOR)) {
-            fRet= false;
-        }
-        break;
 
       case VM2RP_STARTAPP:
         if(!queueforService(pent, VM2RP_STARTAPP, RP2VM_STARTAPP)) {
@@ -593,27 +451,6 @@ bool tciodd_processService(void)
       case VM2RP_GETVMMETA:
         if (!queueforService(pent, VM2RP_GETVMMETA, RP2VM_GETVMMETA)) {
               fRet = false;
-        }
-        break;
-      case VM2RP_GETPROGHASH:
-        if(!queueforService(pent, VM2RP_GETPROGHASH, RP2VM_GETPROGHASH)) {
-            fRet= false;
-        }
-        break;
-      case RP2VM_GETPROGHASH:
-        if(!queueforApp(pent, VM2RP_GETPROGHASH,  RP2VM_GETPROGHASH)) {
-            fRet= false;
-        }
-        break;
-
-      case VM2RP_IS_MEASURED:
-        if(!queueforService(pent, VM2RP_IS_MEASURED, RP2VM_IS_MEASURED)) {
-            fRet= false;
-        }
-        break;
-      case RP2VM_IS_MEASURED:
-        if(!queueforApp(pent, VM2RP_IS_MEASURED,  RP2VM_IS_MEASURED)) {
-            fRet= false;
         }
         break;
       case RP2VM_ISVERIFIED:

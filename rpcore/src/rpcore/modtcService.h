@@ -27,10 +27,7 @@
 
 
 #include "jlmTypes.h"
-//#include "sha256.h"
-//#include "tao.h"
 #include "tcIO.h"
-//#include "timer.h"
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -40,8 +37,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <pthread.h>
-//#include "domain.h"
-
+#include <map>
 
 typedef u64 TCSERVICE_RESULT;
 
@@ -61,10 +57,8 @@ typedef u64 TCSERVICE_RESULT;
 #define TCSERVICE_RESULT_REQTOOLARGE            9
 #define TCSERVICE_RESULT_FAILED                10
 
-//#include "tcServiceCodes.h"
 #include "jlmUtility.h"
 
-//f81d4fae-7dec-11d0-a765-00a0c91e6bf6
 extern int g_max_uuid;
 extern int g_sz_uuid;
 class serviceprocEnt {
@@ -92,38 +86,40 @@ public:
     char				m_vm_launch_policy[15];
     bool				m_vm_verfication_status;
     char                m_vm_manifest_dir[1024];
+
+    serviceprocEnt() : m_rgHash{'\0'}, m_uuid{'\0'}, m_vdi_uuid{'\0'}, m_vm_image_id{'\0'}, m_vm_customer_id{'\0'},
+    		m_vm_manifest_hash{'\0'}, m_vm_manifest_signature{'\0'}, m_vm_launch_policy{'\0'}, m_vm_manifest_dir{'\0'} {
+
+    	m_procid = m_sizeHash = m_size_vm_image_id = m_size_vm_customer_id = m_size_vm_manifest_hash =
+    			m_size_vm_manifest_signature = m_size_vm_launch_policy = m_size_vm_manifest_dir = m_nArgs = 0;
+
+    	m_Args = NULL;
+    	m_szexeFile = NULL;
+    	m_vm_verfication_status = false;
+
+    }
 };
 
 
 typedef aNode<serviceprocEnt>  serviceprocMap;
-
+typedef std::map<int, serviceprocEnt> proc_table_map;
 
 class serviceprocTable {
 public:
 	pthread_mutex_t		loc_proc_table;
-    int                 m_numFree;
-    int                 m_numFilled;
-    serviceprocMap*     m_pFree;
-    serviceprocMap*     m_pMap;
-    serviceprocEnt*     m_rgProcEnts;
-    serviceprocMap*     m_rgProcMap;
+    proc_table_map proc_table;
 
     serviceprocTable();
     ~serviceprocTable();
 
-    bool                initprocTable(int size);
     bool                addprocEntry(int procid, const char* file, int an, char** av,
     			int sizeHash, byte* hash);
-    bool                checkprocEntry(char* uuid, char* vdi_uuid);
     bool 				updateprocEntry(int procid, char* uuid, char* vdi_uuid);
     bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature,char* launch_policy,bool status, char * vm_manifest_dir);
     void                removeprocEntry(int procid);
-    void                removeprocEntry(char* procid);
+    void                removeprocEntry(char* uuid);
     serviceprocEnt*     getEntfromprocId(int procid);
-    //serviceprocEnt*     getEntfromuuid(byte* uuid);
-    bool     			getEntfromuuid(char* uuid);
-
-    bool                gethashfromprocId(int procid, int* psizeHash, byte* hash);
+    int					getprocIdfromuuid(char* uuid);
     void                print();
 
 };
@@ -131,12 +127,7 @@ public:
 
 class tcServiceInterface {
 public:
-    //taoHostServices     m_host;
-    //taoEnvironment      m_trustedHome;
     serviceprocTable    m_procTable;
-
-    //timer               m_taoEnvInitializationTimer;
-    //timer               m_taoHostInitializationTimer;
     // This is the lock used by asyncStartApp method
 	pthread_mutex_t startAppLock;
 	pthread_mutex_t max_thread_lock;
@@ -148,32 +139,12 @@ public:
     ~tcServiceInterface();
 
     TCSERVICE_RESULT    initService(const char* execfile, int an, char** av);
-
-    //TCSERVICE_RESULT    GetOsPolicyKey(u32* pType, int* psize, byte* rgBuf);
-    //TCSERVICE_RESULT    GetOsCert(u32* credType, int* psizeOut, byte* rgOut);
-    //TCSERVICE_RESULT    GetAIKCert(u32* credType, int* psizeOut, byte* rgOut);
-    //TCSERVICE_RESULT    GetTPMQuote(char *nonceStr, byte* rgOut, int* psizeOut);
-    //TCSERVICE_RESULT    GetOsEvidence(int* psizeOut, byte* rgOut);
-    //TCSERVICE_RESULT    GetOsHash(u32* phashType,int* psizeOut, byte* rgOut);
-    //TCSERVICE_RESULT    GetServiceHash(u32* phashType, int* psize, byte* rgBuf);
-    //TCSERVICE_RESULT    GetHostedMeasurement(int pid, u32* phashType, int* psize, byte* rgBuf);
-    //TCSERVICE_RESULT    GetEntropy(int size, byte* buf);
-    
     TCSERVICE_RESULT    StartApp(tcChannel& oAppChannel, int procid, const char *file, 
                             int an, char** av,
                             int* poutsize, byte* out);
 	void 				        printErrorMessagge(int error);
-    /*TCSERVICE_RESULT    SealFor(int procid, int sizeIn, byte* rgIn, 
-                            int* psizeOut, byte* rgOut);
-    TCSERVICE_RESULT    UnsealFor(int procid, int sizeIn, byte* rgIn, 
-                            int* psizeOut, byte* rgOut);
-   TCSERVICE_RESULT    AttestFor(int procid, int sizeIn, byte* rgIn, 
-                            int* psizeOut, byte* rgOut);
-*/
-    TCSERVICE_RESULT    CheckAppID(char* uuid, char* vdi_uuid, int* psizeOut, byte* rgOut);
     TCSERVICE_RESULT    UpdateAppID(char* rp_id, char* uuid, char* vdi_uuid, int* psizeOut, byte* rgOut);
     TCSERVICE_RESULT    TerminateApp(int sizeIn, byte* rgIn, int* psizeOut, byte* rgOut);
-    //TCSERVICE_RESULT	CheckIS_MEASURED(char* uuid, int* psizeOut, byte* rgOut);
     TCSERVICE_RESULT	GetRpId(char *vm_uuid, byte *rp_idbuf, int* bufsize);
     TCSERVICE_RESULT 	GetVmMeta(int procId, byte *vm_imageIdbuf, int * vm_imageIdsize,
     						byte * vm_customerId, int * vm_customerIdsize, byte * vm_manifestHash, int * vm_manifestHashsize,
