@@ -81,7 +81,8 @@ export VRTM_JAVA=$VRTM_HOME/java
 export VRTM_ENV=$VRTM_HOME/env
 
 vrtm_backup_configuration() {
-  if [ -n "$VRTM_CONFIGURATION" ] && [ -d "$VRTM_CONFIGURATION" ]; then
+  if [ -n "$VRTM_CONFIGURATION" ] && [ -d "$VRTM_CONFIGURATION" ] &&
+    (find "$VRTM_CONFIGURATION" -mindepth 1 -print -quit | grep -q .); then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/vrtm.configuration.$datestr
     mkdir -p "$backupdir"
@@ -90,7 +91,8 @@ vrtm_backup_configuration() {
 }
 
 vrtm_backup_repository() {
-  if [ -n "$VRTM_REPOSITORY" ] && [ -d "$VRTM_REPOSITORY" ]; then
+  if [ -n "$VRTM_REPOSITORY" ] && [ -d "$VRTM_REPOSITORY" ] &&
+    (find "$VRTM_REPOSITORY" -mindepth 1 -print -quit | grep -q .); then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/vrtm.repository.$datestr
     mkdir -p "$backupdir"
