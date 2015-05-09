@@ -104,12 +104,6 @@ vrtm_backup_repository() {
 vrtm_backup_configuration
 vrtm_backup_repository
 
-if [ -d $VRTM_CONFIGURATION ]; then
-  backup_conf_dir=$VRTM_REPOSITORY/backup/configuration.$(date +"%Y%m%d.%H%M")
-  mkdir -p $backup_conf_dir
-  cp -R $VRTM_CONFIGURATION/* $backup_conf_dir
-fi
-
 # create application directories (chown will be repeated near end of this script, after setup)
 for directory in $VRTM_HOME $VRTM_CONFIGURATION $VRTM_REPOSITORY $VRTM_JAVA $VRTM_BIN $VRTM_LOGS $VRTM_ENV; do
   mkdir -p $directory
