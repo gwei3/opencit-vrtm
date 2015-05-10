@@ -150,7 +150,7 @@ function buildRpcore()
 function install_kvm_packages_rhel()
 {
 	echo "Installing Required Packages ....."
-	yum -y update
+	yum -y -x 'kernel*,redhat-release*' update
 	yum -y groupinstall -y "Development Tools" "Development Libraries"
 	yum install -y "kernel-devel-uname-r == $(uname -r)"
 	if [ $FLAVOUR == "rhel" ]; then
