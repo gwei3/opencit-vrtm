@@ -280,7 +280,7 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 	strcpy(table_it->second.m_vm_manifest_signature, vm_manifest_signature);
 	table_it->second.m_size_vm_manifest_signature = strlen(table_it->second.m_vm_manifest_signature);
 	strcpy(table_it->second.m_vm_manifest_hash, vm_manifest_hash);
-	table_it->second.m_size_vm_manifest_hash = strlen(table_it->second.m_vm_manifest_signature);
+	table_it->second.m_size_vm_manifest_hash = strlen(table_it->second.m_vm_manifest_hash);
 	strcpy(table_it->second.m_vm_manifest_dir, vm_manifest_dir);
 	table_it->second.m_size_vm_manifest_dir = strlen(table_it->second.m_vm_manifest_dir);
 	strcpy(table_it->second.m_vm_launch_policy, launch_policy);
@@ -1174,7 +1174,7 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
 					g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
 					return false;
 			}
-			vm_rpmanifestHash = (byte *) malloc(sizeof(byte) * 64);
+			vm_rpmanifestHash = (byte *) malloc(sizeof(byte) * 256);
 			if( vm_rpmanifestHash== NULL) {
 					fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for vm_rpmanifestHash \n");
 					g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
