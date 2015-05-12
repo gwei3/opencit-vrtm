@@ -349,6 +349,7 @@ function installRPProxyAndListner()
 	chmod 666 /var/log/rp_proxy.log
 	chown nova:nova /var/log/rp_proxy.log
 	cp "$INSTALL_DIR/rpcore/bin/scripts/rppy_ifc.py" $DIST_LOCATION/.
+	chmod 754 "$DIST_LOCATION/rppy_ifc.py"
 	cp "$INSTALL_DIR/rpcore/lib/librpchannel-g.so" /usr/lib
 	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
 		selinuxenabled
