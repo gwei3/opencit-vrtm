@@ -107,20 +107,21 @@ function untarResources()
 function installKVMPackages_rhel()
 {
         echo "Installing Required Packages ....."
-        yum -y -x 'kernel*,redhat-release*' update
+        #yum -y -x 'kernel*,redhat-release*' update
         yum install -y "kernel-devel-uname-r == $(uname -r)"
         if [ $FLAVOUR == "rhel" ]; then
           yum install -y yum-utils
           yum-config-manager --enable rhel-6-server-optional-rpms
         fi
         # Install the openstack repo
-        yum install -y yum-plugin-priorities
-        yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
+	rpm -q rdo-release
+	if [ $? -ne 0 ] ; then
+	        yum install -y yum-plugin-priorities
+        	yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
+	fi
 
-        yum install -y libvirt-devel libvirt libvirt-python libguestfs-tools-c
+        yum install -y libvirt libvirt-python libguestfs-tools-c libxml2
         #Libs required for compiling libvirt
-        yum install -y gcc-c++ gcc make yajl yajl-devel device-mapper device-mapper-devel libpciaccess-devel libnl-devel libxml2
-        yum install -y python-devel
         yum install -y openssh-server
 	yum install -y trousers tpm-tools cryptsetup 
 	yum install -y tar procps binutils
@@ -135,17 +136,13 @@ function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
 	apt-get -y  install python-software-properties
-	add-apt-repository -y cloud-archive:icehouse
-	apt-get -y update
 	#apt-get -y dist-upgrade
-	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp chkconfig guestfish
+	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp
 	apt-get -y install openssh-server
-	apt-get -y install python-dev
-	apt-get -y install tboot trousers tpm-tools libtspi-dev cryptsetup-bin
+	apt-get -y install tboot trousers tpm-tools cryptsetup-bin
 	apt-get -y install qemu-utils kpartx binutils
 	apt-get -y install libvirt-bin qemu-kvm libguestfs-tools 
 	apt-get -y install iptables libblkid1 libc6 libcap-ng0 libdevmapper1.02.1 libgnutls26 libnl-3-200 libnuma1  libparted0debian1  libpcap0.8 libpciaccess0 libreadline6  libudev0 libudev2 libxml2 libyajl1 libyajl2 procps
-	apt-get -y install libyajl-dev libxml2-dev libdevmapper-dev libpciaccess-dev libnl-dev uuid-dev
 	
 	echo "Starting ntp service ....."
 	service ntp start
@@ -158,12 +155,11 @@ function installKVMPackages_suse()
 	zypper -n in openstack-utils
 	zypper -n refresh
 	# zypper -n dist-upgrade
-        zypper -n in libvirt libvirt-devel qemu-kvm
+        zypper -n in libvirt qemu-kvm
 	zypper -n in libyajl2 libpciaccess0 libnl3-200 libxml2-2
-        zypper -n in libyajl-devel libpciaccess-devel libnl3-devel libxml2-devel 
         zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp wget
         zypper -n in openssh
-        zypper -n in python-devel dos2unix 
+        zypper -n in dos2unix 
 	zypper -n in tboot  
 }
 
@@ -181,14 +177,10 @@ function installKVMPackages()
 installLibvirtPackages_ubuntu()
 {
         apt-get -y install python-software-properties
-        add-apt-repository -y cloud-archive:icehouse
-
-        echo "Updating repositories .. this may take a while "
-        apt-get update > /dev/null
         if [ $? -ne 0 ] ; then
                echo "apt-get update failed, kindly resume after manually executing apt-get update"
         fi
-        apt-get -y install libvirt-bin libvirt-dev libvirt0 python-libvirt
+        apt-get -y install libvirt-bin libvirt0 python-libvirt
 	grep -c libvirtd /etc/group
         if [ $? -eq 1 ] ; then
                 groupadd libvirtd
@@ -212,7 +204,7 @@ installLibvirtPackages_ubuntu()
 
 installLibvirtPackages_rhel()
 {
-	yum -y install libvirt-devel libvirt libvirt-python
+	yum -y install libvirt libvirt-python
         # This is required because if one installs only libvirt then the eco-system for libvirt is not ready
         # For e.g the virtualisation group also creates libvirtd group over the system.
         yum groupinstall -y Virtualization	
@@ -239,7 +231,7 @@ installLibvirtPackages_rhel()
 
 installLibvirtPackages_suse()
 {
-	zypper -n in libvirt libvirt-devel libvirt-python
+	zypper -n in libvirt libvirt-python
         grep -c libvirtd /etc/group
         if [ $? -eq 1 ] ; then
                 groupadd libvirtd
@@ -357,6 +349,7 @@ function installRPProxyAndListner()
 	chmod 666 /var/log/rp_proxy.log
 	chown nova:nova /var/log/rp_proxy.log
 	cp "$INSTALL_DIR/rpcore/bin/scripts/rppy_ifc.py" $DIST_LOCATION/.
+	chmod 754 "$DIST_LOCATION/rppy_ifc.py"
 	cp "$INSTALL_DIR/rpcore/lib/librpchannel-g.so" /usr/lib
 	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
 		selinuxenabled
