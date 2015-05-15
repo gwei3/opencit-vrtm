@@ -13,6 +13,7 @@ TM=	    	../rpchannel
 PY=	    	/usr/include/python2.7
 PYTHON=		python2.7
 LXML=		/usr/include/libxml2/
+OPENSSL=    /usr/include/openssl/
 
 DEBUG_CFLAGS     := -Wall  -Wno-format -g -DDEBUG
 RELEASE_CFLAGS   := -Wall  -Wno-unknown-pragmas -Wno-format -O3
@@ -24,7 +25,7 @@ O1CFLAGS=    -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D __FLUSHIO__ $(O1RELEASE_
 CC=         g++
 LINK=       g++
 
-sobjs=     $(OBJ)/channelcoding.o $(OBJ)/pyifc.o $(OBJ)/tcpchan.o $(OBJ)/logging.o
+sobjs=     $(OBJ)/channelcoding.o $(OBJ)/pyifc.o $(OBJ)/tcpchan.o $(OBJ)/logging.o $(OBJ)/base64.o
 
 
 all: $(LIB)/librpchannel-g.so 
@@ -34,14 +35,17 @@ $(OBJ)/logging.o: $(SC)/logging.cpp $(SC)/logging.h
 	
 $(OBJ)/channelcoding.o: $(TM)/channelcoding.cpp $(TM)/channelcoding.h
 	gcc $(CFLAGS) -I$(TM) -I$(SC) -I$(S) -c -o $(OBJ)/channelcoding.o $(TM)/channelcoding.cpp
-		
+
+$(OBJ)/base64.o: $(SC)/base64.cpp $(SC)/base64.h
+	$(CC) $(CFLAGS) -I$(OPENSSL) -c -o $(OBJ)/base64.o $(SC)/base64.cpp
+
 $(OBJ)/pyifc.o: $(TM)/pyifc.cpp
-	$(CC) $(CFLAGS) -I$(PY) -I$(LXML) -c -o $(OBJ)/pyifc.o $(TM)/pyifc.cpp -lxml2
+	$(CC) $(CFLAGS) -I$(PY) -I$(SC) -I$(LXML) -c -o $(OBJ)/pyifc.o $(TM)/pyifc.cpp -lxml2
 	
 $(OBJ)/tcpchan.o: $(TM)/tcpchan.cpp $(TM)/tcpchan.h
 	$(CC) $(CFLAGS) -I$(S) -I$(SC) -I$(TM) -c -o $(OBJ)/tcpchan.o $(TM)/tcpchan.cpp
 
 $(LIB)/librpchannel-g.so: $(sobjs)
 	@echo "Building librpchannel-g.so ..."
-	$(LINK) -shared  -o  $(LIB)/librpchannel-g.so  $(sobjs)  -L/usr/lib -l$(PYTHON) -lpthread -lxml2
+	$(LINK) -shared  -o  $(LIB)/librpchannel-g.so  $(sobjs)  -L/usr/lib -l$(PYTHON) -lpthread -lxml2 -lssl -lcrypto
 

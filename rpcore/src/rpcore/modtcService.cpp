@@ -73,13 +73,7 @@ int 		g_mtwproxy_port = 16006;
 #define LAUNCH_ALLOWED		"launch allowed"	 
 #define LAUNCH_NOT_ALLOWED	"launch not allowed"
 #define KEYWORD_UNTRUSTED	"untrusted"
-
-
-
-
-
 // ---------------------------------------------------------------------------
-
 
 bool uidfrompid(int pid, int* puid)
 {
@@ -94,11 +88,7 @@ bool uidfrompid(int pid, int* puid)
     *puid= fattr.st_uid;
     return true;
 }
-
-
 // ------------------------------------------------------------------------------
-
-
 void serviceprocEnt::print()
 {
     fprintf(g_logFile, "procid: %ld, ", (long int)m_procid);
@@ -108,46 +98,14 @@ void serviceprocEnt::print()
     PrintBytes("", m_rgHash, m_sizeHash);
 }
 
-
 serviceprocTable::serviceprocTable()
 {
     loc_proc_table = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 }
 
-
 serviceprocTable::~serviceprocTable()
 {
-    // delete m_rgProcEnts;
-    // delete m_rgProcMap;
-    // m_numFree= 0;
-    // m_numFilled= 0;
-    // m_pFree= NULL;
-    // m_pMap= NULL;
 }
-
-
-/*bool serviceprocTable::initprocTable(int size)
-{
-    int             i;
-    serviceprocMap* p;
-
-    m_rgProcEnts= new serviceprocEnt[size];
-    m_rgProcMap= new serviceprocMap[size];
-    p= &m_rgProcMap[0];
-    m_pMap= NULL;
-    m_pFree= p;
-    for(i=0; i<(size-1); i++) {
-        p= &m_rgProcMap[i];
-        p->pElement= &m_rgProcEnts[i];
-        p->pNext= &m_rgProcMap[i+1];
-    }
-    m_rgProcMap[size-1].pElement= &m_rgProcEnts[size-1];
-    m_rgProcMap[size-1].pNext= NULL;
-    m_numFree= size;
-    m_numFilled= 0;
-    return true;
-}
-*/
 
 bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char** av,
                                     int sizeHash, byte* hash)
@@ -168,28 +126,6 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
 }
 
 
-/*serviceprocEnt*  serviceprocTable::getEntfromprocId(int procid)
-{
-    serviceprocMap* pMap= m_pMap;
-    serviceprocEnt* pEnt;
-   //printf("\n inside getEntfromprocId");
-    pthread_mutex_lock(&loc_proc_table);
-    while(pMap!=NULL) {
-        pEnt= pMap->pElement;
-	printf("\n in while loop");
-        if(pEnt->m_procid==procid) {
-	   //printf("\n procid match");
-        	pthread_mutex_unlock(&loc_proc_table);
-            return pEnt;
-        }
-        pMap= pMap->pNext;
-    }
-   //printf("\n NOT FOUND");
-    pthread_mutex_unlock(&loc_proc_table);
-    return NULL;
-}*/
-
-
 //Step through linked list m_pMap and delete node matching procid
 void   serviceprocTable::removeprocEntry(int procid)
 {
@@ -205,22 +141,6 @@ void   serviceprocTable::removeprocEntry(int procid)
 	pthread_mutex_unlock(&loc_proc_table);
 	return;
 }
-
-/*bool  serviceprocTable::getEntfromuuid(char* uuid)
-{
-	pthread_mutex_lock(&loc_proc_table);
-    serviceprocMap* pMap= m_pMap;
-    serviceprocEnt* pEnt;
-    while(pMap!=NULL) {
-        pEnt= pMap->pElement;
-        if( strcasecmp(pEnt->m_uuid, (char*) uuid) == 0 ) {
-            return true;
-        }
-        pMap= pMap->pNext;
-    }
-    pthread_mutex_unlock(&loc_proc_table);
-    return false;
-}*/
 
 //Step through linked list m_pMap and delete node matching uuid
 void   serviceprocTable::removeprocEntry(char* uuid)
@@ -313,45 +233,6 @@ int serviceprocTable::getprocIdfromuuid(char* uuid) {
 	pthread_mutex_unlock(&loc_proc_table);
 	return NULL;
 }
-
-/*bool serviceprocTable::checkprocEntry(char* uuid, char *vdi_uuid)
-{
-   //printf("Inside checkprocEntry");
-	pthread_mutex_lock(&loc_proc_table);
-    serviceprocMap* pMap= m_pMap;
-    serviceprocEnt* pEnt;
-    while(pMap!=NULL) {
-        pEnt= pMap->pElement;
-	if(strcasecmp(pEnt->m_vdi_uuid, (char*) vdi_uuid) == 0){
-		if(strcasecmp(pEnt->m_uuid, (char*) uuid) == 0){
-			printf("Same");
-			pthread_mutex_unlock(&loc_proc_table);
-			return true;
-			
-		}
-		printf("diffenret");
-		pthread_mutex_unlock(&loc_proc_table);
-		return false;
-	}
-        pMap= pMap->pNext;
-    }
-    pthread_mutex_unlock(&loc_proc_table);
-    return true;
-}*/
-
-
-/*bool serviceprocTable::gethashfromprocId(int procid, int* psize, byte* hash)
-{
-    serviceprocEnt* pEnt= getEntfromprocId(procid);
-
-    if(pEnt==NULL)
-        return false;
-    pthread_mutex_lock(&loc_proc_table);
-    *psize= pEnt->m_sizeHash;
-    memcpy(hash, pEnt->m_rgHash, *psize);
-    pthread_mutex_unlock(&loc_proc_table);
-    return true;
-}*/
 
 
 void serviceprocTable::print()
@@ -640,7 +521,9 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
     memcpy(uuid, in_uuid, g_sz_uuid);
 	memset(vuuid, 0, g_max_uuid);	
 	memcpy(vuuid, vdi_uuid, g_sz_uuid);
-	g_myService.m_procTable.updateprocEntry(rp_id, uuid, vuuid);
+	if ( !g_myService.m_procTable.updateprocEntry(rp_id, uuid, vuuid) ) {
+		return TCSERVICE_RESULT_FAILED;
+	}
 	*psizeOut = sizeof(int);
 	*((int*)out) = (int)1;
 	return TCSERVICE_RESULT_SUCCESS;
@@ -684,9 +567,8 @@ char* tagEntry (char* line){
 }
 
 
-TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
-                                int procid, const char* file, int an, char** av,
-                                int* poutsize, byte* out)
+TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
+									int an, char** av, int* poutsize, byte* out)
 {
         		fprintf(g_logFile, " Inside StartApp \n");
         		fprintf(stdout, " Inside StartApp \n");
@@ -759,10 +641,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
        //create domain process shall check the whitelist
         		fprintf(g_logFile, "Before create domain manifest \n");
         		fprintf(stdout, "Before create domain manifest \n");
-        // put lock here
-        pthread_mutex_lock(&(g_myService.startAppLock));
-        child = create_domain(an, av);
-        pthread_mutex_unlock(&(g_myService.startAppLock));
+        		child = procid;
         // unlock here
 
 
@@ -958,30 +837,29 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(tcChannel& chan,
 // ------------------------------------------------------------------------------
 
 
-bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int inparamsize, byte* inparams)
+bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int *outparamsize, byte* outparams)
 {
     char*               szappexecfile= NULL;
-    int                 outparamsize;
-    byte                outparams[PARAMSIZE] = {0};
     int                 an = 0;
     char*               av[32];
 	char*				str_rp_id = NULL;
-		
+
+	//outparams[PARAMSIZE] = {0};
+	//outparams = (byte *) calloc(1,sizeof(byte)*PARAMSIZE);
 #ifdef TEST
     fprintf(g_logFile, "Entering serviceRequest\n");
 #endif
 
-    outparamsize = PARAMSIZE;
+    *outparamsize = PARAMSIZE;
 
 #ifdef TEST
-    fprintf(g_logFile, "serviceRequest after get procid: %d, req, %d, origprocid %d\n", 
-           procid, uReq, origprocid); 
+/*    fprintf(g_logFile, "serviceRequest after get procid: %d, req, %d, origprocid %d\n",
+           procid, uReq, origprocid);*/
 #endif
 	fprintf(g_logFile,"Input Parameters before switch case : %s\n",inparams);
-    char response;
     switch(uReq) {
 
-      case RP2VM_STARTAPP:
+      case VM2RP_STARTAPP:
 #ifdef TCTEST1
         fprintf(g_logFile, "serviceRequest, RP2VM_STARTAPP, decoding\n");
 #endif
@@ -989,98 +867,82 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
         if(!decodeVM2RP_STARTAPP(&szappexecfile, &an, 
                     (char**) av, inparams)) {
             fprintf(g_logFile, "serviceRequest: decodeRP2VM_STARTAPP failed\n");
-            chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+            outparams = NULL;
+            *outparamsize = 0;
             return false;
         }
-        outparamsize= PARAMSIZE;
+        *outparamsize= PARAMSIZE;
 #ifdef TEST
-        fprintf(g_logFile, "serviceRequest, about to StartHostedProgram %s, for %d\n",
-                szappexecfile, origprocid);
+        /*fprintf(g_logFile, "serviceRequest, about to StartHostedProgram %s, for %d\n",
+                szappexecfile, origprocid);*/
 #endif
-        if(g_myService.StartApp(chan, origprocid, szappexecfile, an, av,
-                                    &outparamsize, outparams)
-                !=TCSERVICE_RESULT_SUCCESS) {
-            fprintf(g_logFile, "serviceRequest: StartHostedProgram failed %s\n", szappexecfile);
-            chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-            return false;
+        if(g_myService.StartApp(procid,szappexecfile,an,av,outparamsize,outparams)) {
+        	fprintf(g_logFile, "serviceRequest: StartHostedProgram failed %s\n", szappexecfile);
+        	outparams = NULL;
+        	*outparamsize = 0;
+        	return false;
         }
 #ifdef TEST
         fprintf(g_logFile, "serviceRequest, StartHostedProgram succeeded, about to send\n");
 #endif
-        if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)) {
-            fprintf(g_logFile, "serviceRequest: sendtcBuf (startapp) failed\n");
-            chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-            return false;
-        }
-        //
-        // todo: release memory for szappexecfile??
-        //
         return true;
 
 
-      case RP2VM_SETUUID:
+      case VM2RP_SETUUID:
  
 #ifdef TCTEST1
         fprintf(g_logFile, "serviceRequest, RP2VM_SETUUID, decoding\n");
 #endif
         an= 20;
-        //if(!decodeVM2RP_STARTAPP(&str_rp_id, &an, (char**) av, inparams)) {
-	if(!decodeVM2RP_SETUUID(&str_rp_id, &an, (char**) av, inparams)) {
+        if(!decodeVM2RP_SETUUID(&str_rp_id, &an, (char**) av, inparams)) {
             fprintf(g_logFile, "serviceRequest: decodeRP2VM_SETUUID failed\n");
-            chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+            outparams = NULL;
+            *outparamsize = 0;
             return false;
         }
-        outparamsize= PARAMSIZE;
+        *outparamsize= PARAMSIZE;
         
 #ifdef TEST
-        fprintf(g_logFile, "serviceRequest, about to setuuid %s, for %d\n",
-                av[1], origprocid);
+        /*fprintf(g_logFile, "serviceRequest, about to setuuid %s, for %d\n",
+                av[1], origprocid);*/
 #endif
-	printf("%s , %s, %s",av[1], av[2], av[3]);
+        fprintf(g_logFile,"In SET_UUID : params after decoding : %s , %s, %s",av[0], av[1], av[2]);
 		if (av[0] ){
-			if(g_myService.UpdateAppID(av[1], av[2], av[3], &outparamsize, outparams)
+			if(g_myService.UpdateAppID(av[0], av[1], av[2], outparamsize, outparams)
 					!=TCSERVICE_RESULT_SUCCESS) {
 				fprintf(g_logFile, "serviceRequest: setuuid failed %s\n", str_rp_id);
-				chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				outparams = NULL;
+				*outparamsize = 0;
 				return false;
 			}
 			
-			//release av[0] and str_rp_id
 		}
 #ifdef TEST
         fprintf(g_logFile, "serviceRequest, setuuid succeeded, about to send\n");
 #endif
-        if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)) {
-            fprintf(g_logFile, "serviceRequest: sendtcBuf (setuuid) failed\n");
-            chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-            return false;
-        }
-        //
-        // todo: release memory for szappexecfile
-        //
         return true;
         
-      case RP2VM_TERMINATEAPP:
+      case VM2RP_TERMINATEAPP:
 #ifdef TCTEST1
         fprintf(g_logFile, "serviceRequest, RP2VM_TERMINATEAPP, decoding\n");
 #endif
         
-        if(!decodeVM2RP_TERMINATEAPP(&outparamsize, outparams, inparams)) {
+        if(!decodeVM2RP_TERMINATEAPP(outparamsize, outparams, inparams)) {
             fprintf(g_logFile, "serviceRequest: decodeRP2VM_TERMINATEAPP failed\n");
-            chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+            outparams = NULL;
+            *outparamsize = 0;
             return false;
         }
         
-        memcpy(inparams, outparams, outparamsize);
-        inparamsize = outparamsize;
-        outparamsize= PARAMSIZE;
-        memset(outparams, 0, outparamsize);
-		
-		
-       if(g_myService.TerminateApp(inparamsize, inparams, &outparamsize, outparams)
+        memcpy(inparams, outparams, *outparamsize);
+        inparamsize = *outparamsize;
+        *outparamsize= PARAMSIZE;
+        memset(outparams, 0, *outparamsize);
+        if(g_myService.TerminateApp(inparamsize, inparams, outparamsize, outparams)
                 !=TCSERVICE_RESULT_SUCCESS) {
             fprintf(g_logFile, "serviceRequest: terminate app failed %s\n", szappexecfile);
-            chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+            outparams = NULL;
+            *outparamsize = 0;
             return false;
         }
         
@@ -1089,65 +951,56 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
 #ifdef TEST
         fprintf(g_logFile, "serviceRequest, terminate app succeeded, about to send\n");
 #endif
-        if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)) {
-            fprintf(g_logFile, "serviceRequest: sendtcBuf (terminateapp) failed\n");
-            chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-            return false;
-        }
         return true;
 
 			/***********new API ******************/
-        case RP2VM_GETRPID:
+        case VM2RP_GETRPID:
         {
-        	outparamsize = PARAMSIZE;
-        	//printf("%s",inparams);
-        	if(!decodeRP2VM_GETRPID(&outparamsize,outparams,inparams))
+        	*outparamsize = PARAMSIZE;
+        	if(!decodeRP2VM_GETRPID(outparamsize,outparams,inparams))
         	{
         		fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
-        		g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+        		outparams = NULL;
+        		*outparamsize = 0;
         		return false;
         	}
             fprintf(g_logFile,"Inparams after decoding : %s\n",inparams);
             fprintf(g_logFile,"outparams after decoding: %s\n",outparams);
-        	//inparamsize = PARAMSIZE;
-        	//memset(inparams,0,inparamsize);
         	char uuid[50];
-		char rpid[16];
-		int rpidsize=16;
-        	memcpy(uuid,outparams,outparamsize+1);
+        	char rpid[16];
+        	int rpidsize=16;
+        	memcpy(uuid, outparams,*outparamsize+1);
         	//call getRPID(outparams,&inparams)
         	if(g_myService.GetRpId(uuid,(byte *)rpid,&rpidsize))
         	{
         		fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETRPID uuid does not exist\n");
-				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+        		outparams = NULL;
+        		*outparamsize = 0;
 				return false;
         	}
             fprintf(g_logFile,"rpid : %s\n",rpid);
 
         	//then encode the result
-        	outparamsize = PARAMSIZE;
-        	outparamsize = encodeRP2VM_GETRPID(rpidsize,(byte *)rpid,outparamsize,outparams);
+        	*outparamsize = PARAMSIZE;
+        	*outparamsize = encodeRP2VM_GETRPID(rpidsize,(byte *)rpid,*outparamsize,outparams);
             fprintf(g_logFile,"after encode : %s",outparams);
-        	if(outparamsize<0) {
+        	if(*outparamsize<0) {
 				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETRPID buf too small\n");
-				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				outparams = NULL;
+				*outparamsize = 0;
 				return false;
         	}
-			if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
-				fprintf(g_logFile, "serviceRequest: sendtcBuf (getRPID) failed\n");
-				chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-				return false;
-			}
             fprintf(g_logFile,"************succesfully send the response*************** ");
             return true;
         }
-        case RP2VM_GETVMMETA:
+        case VM2RP_GETVMMETA:
         {
-        	outparamsize = PARAMSIZE;
-			if(!decodeRP2VM_GETVMMETA(&outparamsize,outparams,inparams))
+        	*outparamsize = PARAMSIZE;
+			if(!decodeRP2VM_GETVMMETA(outparamsize,outparams,inparams))
 			{
 				fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
-				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				outparams = NULL;
+				*outparamsize = 0;
 				return false;
 			}
 			//call to getVMMETA
@@ -1158,26 +1011,30 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
 			vm_rpcustomerId = (byte *)malloc(sizeof(byte)*256);
 			if(vm_rpcustomerId == NULL) {
 					fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for customerId \n");
-					g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+					outparams = NULL;
+					*outparamsize = 0;
 					return false;
 			}
 
 			vm_rpimageId = (byte *) malloc(sizeof(byte)*256);
 			if(vm_rpimageId == NULL) {
 					fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for imageId \n");
-					g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+					outparams = NULL;
+					*outparamsize = 0;
 					return false;
 			}
 			vm_rpmanifestSignature = (byte *) malloc(sizeof(byte) *512);
 			if(vm_rpmanifestSignature == NULL) {
 					fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for manifestSignature \n");
-					g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+					outparams = NULL;
+					*outparamsize = 0;
 					return false;
 			}
 			vm_rpmanifestHash = (byte *) malloc(sizeof(byte) * 256);
 			if( vm_rpmanifestHash== NULL) {
 					fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for vm_rpmanifestHash \n");
-					g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+					outparams = NULL;
+					*outparamsize = 0;
 					return false;
 			}
 			int vm_rpimageIdsize, vm_rpcustomerIdsize,vm_rpmanifestHashsize,vm_rpmanifestSignaturesize;
@@ -1186,7 +1043,8 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
 					vm_rpmanifestHash, &vm_rpmanifestHashsize,vm_rpmanifestSignature, &vm_rpmanifestSignaturesize))
 			{
 				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETVMMETA RPID does not exist\n");
-				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				outparams = NULL;
+				*outparamsize = 0;
 				return false;
 			}
 			//create a map of data vmmeta data
@@ -1201,17 +1059,13 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
 			metaMap[3] = vm_rpmanifestSignature;
 			int numOfMetaComp = 4;
 			//encode the vmMeta data
-			outparamsize = PARAMSIZE;
-			outparamsize = encodeRP2VM_GETVMMETA(numOfMetaComp,metaMap,outparamsize,outparams);
+			*outparamsize = PARAMSIZE;
+			*outparamsize = encodeRP2VM_GETVMMETA(numOfMetaComp,metaMap,*outparamsize,outparams);
 			fprintf(g_logFile,"after encode : %s\n",outparams);
-			if(outparamsize<0) {
+			if(*outparamsize<0) {
 				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETVMMETA buf too small\n");
-				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-				return false;
-			}
-			if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
-				fprintf(g_logFile, "serviceRequest: sendtcBuf (getVMMETA) failed\n");
-				chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				outparams = NULL;
+				*outparamsize = 0;
 				return false;
 			}
 			fprintf(g_logFile,"************succesfully send the response*************** \n");
@@ -1222,13 +1076,14 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
 				return true;
         }
 
-        case RP2VM_ISVERIFIED:
+        case VM2RP_ISVERIFIED:
         {
                 fprintf(g_logFile, "\nin case ISVerified \n");
-                if(!decodeRP2VM_ISVERIFIED(&outparamsize,outparams,inparams))
+                if(!decodeRP2VM_ISVERIFIED(outparamsize,outparams,inparams))
 				{
 						fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
-						g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+						outparams = NULL;
+						*outparamsize = 0;
 						return false;
 				}
                 fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
@@ -1237,40 +1092,38 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
 				char uuid[50];
 				char verificationstat[8];
 				int  verificationstatsize=8;
-				memcpy(uuid,outparams,outparamsize+1);
+				memcpy(uuid,outparams, *outparamsize+1);
 				int verification_status;
 				if(g_myService.IsVerified(uuid,&verification_status))
 				{
 						fprintf(g_logFile, "RP2VM_ISVERIFIED : uuid does not exist\n");
-						g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+						outparams = NULL;
+						*outparamsize = 0;
 						return false;
 				}
 				sprintf(verificationstat,"%d",verification_status);
 				verificationstatsize = strlen((char *)verificationstat);
-				outparamsize = PARAMSIZE;
+				*outparamsize = PARAMSIZE;
 
-				outparamsize = encodeRP2VM_ISVERIFIED(verificationstatsize, (byte *)verificationstat, outparamsize, outparams);
-				if(outparamsize<0) {
+				*outparamsize = encodeRP2VM_ISVERIFIED(verificationstatsize, (byte *)verificationstat, *outparamsize, outparams);
+				if(*outparamsize<0) {
 						fprintf(g_logFile, "RP2VM_ISVERIFIED: encodeRP2VM_isverified buf too small\n");
-						g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-						return false;
-				}
-				if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
-						fprintf(g_logFile, "serviceRequest: sendtcBuf (isverified) failed\n");
-						chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+						outparams = NULL;
+						*outparamsize = 0;
 						return false;
 				}
 				fprintf(g_logFile,"************succesfully send the response*************** ");
 				return true;
         }
 
-	case RP2VM_GETVMREPORT:
+	case VM2RP_GETVMREPORT:
         {
         	fprintf(g_logFile, "\nin case GETVMREPORT \n");
             if(!decodeRP2VM_GETVMREPORT(&str_rp_id, &an, (char**) av, inparams))
 			{
 				fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETVMREPORT failed\n");
-				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				outparams = NULL;
+				*outparamsize = 0;
 				return false;
 			}
         	fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
@@ -1280,21 +1133,18 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
 			if(g_myService.GenerateSAMLAndGetDir(av[0],av[1], vm_manifest_dir))
 			{
 					fprintf(g_logFile, "RP2VM_GETVMREPORT : uuid does not exist\n");
-						g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-						return false;
+					outparams = NULL;
+					*outparamsize = 0;
+					return false;
 			}
 			int vm_manifest_dir_size = strlen(vm_manifest_dir);
-			outparamsize = PARAMSIZE;
+			*outparamsize = PARAMSIZE;
 
-			outparamsize = encodeRP2VM_GETVMREPORT(vm_manifest_dir_size, (byte *)vm_manifest_dir, outparamsize, outparams);
+			*outparamsize = encodeRP2VM_GETVMREPORT(vm_manifest_dir_size, (byte *)vm_manifest_dir, *outparamsize, outparams);
 			if(outparamsize<0) {
 				fprintf(g_logFile, "RP2VM_GETVMREPORT: encodeRP2VM_isverified buf too small\n");
-				g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-				return false;
-			}
-			if(!chan.sendtcBuf(procid, uReq, TCIOSUCCESS, origprocid, outparamsize, outparams)){
-				fprintf(g_logFile, "serviceRequest: sendtcBuf (isverified) failed\n");
-				chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+				outparams = NULL;
+				*outparamsize = 0;
 				return false;
 			}
 			free(vm_manifest_dir);
@@ -1303,96 +1153,10 @@ bool  serviceRequest(tcChannel& chan,int procid, u32 uReq, int origprocid, int i
         }
 
         default:
-            chan.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
+        	outparams = NULL;
+        	*outparamsize = 0;
         return false;
     }
-}
-
-int create_domain(int argc, char **argv)
-{
-        int ret = -1;
-        ret = g_rpdomid++;
-        return ret;
-}
-
-requestData* create_request_data(int procid, int origprocid, u32 uReq, int inparamsize, byte *inparams)
-{
-	requestData *reqData;
-	reqData = (requestData *)calloc(1,sizeof(requestData));
-	reqData->procid = procid;
-	reqData->origprocid = origprocid;
-	reqData->uReq = uReq;
-	reqData->inparamsize = inparamsize;
-	reqData->inparams = (byte *)calloc(1,(sizeof(byte)*inparamsize));
-	memcpy(reqData->inparams,inparams,inparamsize);
-	return reqData;
-}
-
-void free_request_data(requestData *reqData)
-{
-	free(reqData->inparams);
-	free(reqData);
-}
-
-void* async_service_request(void * reqData)
-{
-	bool res;
-	requestData *req = (requestData *) reqData;
-
-	pthread_mutex_lock(&g_myService.max_thread_lock);
-	g_myService.threadCount++;
-	pthread_mutex_unlock(&g_myService.max_thread_lock);
-
-	res = serviceRequest(g_reqChannel, req->procid,req->uReq, req->origprocid, req->inparamsize, req->inparams);
-	free_request_data(req);
-
-	pthread_mutex_lock(&g_myService.max_thread_lock);
-	g_myService.threadCount--;
-	pthread_mutex_unlock(&g_myService.max_thread_lock);
-	return NULL;
-}
-
-bool start_request_processing() {
-	requestData *reqData;
-	int				procid,origprocid,inparamsize;
-	u32				uReq,uStatus;
-	byte*				inparams;
-	pthread_t srvreq_thread;
-	int thread_count;
-	int error;
-	inparamsize = PARAMSIZE;
-	inparams = (byte *)calloc(1, sizeof(byte)*inparamsize);
-	if(!g_reqChannel.gettcBuf(&procid, &uReq, &uStatus,	&origprocid, &inparamsize, inparams)) {
-		fprintf(g_logFile, "serviceRequest: gettcBuf failed\n");
-		free(inparams);
-		return false;
-	}
-	if(uStatus==TCIOFAILED) {
-		g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-		free(inparams);
-		return false;
-	}
-
-	pthread_mutex_lock(&g_myService.max_thread_lock);
-	thread_count = g_myService.threadCount;
-	pthread_mutex_unlock(&g_myService.max_thread_lock);
-
-	if (thread_count <= g_max_thread_limit)
-	{
-
-		reqData = create_request_data(procid,origprocid, uReq, inparamsize, inparams);
-		//detach state attribute of g_myService.pthreadInit is initialized with PTHREAD_CREATE_DETACHED,
-		//means all the thread uses this thread attribute are created in detached state
-		error=pthread_create(&srvreq_thread, &g_myService.pthreadInit, &async_service_request, (void *)reqData);
-		//async_service_request( (void *)reqData);
-		//error=0;
-		if(error) {
-			g_myService.printErrorMessagge(error);
-			g_reqChannel.sendtcBuf(procid, uReq, TCIOFAILED, origprocid, 0, NULL);
-		}
-	}
-    free(inparams);
-	return true;
 }
 
 int modmain(int an, char** av)
@@ -1424,11 +1188,6 @@ int modmain(int an, char** av)
     g_servicepid = 0;//v: getpid();
     g_myService.maxThread=g_max_thread_limit;
     
-    /*if(!g_myService.m_procTable.initprocTable(NUMPROCENTS)) {
-        fprintf(g_logFile, "tcService main: Cant init proctable\n");
-        iRet= 1;
-        goto cleanup;
-    }*/
 
 #if 0
     ret= g_myService.initService(szexecFile, 0, NULL);
@@ -1439,21 +1198,10 @@ int modmain(int an, char** av)
     }
 #endif
 
-    // add self proctable entry
-    g_myService.m_procTable.addprocEntry(g_servicepid, strdup(szexecFile), 0, NULL,
-                                      0,NULL );
-    while(!g_fterminateLoop) {
-        fServiceStart= start_request_processing();
-        UNUSEDVAR(fServiceStart);
-    }
 
 cleanup:
 
     closeLog();
     return iRet;
 }
-
-
 // ------------------------------------------------------------------------------
-
-

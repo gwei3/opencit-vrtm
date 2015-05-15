@@ -139,7 +139,7 @@ public:
     ~tcServiceInterface();
 
     TCSERVICE_RESULT    initService(const char* execfile, int an, char** av);
-    TCSERVICE_RESULT    StartApp(tcChannel& oAppChannel, int procid, const char *file, 
+    TCSERVICE_RESULT    StartApp( int procid, const char *file,
                             int an, char** av,
                             int* poutsize, byte* out);
 	void 				        printErrorMessagge(int error);

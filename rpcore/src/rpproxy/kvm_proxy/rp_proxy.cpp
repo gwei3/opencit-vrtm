@@ -56,7 +56,7 @@ int channel_open() {
             return -1;
     }
 
-    ch_register(fd);
+    //ch_register(fd);
 
     return fd;
 }
@@ -77,8 +77,8 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
     int         an = 0;
     char*       av[20] = {0};
 
-    if (init_pyifc("rppy_ifc") < 0 )
-        return -1;
+    /*if (init_pyifc("rppy_ifc") < 0 )
+        return -1;*/
 
     av[an++] = "./vmtest";
     av[an++] = "-kernel";
@@ -106,10 +106,10 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
     size = sizeof(tcBuffer);
     size = encodeVM2RP_STARTAPP("foo", an, av, PARAMSIZE -size, &rgBuf[size]);
 
-    pReq->m_procid = 0;
+    //pReq->m_procid = 0;
     pReq->m_reqID = VM2RP_STARTAPP;
     pReq->m_ustatus = 0;
-    pReq->m_origprocid = 0;
+    //pReq->m_origprocid = 0;
     pReq->m_reqSize = size;
 
 #ifdef DEBUG
@@ -155,7 +155,7 @@ fail:
     if ( rp_fd >= 0)
         ch_close (rp_fd);
 
-    deinit_pyifc(); 
+    //deinit_pyifc();
     return -1;
 }
 
@@ -331,7 +331,7 @@ int main(int argc, char** argv) {
     if (rp_fd >= 0)
         close(rp_fd);
     
-    deinit_pyifc();
+    //deinit_pyifc();
 
     if (rp_domid <= 0) {
         fprintf(f, "Launch denied by RPCore\n");

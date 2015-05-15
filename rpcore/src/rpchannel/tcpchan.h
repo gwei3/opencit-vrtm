@@ -3,11 +3,11 @@
 
 #ifndef TCSERVICE
 struct tcBuffer {
-    int                 m_procid;
+    //int                 m_procid;
     unsigned int        m_reqID;
     unsigned int        m_reqSize;
     unsigned int 		m_ustatus;
-    int                 m_origprocid;
+    //int                 m_origprocid;
 };
 typedef struct tcBuffer tcBuffer;
 

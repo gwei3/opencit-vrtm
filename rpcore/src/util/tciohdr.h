@@ -28,11 +28,11 @@
 
 
 struct tcBuffer {
-    int                 m_procid;
+    //int                 m_procid;
     u32                 m_reqID;
     u32                 m_reqSize;
     u32                 m_ustatus;
-    int                 m_origprocid;
+    //int                 m_origprocid;
 };
 typedef struct tcBuffer tcBuffer;
 

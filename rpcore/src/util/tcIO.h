@@ -86,7 +86,7 @@ public:
 
 
 bool start_rp_interface(const char* name);
-
+bool serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int *outparamsize, byte* outparams);
 //test functions
 void test_interface_main();
 

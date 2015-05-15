@@ -44,8 +44,8 @@ int ch_read(int fd, void* buf, int bufsize){
 
 
 #ifdef TEST
-    fprintf(stdout, "From RPCore pReq is procid = %d, reqid=%d, reqsize=%d, status=%d, origprocid=%d \n",
-				pReq->m_procid, pReq->m_reqID, pReq->m_reqSize, pReq->m_ustatus, pReq->m_origprocid);
+    /*fprintf(stdout, "From RPCore pReq is procid = %d, reqid=%d, reqsize=%d, status=%d, origprocid=%d \n",
+				pReq->m_procid, pReq->m_reqID, pReq->m_reqSize, pReq->m_ustatus, pReq->m_origprocid);*/
 #endif
 				
    if (pReq->m_reqSize == 0) {
@@ -94,10 +94,10 @@ int ch_register(int fd)
 {
     char rpid[64]={0};
     pid_t rpproxyid;
-    rpproxyid = getpid();
-    sprintf(rpid,"%d",rpproxyid);
-    fprintf(g_logFile,"\nregisteration of rp_id %s", rpid);
-    ch_write(fd, rpid, strlen(rpid) +1 );
+    //rpproxyid = getpid();
+    //sprintf(rpid,"%d",rpproxyid);
+    //fprintf(g_logFile,"\nregisteration of rp_id %s", rpid);
+    //ch_write(fd, rpid, strlen(rpid) +1 );
 }
 
 int ch_open(char* serverip, int port) {

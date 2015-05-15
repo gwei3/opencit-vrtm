@@ -201,14 +201,16 @@ int main(int an, char** av)
 		goto cleanup;
 	}
 	
-	if ( modmain(an, av) == 1) {
+	return iRet;
+
+	/*if ( modmain(an, av) == 1) {
 		fprintf(stdout, "tcService main: initialization failed");
         goto cleanup;
     }
 	
 	g_quit = 1;
 	
-	sleep(100);
+	sleep(100);*/
 //------------------------------------------------------------------
 
 cleanup:
