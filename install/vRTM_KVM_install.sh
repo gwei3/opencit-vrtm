@@ -107,7 +107,6 @@ function untarResources()
 function installKVMPackages_rhel()
 {
         echo "Installing Required Packages ....."
-        yum -y update
         yum install -y "kernel-devel-uname-r == $(uname -r)"
         if [ $FLAVOUR == "rhel" ]; then
           yum install -y yum-utils
@@ -117,13 +116,10 @@ function installKVMPackages_rhel()
         yum install -y yum-plugin-priorities
         yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
 
-        yum install -y libvirt-devel libvirt libvirt-python libguestfs-tools-c
+        yum install -y libvirt libguestfs-tools-c
         #Libs required for compiling libvirt
-        yum install -y gcc-c++ gcc make yajl yajl-devel device-mapper device-mapper-devel libpciaccess-devel libnl-devel libxml2
-        yum install -y python-devel
-        yum install -y openssh-server
 	yum install -y trousers tpm-tools cryptsetup 
-	yum install -y tar procps binutils
+	yum install -y tar procps binutils openssh-server
 	selinuxenabled
 	if [ $? -eq 0 ] ; then
 		yum install -y policycoreutils-python
@@ -134,36 +130,18 @@ function installKVMPackages_rhel()
 function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
-	apt-get -y  install python-software-properties
-	add-apt-repository -y cloud-archive:icehouse
-	apt-get -y update
-	#apt-get -y dist-upgrade
-	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp chkconfig guestfish
-	apt-get -y install openssh-server
-	apt-get -y install python-dev
-	apt-get -y install tboot trousers tpm-tools libtspi-dev cryptsetup-bin
-	apt-get -y install qemu-utils kpartx binutils
-	apt-get -y install libvirt-bin qemu-kvm libguestfs-tools 
-	apt-get -y install iptables libblkid1 libc6 libcap-ng0 libdevmapper1.02.1 libgnutls26 libnl-3-200 libnuma1  libparted0debian1  libpcap0.8 libpciaccess0 libreadline6  libudev0 libudev2 libxml2 libyajl1 libyajl2 procps
-	apt-get -y install libyajl-dev libxml2-dev libdevmapper-dev libpciaccess-dev libnl-dev uuid-dev
-	
+	apt-get -y install libvirt-bin qemu-kvm libguestfs-tools openssh-server
 	echo "Starting ntp service ....."
 	service ntp start
-	#chkconfig ntp on
 }
 
 function installKVMPackages_suse()
 {
 	zypper addrepo -f obs://Cloud:OpenStack:Icehouse/openSUSE_13.1 Icehouse
-	zypper -n in openstack-utils
 	zypper -n refresh
-	# zypper -n dist-upgrade
-        zypper -n in libvirt libvirt-devel qemu-kvm
-	zypper -n in libyajl2 libpciaccess0 libnl3-200 libxml2-2
-        zypper -n in libyajl-devel libpciaccess-devel libnl3-devel libxml2-devel 
+        zypper -n in libvirt qemu-kvm
         zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp wget
-        zypper -n in openssh
-        zypper -n in python-devel dos2unix 
+        zypper -n in openssh dos2unix
 	zypper -n in tboot  
 }
 
@@ -180,15 +158,6 @@ function installKVMPackages()
 
 installLibvirtPackages_ubuntu()
 {
-        apt-get -y install python-software-properties
-        add-apt-repository -y cloud-archive:icehouse
-
-        echo "Updating repositories .. this may take a while "
-        apt-get update > /dev/null
-        if [ $? -ne 0 ] ; then
-               echo "apt-get update failed, kindly resume after manually executing apt-get update"
-        fi
-        apt-get -y install libvirt-bin libvirt-dev libvirt0 python-libvirt
 	grep -c libvirtd /etc/group
         if [ $? -eq 1 ] ; then
                 groupadd libvirtd
@@ -212,10 +181,6 @@ installLibvirtPackages_ubuntu()
 
 installLibvirtPackages_rhel()
 {
-	yum -y install libvirt-devel libvirt libvirt-python
-        # This is required because if one installs only libvirt then the eco-system for libvirt is not ready
-        # For e.g the virtualisation group also creates libvirtd group over the system.
-        yum groupinstall -y Virtualization	
 	grep -c libvirtd /etc/group
 	if [ $? -eq 1 ] ; then
 		groupadd libvirtd
@@ -239,7 +204,6 @@ installLibvirtPackages_rhel()
 
 installLibvirtPackages_suse()
 {
-	zypper -n in libvirt libvirt-devel libvirt-python
         grep -c libvirtd /etc/group
         if [ $? -eq 1 ] ; then
                 groupadd libvirtd
@@ -447,14 +411,6 @@ function updateRCLocal()
         chmod +x $RC_LOCAL_FILE
 }
 
-function patchOpenstackComputePkgs()
-{
-	cd "$OPENSTACK_DIR"
-	chmod +x "$INSTALL_DIR/Openstack_applyPatches.sh"
-	"$INSTALL_DIR/Openstack_applyPatches.sh" --compute
-	cd "$INSTALL_DIR"
-}
-
 function validate()
 {
 	# Validate the following 
@@ -468,14 +424,6 @@ function validate()
 		echo "Please install qemu kvm"
 		exit
 	fi
-	
-	# Validate xenbr0 installation
-	ip addr | grep -i -c xenbr0 > /dev/null 
-        if [ $? -ne 0 ]; then
-                echo "ERROR : xenbr0 device not available, please setup xenbr0 over this machine"
-                exit
-        fi
-	
 }
 
 function main_default()
@@ -510,14 +458,11 @@ function main_default()
 	echo "Validating installation ... "
 	validate
 
-	echo "Do you wish to install nontpmrpcore y/n (default: n)"
+	echo "Install nontpmrpcore ... "
 	startNonTPMRpCore
 
 	echo "Installing RPProxy and RPListener..."
 	installRPProxyAndListner
-	
-	#echo "Applying openstack patches..."	
-	#patchOpenstackComputePkgs 
 
 	updateRCLocal
 	
@@ -535,26 +480,6 @@ function main_default()
     echo "Install completed successfully !"
 }
 
-function installNovaCompute()
-{
-  if ! valid_ip $CURRENT_IP; then
-    while : ; do
-      echo "Please enter current machine IP"
-      read CURRENT_IP
-      if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
-    done
-  fi
-  echo "Installing Nova compute"
-  apt-get install
-}
-
-function configNovaCompute()
-{
-	echo "This step will configure your nova-compute"
-	cd $OPENSTACK_DIR/..
-	./controller-config.sh	
-}
-
 function help_display()
 {
 	echo "Usage : ./vRTM_KVM_install.sh [Options]"
@@ -562,8 +487,6 @@ function help_display()
         echo "    default : Installs RPCore components"
 	echo "	  --with-libvirt : This searches and installs the libvirt version "
 	echo "			 packaged along with vRTM dist"
-	# This will be a separate script
-#        echo "    --nova-compute : Installs and configures nova-compute over the node"
 	exit
 }
 

@@ -154,9 +154,9 @@ function install_kvm_packages_rhel()
 	yum -y groupinstall -y "Development Tools" "Development Libraries"
 	yum install -y "kernel-devel-uname-r == $(uname -r)"
 	if [ $FLAVOUR == "rhel" ]; then
-      yum install -y yum-utils
-      yum-config-manager --enable rhel-6-server-optional-rpms
-    fi
+     	     yum install -y yum-utils
+	     yum-config-manager --enable rhel-6-server-optional-rpms
+	fi
 	# Install the openstack repo
 	yum install -y yum-plugin-priorities
 	yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
@@ -173,13 +173,8 @@ function install_kvm_packages_rhel()
 function install_kvm_packages_ubuntu()
 {
 	echo "Installing Required Packages for ubuntu ....."
-	apt-get -y  install python-software-properties
-	add-apt-repository -y cloud-archive:icehouse
-	apt-get -y update
-	#apt-get -y dist-upgrade
-	apt-get -y install gcc libsdl1.2-dev zlib1g-dev libasound2-dev linux-kernel-headers pkg-config libgnutls-dev libpci-dev build-essential bzr bzr-builddeb cdbs debhelper devscripts dh-make diffutils dpatch fakeroot gnome-pkg-tools gnupg liburi-perl lintian patch patchutils pbuilder piuparts quilt ubuntu-dev-tools wget libglib2.0-dev libsdl1.2-dev libjpeg-dev libvde-dev libvdeplug2-dev libbrlapi-dev libaio-dev libfdt-dev texi2html texinfo info2man pod2pdf libnss3-dev libcap-dev libattr1-dev libtspi-dev gcc-4.6-multilib libpixman-1-dev libxml2-dev libssl-dev ant
-	apt-get -y install libvirt-bin libvirt-dev qemu-kvm
-	apt-get -y install libyajl-dev libdevmapper-dev libpciaccess-dev libnl-dev
+	apt-get -y install gcc build-essential make python-dev libxml2-dev libssl-dev libvirt-dev
+	apt-get -y install libvirt-bin qemu-kvm
 	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp
 	apt-get -y install openssh-server
 	apt-get -y install python-dev dos2unix
@@ -193,9 +188,8 @@ function install_kvm_packages_ubuntu()
 function install_kvm_packages_suse()
 {
 	echo "Installing Required Packages for sue ....."
-	zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI patch patchutils pbuilder quilt wget glib2-devel libjpeg8-devel libvdemgmt0-devel libvdeplug3-devel brlapi-devel libaio-devel libfdt1-devel texinfo libcap-devel libattr-devel libtspi1 libpixman-1-0-devel trousers-devel  ant
-	zypper -n in libvirt libvirt-devel qemu-kvm
-	zypper -n in libyajl-devel libpciaccess-devel libnl3-devel
+	zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI  wget glib2-devel libvirt-devel 
+	zypper -n in libvirt qemu-kvm
 	zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp
 	zypper -n in openssh
 	zypper -n in python-devel dos2unix
