@@ -107,7 +107,6 @@ function untarResources()
 function installKVMPackages_rhel()
 {
         echo "Installing Required Packages ....."
-        #yum -y -x 'kernel*,redhat-release*' update
         yum install -y "kernel-devel-uname-r == $(uname -r)"
         if [ $FLAVOUR == "rhel" ]; then
           yum install -y yum-utils
@@ -136,17 +135,15 @@ function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
 	apt-get -y  install python-software-properties
-	#apt-get -y dist-upgrade
 	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp
 	apt-get -y install openssh-server
 	apt-get -y install tboot trousers tpm-tools cryptsetup-bin
 	apt-get -y install qemu-utils kpartx binutils
 	apt-get -y install libvirt-bin qemu-kvm libguestfs-tools 
-	apt-get -y install iptables libblkid1 libc6 libcap-ng0 libdevmapper1.02.1 libgnutls26 libnl-3-200 libnuma1  libparted0debian1  libpcap0.8 libpciaccess0 libreadline6  libudev0 libudev2 libxml2 libyajl1 libyajl2 procps
+	apt-get -y install iptables libblkid1 libc6 libcap-ng0 libdevmapper1.02.1 libgnutls26 libnl-3-200 libnuma1  libparted0debian1  libpcap0.8 libpciaccess0 libreadline6 libxml2 libyajl2 procps
 	
 	echo "Starting ntp service ....."
 	service ntp start
-	#chkconfig ntp on
 }
 
 function installKVMPackages_suse()
@@ -154,7 +151,6 @@ function installKVMPackages_suse()
 	zypper addrepo -f obs://Cloud:OpenStack:Icehouse/openSUSE_13.1 Icehouse
 	zypper -n in openstack-utils
 	zypper -n refresh
-	# zypper -n dist-upgrade
         zypper -n in libvirt qemu-kvm
 	zypper -n in libyajl2 libpciaccess0 libnl3-200 libxml2-2
         zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp wget
@@ -508,9 +504,6 @@ function main_default()
 
 	echo "Installing RPProxy and RPListener..."
 	installRPProxyAndListner
-	
-	#echo "Applying openstack patches..."	
-	#patchOpenstackComputePkgs 
 
 	updateRCLocal
 	
@@ -528,26 +521,6 @@ function main_default()
     echo "Install completed successfully !"
 }
 
-function installNovaCompute()
-{
-  if ! valid_ip $CURRENT_IP; then
-    while : ; do
-      echo "Please enter current machine IP"
-      read CURRENT_IP
-      if valid_ip $CURRENT_IP; then break; else echo "Incorrect IP format : Please Enter Again"; fi
-    done
-  fi
-  echo "Installing Nova compute"
-  apt-get install
-}
-
-function configNovaCompute()
-{
-	echo "This step will configure your nova-compute"
-	cd $OPENSTACK_DIR/..
-	./controller-config.sh	
-}
-
 function help_display()
 {
 	echo "Usage : ./vRTM_KVM_install.sh [Options]"
@@ -555,8 +528,6 @@ function help_display()
         echo "    default : Installs RPCore components"
 	echo "	  --with-libvirt : This searches and installs the libvirt version "
 	echo "			 packaged along with vRTM dist"
-	# This will be a separate script
-#        echo "    --nova-compute : Installs and configures nova-compute over the node"
 	exit
 }
 
