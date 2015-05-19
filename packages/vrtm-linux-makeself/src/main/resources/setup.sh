@@ -148,6 +148,10 @@ chmod 700 $VRTM_HOME/dist/*.sh
 (cd $VRTM_HOME/dist && ./vRTM_KVM_install.sh)
 rm -rf /$VRTM_HOME/dist
 
+#Register vRTM start script
+register_startup_script /usr/local/bin/vrtm vrtm
+register_startup_script /usr/local/bin/rp_listener rplistener
+
 ### CURRENTLY DONE IN vRTM_KVM_install.sh
 ##verifier
 #tbootxmVerifier="/opt/tbootxm/bin/verifier"
