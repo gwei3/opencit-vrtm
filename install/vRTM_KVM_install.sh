@@ -377,6 +377,8 @@ function startNonTPMRpCore()
 {
 	echo "Starting non-TPM RPCORE...."
 	/usr/local/bin/vrtm start
+	echo "Starting rp_listener...."
+	/usr/local/bin/rp_listener start
 }
 
 function createvRTMStartScript()
