@@ -12,7 +12,6 @@ DIST_LOCATION=`/usr/bin/python -c "from distutils.sysconfig import get_python_li
 LINUX_FLAVOUR="ubuntu"
 NON_TPM="false"
 BUILD_LIBVIRT="FALSE"
-RC_LOCAL_FILE=""
 KVM_BINARY=""
 
 function valid_ip()
@@ -66,12 +65,10 @@ function updateFlavourVariables()
         linuxFlavour=`getFlavour`
         if [ $linuxFlavour == "fedora" ]
         then
-             export RC_LOCAL_FILE="/etc/rc.d/rc.local"
              export KVM_BINARY="/usr/bin/qemu-kvm"
 	     export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
 	elif [ $linuxFlavour == "rhel" ]
 	then
-	     export RC_LOCAL_FILE="/etc/rc.d/rc.local"
 	     export KVM_BINARY="/usr/bin/qemu-kvm"
 	     if [ -x /usr/bin/qemu-system-x86_64 ] ; then
 		export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
@@ -80,12 +77,10 @@ function updateFlavourVariables()
 	     fi
 	elif [ $linuxFlavour == "ubuntu" ]
 	then
-              export RC_LOCAL_FILE="/etc/rc.local"
               export KVM_BINARY="/usr/bin/kvm"
 	      export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
 	elif [ $linuxFlavour == "suse" ]
 	then
-	      export RC_LOCAL_FILE="/etc/rc.d/after.local"
               export KVM_BINARY="/usr/bin/kvm"
               export QEMU_INSTALL_LOCATION="/usr/bin/qemu-system-x86_64"
         fi
@@ -322,8 +317,6 @@ function installLibvirt()
 function installRPProxyAndListner()
 {
 	echo "Installing RPProxy and Starting RPListener...."
-	pkill -9 libvirtd
-	libvirtd -d
 
 	if [ -e $KVM_BINARY ] ; then
 		echo "#! /bin/sh" > $KVM_BINARY
@@ -339,6 +332,16 @@ function installRPProxyAndListner()
 		cp "$QEMU_INSTALL_LOCATION" /usr/bin/qemu-system-x86_64_orig
 	fi
 	cp "$INSTALL_DIR/rpcore/bin/debug/rp_proxy" "$QEMU_INSTALL_LOCATION"
+	
+	#Verify rp-proxy replacement
+	diff "$INSTALL_DIR/rpcore/bin/debug/rp_proxy" "$QEMU_INSTALL_LOCATION" > /dev/null
+	if [ $? -eq 0 ] ; then
+		echo "RP-Proxy replaced successfully"
+	else
+		echo "ERROR : Could not replace rp_proxy with $QEMU_INSTALL_LOCATION"
+		echo "Please execute following after ensuring VMs are shut-down and $QEMU_INSTALL_LOCATION is not is use"
+		echo "\$ cp $INSTALL_DIR/rpcore/bin/debug/rp_proxy $QEMU_INSTALL_LOCATION"
+	fi
 
 	chmod +x "$QEMU_INSTALL_LOCATION"
 	touch /var/log/rp_proxy.log
@@ -373,68 +376,123 @@ function installRPProxyAndListner()
 function startNonTPMRpCore()
 {
 	echo "Starting non-TPM RPCORE...."
-	
-	export RPCORE_IPADDR=$CURRENT_IP
-	export RPCORE_PORT=16005
-	export LD_LIBRARY_PATH="$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH"
-	cp -r "$INSTALL_DIR/rpcore/rptmp" /tmp
-	cp /tmp/rptmp/config/TrustedOS/privatekey /tmp/rptmp/config/TrustedOS/privatekey.pem
-	echo "Stopping previous nontpmrpcore processes if any..."
-	pkill -9 nontpmrpcore
-	cd "$INSTALL_DIR/rpcore/bin/debug"
-	nohup ./nontpmrpcore > nontpmrpcore.log 2>&1 &
-	NON_TPM="true"
-	cd "$INSTALL_DIR"
+	/usr/local/bin/vrtm start
+	echo "Starting rp_listener...."
+	/usr/local/bin/rp_listener start
 }
 
-function updateRCLocal()
+function createvRTMStartScript()
 {
-	if [ ! -f /root/services.sh ]
-	then
-	        echo "opt=\$1" > /root/services.sh
-	        echo "service nova-api-metadata \$opt" >> /root/services.sh
-	        echo "service nova-network \$opt" >> /root/services.sh
-	        echo "service nova-compute \$opt" >> /root/services.sh
-	        chmod +x /root/services.sh
-	fi	
 
-	# remove the file if previously created
-        if [ -f $RC_LOCAL_FILE ]
-        then
-            rm $RC_LOCAL_FILE
-        fi
-	if [ $NON_TPM == "true"  ] ; then
-	        echo "#!/bin/sh -e
-	        chown -R nova:nova /var/run/libvirt/
-	        killall -9 libvirtd
-	        sleep 2
-	        ldconfig
-		export RPCORE_IPADDR=$CURRENT_IP
-		export RPCORE_PORT=16005
-		export LD_LIBRARY_PATH=\"$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH\"
-		cp -r \"$INSTALL_DIR/rpcore/rptmp\" /tmp
+	if [ $FLAVOUR = "ubuntu" ] ;then 
+		export	LIBVIRT_SERVICE_NAME="libvirt-bin"
+	elif [ $FLAVOUR = "rhel" -o $FLAVOUR = "fedora" -o $FLAVOUR = "suse" ] ;then
+		export LIBVIRT_SERVICE_NAME="libvirtd"
+	fi
+
+	VRTM_SCRIPT="$INSTALL_DIR/rpcore/scripts/vrtm.sh"
+	echo "Creating the startup script.... $VRTM_SCRIPT"
+	touch $VRTM_SCRIPT 
+	echo "#!/bin/bash
+
+	### BEGIN INIT INFO
+	# Provides:          vrtm
+	# Required-Start:    \$local_fs \$network \$remote_fs
+	# Required-Stop:     \$local_fs \$network \$remote_fs
+	# Default-Start:     2 3 4 5
+	# Default-Stop:      0 1 6
+	# X-Start-Before:    $LIBVIRT_SERVICE_NAME
+	# X-Stop-After:	     $LIBVIRT_SERVICE_NAME
+	# Short-Description: VRTM
+	# Description:       Virtual Root Trust Management
+	### END INIT INFO
+
+	startVrtm()
+	{
+		chown -R nova:nova /var/run/libvirt/
+	        export RPCORE_IPADDR=$CURRENT_IP
+        	export RPCORE_PORT=16005
+        	cp -r \"$INSTALL_DIR/rpcore/rptmp\" /tmp
 		cp /tmp/rptmp/config/TrustedOS/privatekey /tmp/rptmp/config/TrustedOS/privatekey.pem
-		cd \"$INSTALL_DIR/rpcore/bin/debug\"
-		nohup ./nontpmrpcore > nontpmrpcore.log 2>&1 &
-	        nohup ./rp_listener > rp_listener.log 2>&1 &
-	        libvirtd -d
-	        sleep 1
-	        /root/services.sh restart
-	        exit 0" >> $RC_LOCAL_FILE
-	else
-                echo "#!/bin/sh -e
-                chown -R nova:nova /var/run/libvirt/
-                killall -9 libvirtd
-                sleep 2
-                ldconfig
-                nohup ./rp_listener > rp_listener.log 2>&1 &
-                libvirtd -d
-                sleep 1
-                /root/services.sh restart
-                exit 0" >> $RC_LOCAL_FILE
-	fi	
-        chmod +x $RC_LOCAL_FILE
+        	cd \"$INSTALL_DIR/rpcore/bin/debug\"
+        	nohup ./nontpmrpcore >> nontpmrpcore.log 2>&1 &
+		sleep 5
+	}
+	
+	case \"\$1\" in
+	 start)
+	    pgrep nontpmrpcore
+	    if [ \$? -ne 0 ] ; then
+	        echo \"Starting vrtm...\"
+	        startVrtm
+	    else
+	        echo \"VRTM is already running...\"
+	    fi  
+	   ;;
+	 stop)
+	        echo \"Stopping all vrtm processes (if any ) ...\"
+	        pkill -9 nontpmrpcore
+	   ;;
+	 *)
+	   echo \"Usage: {start|stop}\" >&2
+	   exit 3
+	   ;;
+	esac
+	" >> "$VRTM_SCRIPT"
+	chmod +x "$VRTM_SCRIPT"
+	rm -rf /usr/local/bin/vrtm
+	ln -s "$VRTM_SCRIPT" /usr/local/bin/vrtm
+
+	RP_LISTNER_SCRIPT="$INSTALL_DIR/rpcore/scripts/rp_listener.sh"
+	echo "Creating the startup script.... $RP_LISTNER_SCRIPT"
+	touch $RP_LISTNER_SCRIPT
+	echo "#!/bin/bash
+
+        ### BEGIN INIT INFO
+        # Provides:          vrtm
+        # Required-Start:    \$local_fs \$network \$remote_fs
+        # Required-Stop:     \$local_fs \$network \$remote_fs
+        # Default-Start:     2 3 4 5
+        # Default-Stop:      0 1 6
+        # X-Start-Before:    $LIBVIRT_SERVICE_NAME
+        # X-Stop-After:      $LIBVIRT_SERVICE_NAME
+        # Short-Description: rp_listener
+        # Description:       rp_listener
+        ### END INIT INFO
+
+        startRpListner()
+        {
+		export RPCORE_IPADDR=$CURRENT_IP
+                export RPCORE_PORT=16005
+                export LD_LIBRARY_PATH=\"$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH\"
+                cd \"$INSTALL_DIR/rpcore/bin/debug\"
+                nohup ./rp_listener >> rp_listener.log 2>&1 &
+        }
+	case \"\$1\" in
+         start)
+            pgrep rp_listener
+            if [ \$? -ne 0 ] ; then
+                echo \"Starting rp_listner...\"
+                startRpListner
+            else
+                echo \"RPListner already running...\"
+            fi  
+           ;;
+         stop)
+                echo \"Stopping all rp_listener processes (if any) ...\"
+                pkill -9 rp_listener
+           ;;
+         *)
+           echo \"Usage: {start|stop}\" >&2
+           exit 3
+           ;;
+        esac
+        " >> "$RP_LISTNER_SCRIPT"
+        chmod +x "$RP_LISTNER_SCRIPT"
+        rm -rf /usr/local/bin/rp_listener
+        ln -s "$RP_LISTNER_SCRIPT" /usr/local/bin/rp_listener
 }
+
 
 function patchOpenstackComputePkgs()
 {
@@ -499,13 +557,14 @@ function main_default()
 	echo "Validating installation ... "
 	validate
 
-	echo "Do you wish to install nontpmrpcore y/n (default: n)"
+	echo "Creating VRTM startup scripts"
+	createvRTMStartScript
+
+	echo "Installing nontpmrpcore ..."
 	startNonTPMRpCore
 
 	echo "Installing RPProxy and RPListener..."
 	installRPProxyAndListner
-
-	updateRCLocal
 	
     #verifier symlink
     tbootxmVerifier="/opt/tbootxm/bin/verifier"
