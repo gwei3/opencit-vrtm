@@ -1135,7 +1135,7 @@ void* handle_session(void* p) {
 
 	
 	buf[sz_data] = '\0';
-	domid = atoi(buf);
+	domid = *(int *)p;
 			
 	fprintf(g_logFile, "handle_session():inter-domain channel registered for id %d\n", domid);
 	
