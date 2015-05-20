@@ -395,17 +395,17 @@ function createvRTMStartScript()
 	touch $VRTM_SCRIPT 
 	echo "#!/bin/bash
 
-	### BEGIN INIT INFO
-	# Provides:          vrtm
-	# Required-Start:    \$local_fs \$network \$remote_fs
-	# Required-Stop:     \$local_fs \$network \$remote_fs
-	# Default-Start:     2 3 4 5
-	# Default-Stop:      0 1 6
-	# X-Start-Before:    $LIBVIRT_SERVICE_NAME
-	# X-Stop-After:	     $LIBVIRT_SERVICE_NAME
-	# Short-Description: VRTM
-	# Description:       Virtual Root Trust Management
-	### END INIT INFO
+### BEGIN INIT INFO
+# Provides:          vrtm
+# Required-Start:    \$local_fs \$network \$remote_fs
+# Required-Stop:     \$local_fs \$network \$remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Should-Start:    $LIBVIRT_SERVICE_NAME
+# Should-Stop:	     $LIBVIRT_SERVICE_NAME
+# Short-Description: VRTM
+# Description:       Virtual Root Trust Management
+### END INIT INFO
 
 	startVrtm()
 	{
@@ -438,7 +438,7 @@ function createvRTMStartScript()
 	   exit 3
 	   ;;
 	esac
-	" >> "$VRTM_SCRIPT"
+	" > "$VRTM_SCRIPT"
 	chmod +x "$VRTM_SCRIPT"
 	rm -rf /usr/local/bin/vrtm
 	ln -s "$VRTM_SCRIPT" /usr/local/bin/vrtm
@@ -448,17 +448,17 @@ function createvRTMStartScript()
 	touch $RP_LISTNER_SCRIPT
 	echo "#!/bin/bash
 
-        ### BEGIN INIT INFO
-        # Provides:          vrtm
-        # Required-Start:    \$local_fs \$network \$remote_fs
-        # Required-Stop:     \$local_fs \$network \$remote_fs
-        # Default-Start:     2 3 4 5
-        # Default-Stop:      0 1 6
-        # X-Start-Before:    $LIBVIRT_SERVICE_NAME
-        # X-Stop-After:      $LIBVIRT_SERVICE_NAME
-        # Short-Description: rp_listener
-        # Description:       rp_listener
-        ### END INIT INFO
+### BEGIN INIT INFO
+# Provides:          rplistener
+# Required-Start:    \$all
+# Required-Stop:     \$all
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Should-Start:     $LIBVIRT_SERVICE_NAME
+# Should-Stop:      $LIBVIRT_SERVICE_NAME
+# Short-Description: rp_listener
+# Description:       rp_listener
+### END INIT INFO
 
         startRpListner()
         {
@@ -487,7 +487,7 @@ function createvRTMStartScript()
            exit 3
            ;;
         esac
-        " >> "$RP_LISTNER_SCRIPT"
+        " > "$RP_LISTNER_SCRIPT"
         chmod +x "$RP_LISTNER_SCRIPT"
         rm -rf /usr/local/bin/rp_listener
         ln -s "$RP_LISTNER_SCRIPT" /usr/local/bin/rp_listener
