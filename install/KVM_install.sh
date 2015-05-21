@@ -442,5 +442,10 @@ echo "Checking Status of  all Services ....."
 /root/services.sh status
 
 echo "IMVM and MOUNT-SCRIPT located in subdirectories of $INSTALL_DIR"
-echo "Configuration Updation completed....."
 
+# copy monit scripts to monit directories
+cp -f $INSTALL_DIR/rpcore/scripts/rplistener.monit  /etc/monit/conf.d/
+cp -f $INSTALL_DIR/rpcore/scripts/vrtm.monit  /etc/monit/conf.d/
+service monit restart
+
+echo "Configuration Updation completed....."

@@ -1,0 +1,4 @@
+check process vrtm
+	matching "nontpmrpcore"        
+	start program = "/etc/init.d/vrtm start" with timeout 90 seconds
+        stop program  = "/etc/init.d/vrtm stop"
