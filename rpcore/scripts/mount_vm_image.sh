@@ -61,7 +61,7 @@ fi
 imagePath=$1
 mountPath="$2/mount"
 
-if [ -e $imagePath ] ; then
+if [ ! -e $imagePath ] ; then
 	echo "Image $imagePath does not exist..."
 	exit 2
 fi
