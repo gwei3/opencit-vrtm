@@ -454,20 +454,38 @@ function createvRTMStartScript()
 # Required-Stop:     \$all
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Should-Start:     $LIBVIRT_SERVICE_NAME
+# Should-Start:    $LIBVIRT_SERVICE_NAME
 # Should-Stop:      $LIBVIRT_SERVICE_NAME
 # Short-Description: rp_listener
 # Description:       rp_listener
 ### END INIT INFO
 
-        startRpListner()
-        {
-		export RPCORE_IPADDR=$CURRENT_IP
-                export RPCORE_PORT=16005
-                export LD_LIBRARY_PATH=\"$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH\"
-                cd \"$INSTALL_DIR/rpcore/bin/debug\"
-                nohup ./rp_listener >> rp_listener.log 2>&1 &
-        }
+   RPLISTENER_PID_FILE=/var/run/rplistener.pid
+
+    startRpListner()
+    {
+ 		export RPCORE_IPADDR=$CURRENT_IP
+        export RPCORE_PORT=16005
+        export LD_LIBRARY_PATH=\"$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH\"
+        cd \"$INSTALL_DIR/rpcore/bin/debug\"
+        nohup ./rp_listener >> rp_listener.log 2>&1 &
+		echo \$! > \$RPLISTENER_PID_FILE
+    }
+    installMonitFile()
+	{
+		 if [ -e /etc/monit/conf.d/rplistener.monit ] ; then
+			 echo \"INFO : monitor file for rp_listener already present\"
+		 else
+	         if [ -d /etc/monit/conf.d ] ; then
+    	         echo \"INFO : monit conf dir already exists\"
+        	 else
+            	 echo \"WARN : monit dir was not existing, is monit installed with trust agent installed ?\"
+	             mkdir -p /etc/monit/conf.d
+    	     fi
+			 cp \"$INSTALL_DIR/rpcore/scripts/rplistener.monit\" /etc/monit/conf.d/.
+		  	 service monit restart > /dev/null 2>&1 &
+		 fi
+	}
 	case \"\$1\" in
          start)
             pgrep rp_listener
@@ -477,13 +495,19 @@ function createvRTMStartScript()
             else
                 echo \"RPListner already running...\"
             fi  
+			installMonitFile
            ;;
          stop)
-                echo \"Stopping all rp_listener processes (if any) ...\"
+                echo \"Stopping all rp_listener processes and its monitor (if any) ...\"
                 pkill -9 rp_listener
+				echo \"INFO : Removing pid file for rp_listener\"
+				rm -rf \$RPLISTENER_PID_FILE
+				echo \"INFO : Removing monitor file for rp_listener\"
+				rm -rf /etc/monit/conf.d/rplistener.monit
+				service monit restart > /dev/null 2>&1 &
            ;;
          *)
-           echo \"Usage: {start|stop}\" >&2
+           echo \"Usage: {start|stop}\" 
            exit 3
            ;;
         esac
