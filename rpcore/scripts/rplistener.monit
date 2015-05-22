@@ -1,4 +1,3 @@
-check process rplistener 
-	matching "rp_listener"        
-	start program = "/etc/init.d/rplistener start" with timeout 90 seconds
+check process rp_listener with pidfile /var/run/rplistener.pid
+        start program = "/etc/init.d/rplistener start" with timeout 30 seconds
         stop program  = "/etc/init.d/rplistener stop"
