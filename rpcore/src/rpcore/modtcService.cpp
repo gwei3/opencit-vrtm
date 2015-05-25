@@ -79,7 +79,6 @@ bool uidfrompid(int pid, int* puid)
 {
     char        szfileName[256];
     struct stat fattr;
-
     sprintf(szfileName, "/proc/%d/stat", pid);
     if((lstat(szfileName, &fattr))!=0) {
         printf("uidfrompid: stat failed\n");
@@ -517,10 +516,12 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
 	if ((str_rp_id == NULL) || (in_uuid == NULL) || (out == NULL))
  		return TCSERVICE_RESULT_FAILED;
 	rp_id = atoi(str_rp_id);
+	int inuuid_len = strlen(in_uuid);
+	int invdiuuid_len = strlen(vdi_uuid);
 	memset(uuid, 0, g_max_uuid);
-    memcpy(uuid, in_uuid, g_sz_uuid);
+    memcpy(uuid, in_uuid, inuuid_len);
 	memset(vuuid, 0, g_max_uuid);	
-	memcpy(vuuid, vdi_uuid, g_sz_uuid);
+	memcpy(vuuid, vdi_uuid, invdiuuid_len);
 	if ( !g_myService.m_procTable.updateprocEntry(rp_id, uuid, vuuid) ) {
 		return TCSERVICE_RESULT_FAILED;
 	}
@@ -744,8 +745,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
 						}
 			   strcpy(vm_manifest_signature,NodeValue);
 			  }
-
 		} // end of file parsing
+        free(line);
+        line = NULL;
         fclose(fp);
 // Only call verfier when measurement is required
         char command[512]={0};
@@ -757,7 +759,11 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
         if(!fq) 
 		{
         	fprintf(stdout, "Error returned by verifer in generating cumulative hash, please check imvm-result.out for more logs\n");
-        	return -1; // measurement failed  (verifier failed to measure)
+        	free(vm_image_id);
+			free(vm_customer_id);
+			free(vm_manifest_hash);
+			free(vm_manifest_signature);
+        	return TCSERVICE_RESULT_FAILED; // measurement failed  (verifier failed to measure)
 		}
 
         char imageHash[65];
@@ -790,6 +796,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
         if (flag == 0) {
         	fprintf(g_logFile, "IMVM Verification Failed\n");
             fprintf(stdout, "IMVM Verification Failed\n");
+            free(vm_image_id);
+			free(vm_customer_id);
+			free(vm_manifest_hash);
+			free(vm_manifest_signature);
             return TCSERVICE_RESULT_FAILED;
         }
 
@@ -815,7 +825,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
         return TCSERVICE_RESULT_FAILED;
     }
 
-    for ( i = 1; i < an; i++) {
+    for ( i = 0; i < an; i++) {
         if( av[i] ) {
             free (av[i]);
             av[i] = NULL;
@@ -843,6 +853,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
     int                 an = 0;
     char*               av[32];
 	char*				str_rp_id = NULL;
+	int 				fr_var;
 
 	//outparams[PARAMSIZE] = {0};
 	//outparams = (byte *) calloc(1,sizeof(byte)*PARAMSIZE);
@@ -880,11 +891,16 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         	fprintf(g_logFile, "serviceRequest: StartHostedProgram failed %s\n", szappexecfile);
         	outparams = NULL;
         	*outparamsize = 0;
+        	free(szappexecfile);
+        	for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
+        		free(av[fr_var]);
+        	}
         	return false;
         }
 #ifdef TEST
         fprintf(g_logFile, "serviceRequest, StartHostedProgram succeeded, about to send\n");
 #endif
+        free(szappexecfile);
         return true;
 
 
@@ -911,6 +927,10 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 			if(g_myService.UpdateAppID(av[0], av[1], av[2], outparamsize, outparams)
 					!=TCSERVICE_RESULT_SUCCESS) {
 				fprintf(g_logFile, "serviceRequest: setuuid failed %s\n", str_rp_id);
+				free(str_rp_id);
+				for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
+					free(av[fr_var]);
+				}
 				outparams = NULL;
 				*outparamsize = 0;
 				return false;
@@ -920,6 +940,10 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 #ifdef TEST
         fprintf(g_logFile, "serviceRequest, setuuid succeeded, about to send\n");
 #endif
+        free(str_rp_id);
+		for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
+			free(av[fr_var]);
+		}
         return true;
         
       case VM2RP_TERMINATEAPP:
@@ -1126,6 +1150,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 				*outparamsize = 0;
 				return false;
 			}
+            free(str_rp_id); // not used, free'd
         	fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
         	fprintf(g_logFile, "\noutparams after decode : %s %s \n", av[0], av[1]);
 
@@ -1135,8 +1160,15 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 					fprintf(g_logFile, "RP2VM_GETVMREPORT : uuid does not exist\n");
 					outparams = NULL;
 					*outparamsize = 0;
+					for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
+						free(av[fr_var]);
+					}
 					return false;
 			}
+			for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
+				free(av[fr_var]);
+			}
+
 			int vm_manifest_dir_size = strlen(vm_manifest_dir);
 			*outparamsize = PARAMSIZE;
 

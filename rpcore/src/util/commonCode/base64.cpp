@@ -15,7 +15,10 @@ int calcDecodeLength(const char* b64input) {
 	//calculates the length of decoded base64input
 	int len = strlen(b64input);
 	int padding = 0;
-
+	//TODO check the length input first
+	if(len < 4) {
+		return 0;
+	}
 	if (b64input[len - 1] == '=' && b64input[len - 2] == '=') //last two chars are =
 		padding = 2;
 	else if (b64input[len - 1] == '=') //last char is =

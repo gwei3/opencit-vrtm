@@ -21,6 +21,7 @@ int cbuf_to_xmlrpc(const char* func, const char* method, int size, const byte* d
 	xmlNodePtr root, params_node, param, param_value, value_type;
 	doc = xmlNewDoc(BAD_CAST "1.0");
 	root = xmlNewNode(NULL,BAD_CAST "methodCall");
+	xmlDocSetRootElement(doc, root);
 	xmlNewChild(root, NULL, BAD_CAST "methodName", (xmlChar *)method);
 	params_node = xmlNewChild(root, NULL, BAD_CAST "params", NULL);
 	param = xmlNewChild(params_node, NULL, BAD_CAST "param", NULL);
@@ -29,7 +30,7 @@ int cbuf_to_xmlrpc(const char* func, const char* method, int size, const byte* d
 	char* encoded_data;
 	if (Base64Encode( (char *)data, &(encoded_data)) == 0 ) {
 		value_type = xmlNewChild(param_value, NULL, BAD_CAST "string", BAD_CAST encoded_data);
-		xmlDocSetRootElement(doc, root);
+
 		xmlChar * xmlbuf;
 		xmlDocDumpFormatMemory(doc, &xmlbuf, &bufsize, 0);
 		memcpy(buf, xmlbuf, bufsize + 1);
@@ -50,6 +51,7 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 	xmlNodePtr root, params_node, param, param_value, value_type;
 	doc = xmlNewDoc(BAD_CAST "1.0");
 	root = xmlNewNode(NULL,BAD_CAST "methodCall");
+	xmlDocSetRootElement(doc, root);
 	xmlNewChild(root, NULL, BAD_CAST "methodName",(xmlChar *) method);
 	params_node = xmlNewChild(root, NULL, BAD_CAST "params", NULL);
 	char* encoded_data;
@@ -59,6 +61,7 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 		// TODO base64encode the input data make param_value child
 		if (Base64Encode(args[i], &encoded_data) == 0) {
 			xmlNewChild(param_value, NULL, BAD_CAST "string", BAD_CAST encoded_data);
+			free(encoded_data);
 		}
 		else {
 			xmlFreeDoc(doc);
@@ -67,11 +70,11 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 		}
 		//xmlNewChild(param_value, NULL, BAD_CAST "string", BAD_CAST args[i]);
 	}
-	xmlDocSetRootElement(doc, root);
+
 	xmlChar * xmlbuf;
 	xmlDocDumpFormatMemory(doc, &xmlbuf, &bufsize, 0);
 	memcpy(buf,xmlbuf, bufsize + 1);
-
+	free(xmlbuf);
 	xmlFreeDoc(doc);
 	xmlCleanupParser();
 	return bufsize;
@@ -89,7 +92,7 @@ int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf) {
 	char *decoded_data;
 	for(cur_node = root->children ; cur_node != NULL ; cur_node = cur_node->next) {
 		if( cur_node->type == XML_ELEMENT_NODE && !xmlStrcmp(cur_node->name, (xmlChar *)"methodName")) {
-			method = (char *)xmlNodeGetContent(cur_node);
+			method = (char *)xmlNodeGetContent(cur_node); // not used , free'd at end
 		}
 		else if(cur_node->type == XML_ELEMENT_NODE && !xmlStrcmp(cur_node->name, (xmlChar *)"params")) {
 			//param_node = xmlNodeGetContent(cur_node);
@@ -100,16 +103,18 @@ int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf) {
 
 				if (Base64Decode(param, &decoded_data) ) {
 					xmldata_size = *psize = -1;
+					free(param);
 					break;
 				}
 				*psize = strlen(decoded_data);
 				memcpy(data, decoded_data, *psize+1);
 				xmldata_size = *psize;
 				free(decoded_data);
+				free(param);
 			}
 		}
 	}
-
+	free(method);
 	xmlFreeDoc(doc);
 	xmlCleanupParser();
 	return xmldata_size;
@@ -144,9 +149,14 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 				if(Base64Decode(param, &decoded_data) == 0 ) {
 					pargs[arg_count] = strdup( decoded_data);
 					free(decoded_data);
+					free(param);
 					arg_count++;
 				}
 				else {
+					free(param);
+					for( i = 0 ;i < arg_count ; i++ ) {
+						free(pargs[i]);
+					}
 					xmlFreeDoc (doc);
 					xmlCleanupParser();
 					return status;
