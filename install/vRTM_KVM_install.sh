@@ -13,6 +13,7 @@ LINUX_FLAVOUR="ubuntu"
 NON_TPM="false"
 BUILD_LIBVIRT="FALSE"
 KVM_BINARY=""
+LOG_DIR="/var/log/vrtm"
 
 function valid_ip()
 {
@@ -344,9 +345,9 @@ function installRPProxyAndListner()
 	fi
 
 	chmod +x "$QEMU_INSTALL_LOCATION"
-	touch /var/log/rp_proxy.log
-	chmod 666 /var/log/rp_proxy.log
-	chown nova:nova /var/log/rp_proxy.log
+	touch $LOG_DIR/rp_proxy.log
+	chmod 666 $LOG_DIR/rp_proxy.log
+	chown nova:nova $LOG_DIR/rp_proxy.log
 	cp "$INSTALL_DIR/rpcore/bin/scripts/rppy_ifc.py" $DIST_LOCATION/.
 	chmod 754 "$DIST_LOCATION/rppy_ifc.py"
 	cp "$INSTALL_DIR/rpcore/lib/librpchannel-g.so" /usr/lib
@@ -354,29 +355,27 @@ function installRPProxyAndListner()
 		selinuxenabled
 		if [ $? -eq 0 ] ; then
 			echo "Updating the selinux policies for vRTM files"
-			 semanage fcontext -a -t virt_log_t /var/log/rp_proxy.log
-			 restorecon -v /var/log/rp_proxy.log
+			 semanage fcontext -a -t virt_log_t $LOG_DIR/rp_proxy.log
+			 restorecon -v $LOG_DIR/rp_proxy.log
 			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
 			 restorecon -v "$QEMU_INSTALL_LOCATION"
 			 semanage fcontext -a -t qemu_exec_t /usr/lib/librpchannel-g.so
-			 restorecon -v /usr/lib/librpchannel-g.so
+             restorecon -v /usr/lib/librpchannel-g.so
 		else
 			echo "WARN : Selinux is disabled, enabling SELinux later will conflict vRTM"
 		fi
 	fi
 	ldconfig
-	echo "Stopping previous rp_listener processes if any..."
-	pkill -9 rp_listener
-	cd "$INSTALL_DIR/rpcore/bin/debug/"
-	nohup ./rp_listener > rp_listener.log 2>&1 &
 	cd "$INSTALL_DIR"
-
 }
 
 function startNonTPMRpCore()
 {
+    /usr/local/bin/vrtm stop
 	echo "Starting non-TPM RPCORE...."
 	/usr/local/bin/vrtm start
+
+    /usr/local/bin/rp_listener stop
 	echo "Starting rp_listener...."
 	/usr/local/bin/rp_listener start
 }
@@ -415,7 +414,7 @@ function createvRTMStartScript()
         	cp -r \"$INSTALL_DIR/rpcore/rptmp\" /tmp
 		cp /tmp/rptmp/config/TrustedOS/privatekey /tmp/rptmp/config/TrustedOS/privatekey.pem
         	cd \"$INSTALL_DIR/rpcore/bin/debug\"
-        	nohup ./nontpmrpcore >> nontpmrpcore.log 2>&1 &
+        	nohup ./nontpmrpcore >> $LOG_DIR/nontpmrpcore.log 2>&1 &
 		sleep 5
 	}
 	
@@ -468,7 +467,7 @@ function createvRTMStartScript()
         export RPCORE_PORT=16005
         export LD_LIBRARY_PATH=\"$INSTALL_DIR/rpcore/lib:$LD_LIBRARY_PATH\"
         cd \"$INSTALL_DIR/rpcore/bin/debug\"
-        nohup ./rp_listener >> rp_listener.log 2>&1 &
+        nohup ./rp_listener >> $LOG_DIR/rp_listener.log 2>&1 &
 		echo \$! > \$RPLISTENER_PID_FILE
     }
     installMonitFile()
@@ -556,7 +555,9 @@ function main_default()
     INSTALL_DIR="$DEFAULT_INSTALL_DIR/RP_$BUILD_TIMESTAMP"
   fi
   mkdir -p "$INSTALL_DIR"
-  
+  mkdir -p "$LOG_DIR" 
+  chmod 777 "$LOG_DIR"
+ 
   if ! valid_ip $CURRENT_IP; then
     while : ; do
       echo "Please enter current machine IP"
@@ -585,11 +586,12 @@ function main_default()
 	createvRTMStartScript
 
 	echo "Installing nontpmrpcore ..."
-	startNonTPMRpCore
 
 	echo "Installing RPProxy and RPListener..."
 	installRPProxyAndListner
 	
+	startNonTPMRpCore
+
     #verifier symlink
     tbootxmVerifier="/opt/tbootxm/bin/verifier"
     vrtmVerifier="$INSTALL_DIR/rpcore/bin/debug/verifier"

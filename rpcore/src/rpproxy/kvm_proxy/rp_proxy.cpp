@@ -26,7 +26,7 @@ RP-proxy will call qemu with VM launch options after the VM image measurement is
 #include "rp_api_code.h"
 
 #define QEMU_SYSTEM_PATH            "/usr/bin/qemu-system-x86_64_orig"
-#define RP_PROXY_LOGFILE            "/var/log/rp_proxy.log"
+#define RP_PROXY_LOGFILE            "/var/log/vrtm/rp_proxy.log"
 #define RPCORE_DEFAULT_IP_ADDR      "127.0.0.1"
 #define PARAMSIZE                   8192
 #define TCSERVICESTARTAPPFROMAPP    15
