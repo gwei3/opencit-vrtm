@@ -360,7 +360,22 @@ function installRPProxyAndListner()
 			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
 			 restorecon -v "$QEMU_INSTALL_LOCATION"
 			 semanage fcontext -a -t qemu_exec_t /usr/lib/librpchannel-g.so
-             restorecon -v /usr/lib/librpchannel-g.so
+			 restorecon -v /usr/lib/librpchannel-g.so
+                         echo " 
+                               module svirt_for_links 1.0;
+                                
+                               require {
+                               type nova_var_lib_t;
+                               type svirt_t;
+                               class lnk_file read;
+                               }
+                               #============= svirt_t ==============
+                               allow svirt_t nova_var_lib_t:lnk_file read;
+                          " > svirt_for_links.te
+                          /usr/bin/checkmodule -M -m -o svirt_for_links.mod svirt_for_links.te
+                          /usr/bin/semodule_package -o svirt_for_links.pp -m svirt_for_links.mod
+                          /usr/sbin/semodule -i svirt_for_links.pp
+						  rm -rf svirt_for_links.mod svirt_for_links.pp svirt_for_links.te
 		else
 			echo "WARN : Selinux is disabled, enabling SELinux later will conflict vRTM"
 		fi
