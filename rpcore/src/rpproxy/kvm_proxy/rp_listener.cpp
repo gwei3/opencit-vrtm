@@ -55,8 +55,8 @@ int run = 1;
 int delete_rp_uuid(char*);
 int map_rpid_uuid(int, char*);
 std::map<std::string, int> rp_id_map;
-static int exit_status = 0;
-
+static int exit_status = 1;
+static int sleep_duration_sec = 5;
 
 int channel_open() {
     int fd = -1;
@@ -143,6 +143,7 @@ static void freeFunc(void *opaque) {
 static void stopOnSignal(int sig) {
     fprintf(stdout, "Exiting on signal %d\n", sig);
     run = 0;
+    exit_status=0;
 }
 
 // register with libvirt and listen to libvirt events
@@ -152,55 +153,63 @@ void* listen_libvirt_events( void* input) {
     memset(&action_stop, 0, sizeof(action_stop));
     action_stop.sa_handler = stopOnSignal;
 
-    if (virInitialize() < 0) {
-        fprintf(stderr, "listen_libvirt_events(): Failed to initialize libvirt");
-		exit_status = 1;
-        return 1;
-    }
+    while(exit_status) {
+        if (virInitialize() < 0) {
+            fprintf(stderr, "listen_libvirt_events(): Failed to initialize libvirt");
+            goto retry;
+        }
 
-    if (virEventRegisterDefaultImpl() < 0) {
-        virErrorPtr err = virGetLastError();
-        fprintf(stderr, "listen_libvirt_events(): Failed to register event implementation: %s\n",
-                err && err->message ? err->message: "Unknown error");
-		exit_status = 1;
-        return 1;
-    }
-
-    dconn = virConnectOpenAuth(NULL, virConnectAuthPtrDefault, VIR_CONNECT_RO);
-    if (!dconn) {
-        fprintf(stdout, "listen_libvirt_events(): error opening vir\n");
-		exit_status = 1;
-        return 1;
-    }
-
-    virConnectRegisterCloseCallback(dconn, connectClose, NULL, NULL);
-    sigaction(SIGTERM, &action_stop, NULL);
-    sigaction(SIGINT, &action_stop, NULL);
-
-    if ( !virConnectDomainEventRegister(dconn, domainEventCallback, strdup("callback"), freeFunc)) {
-        if (virConnectSetKeepAlive(dconn, 5, 3) < 0) {
+        if (virEventRegisterDefaultImpl() < 0) {
             virErrorPtr err = virGetLastError();
-            fprintf(stderr, "listen_libvirt_events(): Failed to start keepalive protocol: %s\n",
-                    err && err->message ? err->message : "Unknown error");
-            run = 0;
+            fprintf(stderr, "listen_libvirt_events(): Failed to register event implementation: %s\n",
+                    err && err->message ? err->message: "Unknown error");
+            goto retry;
         }
 
-        while (run) {
-            if (virEventRunDefaultImpl() < 0) {
+        dconn = virConnectOpenAuth(NULL, virConnectAuthPtrDefault, VIR_CONNECT_RO);
+        if (!dconn) {
+            fprintf(stdout, "listen_libvirt_events(): error opening vir\n");
+            goto retry;
+        }
+
+        virConnectRegisterCloseCallback(dconn, connectClose, NULL, NULL);
+        sigaction(SIGTERM, &action_stop, NULL);
+        sigaction(SIGINT, &action_stop, NULL);
+
+        if ( !virConnectDomainEventRegister(dconn, domainEventCallback, strdup("callback"), freeFunc)) {
+            if (virConnectSetKeepAlive(dconn, 5, 3) < 0) {
                 virErrorPtr err = virGetLastError();
-                fprintf(stderr, "listen_libvirt_events(): Failed to run event loop: %s\n",
+                fprintf(stderr, "listen_libvirt_events(): Failed to start keepalive protocol: %s\n",
                         err && err->message ? err->message : "Unknown error");
+                run = 0;
             }
+            fprintf(stdout, "listen_libvirt_events(): Polling to libvirt events\n");
+            fflush(stderr);
+            fflush(stdout);
+            while (run) {
+                if (virEventRunDefaultImpl() < 0) {
+                    virErrorPtr err = virGetLastError();
+                    fprintf(stderr, "listen_libvirt_events(): Failed to run event loop: %s\n",
+                            err && err->message ? err->message : "Unknown error");
+                }
+            }
+            virConnectDomainEventDeregister(dconn, domainEventCallback);
         }
-        virConnectDomainEventDeregister(dconn, domainEventCallback);
-    }
 
-    virConnectUnregisterCloseCallback(dconn, connectClose);
-    VIR_DEBUG("listen_libvirt_events(): Closing connection");
-    if (dconn && virConnectClose(dconn) < 0) {
-        fprintf(stdout, "listen_libvirt_events(): error closing vir connection\n");
+        virConnectUnregisterCloseCallback(dconn, connectClose);
+        VIR_DEBUG("listen_libvirt_events(): Closing connection");
+        if (dconn && virConnectClose(dconn) < 0) {
+            fprintf(stdout, "listen_libvirt_events(): error closing vir connection\n");
+        }
+        retry: 
+	        fflush(stderr); 
+            fprintf(stdout, "listen_libvirt_events(): Will try to connect to libvirt again in %d seconds \n", sleep_duration_sec);
+            fflush(stdout);
+            sleep(sleep_duration_sec);
+            run=1;
+            fprintf(stdout, "listen_libvirt_events(): Retrying now... \n");
+            fflush(stdout);
     }
-	exit_status = 1;
     return 0;
 }
 
@@ -418,7 +427,7 @@ void* listen_rp_proxy_requests(void* data) {
 
     if (socket_desc == -1) {
         fprintf(stdout, "listen_rp_proxy_requests(): could not create socket to listen\n");
-		exit_status = 1;
+		exit_status = 0;
     }
      
     server.sin_family = AF_INET;
@@ -427,7 +436,7 @@ void* listen_rp_proxy_requests(void* data) {
      
     if (bind(socket_desc, (struct sockaddr *)&server , sizeof(server)) < 0) {
         fprintf(stdout, "listen_rp_proxy_requests(): bind failed. Error\n");
-		exit_status = 1;
+		exit_status = 0;
         return 1;
     }
      
@@ -453,7 +462,7 @@ void* listen_rp_proxy_requests(void* data) {
      
     if (client_sock < 0) {
         fprintf(stdout, "listen_rp_proxy_requests(): accept failed\n");
-		exit_status = 1;
+		exit_status = 0;
         return 1;
     }
      
@@ -495,13 +504,14 @@ int main() {
     } else
         fprintf(stdout, "created thread for listening libvirt events\n");
 
-    while(!exit_status) {
+    while(exit_status) {
         sleep(1);
     }
 	fflush(stdout);
 	fflush(stderr);
     deinit_pyifc();
-
+    // Give Libvirt event listener to exit gracefully
+    sleep(sleep_duration_sec);
     return 0;
 }
 
