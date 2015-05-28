@@ -390,9 +390,9 @@ function startNonTPMRpCore()
 	echo "Starting non-TPM RPCORE...."
 	/usr/local/bin/vrtm start
 
-    /usr/local/bin/rp_listener stop
+    /usr/local/bin/rplistener stop
 	echo "Starting rp_listener...."
-	/usr/local/bin/rp_listener start
+	/usr/local/bin/rplistener start
 }
 
 function createvRTMStartScript()
@@ -504,7 +504,7 @@ function createvRTMStartScript()
          start)
             pgrep rp_listener
             if [ \$? -ne 0 ] ; then
-                echo \"Starting rp_listner...\"
+                echo \"Starting rp_listener...\"
                 startRpListner
             else
                 echo \"RPListner already running...\"
@@ -527,8 +527,8 @@ function createvRTMStartScript()
         esac
         " > "$RP_LISTNER_SCRIPT"
         chmod +x "$RP_LISTNER_SCRIPT"
-        rm -rf /usr/local/bin/rp_listener
-        ln -s "$RP_LISTNER_SCRIPT" /usr/local/bin/rp_listener
+        rm -rf /usr/local/bin/rplistener
+        ln -s "$RP_LISTNER_SCRIPT" /usr/local/bin/rplistener
 }
 
 
