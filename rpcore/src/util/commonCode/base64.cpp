@@ -10,10 +10,12 @@
 #include <openssl/evp.h>
 #include <string.h>
 #include <math.h>
+#include "logging.h"
 
 int calcDecodeLength(const char* b64input) {
 	//calculates the length of decoded base64input
 	int len = strlen(b64input);
+	LOG_TRACE("Message Length : %d", len);
 	int padding = 0;
 	//TODO check the length input first
 	if(len < 4) {
@@ -30,6 +32,7 @@ int calcDecodeLength(const char* b64input) {
 int Base64Decode(char* b64message, char** buffer) {
 	BIO *bio, *b64;
 	int decodeLen = calcDecodeLength(b64message), len = 0;
+	LOG_DEBUG("Possible Message length after decoding : %d", decodeLen);
 	*buffer = (char*) malloc(decodeLen + 1);
 	if(decodeLen == 0 ) {
 		*buffer[0] = '\0';
@@ -44,6 +47,7 @@ int Base64Decode(char* b64message, char** buffer) {
 	len = BIO_read(bio, *buffer, strlen(b64message));
 	if(len != decodeLen) {
 		free(*buffer);
+		LOG_DEBUG("Anticiipated decode len and actual decode len doesn't match");
 		return 1;//error
 	}
 	(*buffer)[len] = '\0';
@@ -58,6 +62,7 @@ int Base64Encode(char* message, char** buffer) {
 	  BIO *bio, *b64;
 	  FILE* stream;
 	  int encodedSize = 4*ceil((double)strlen(message)/3);
+	  LOG_DEBUG("Possible encoded length : %d", encodedSize);
 	  *buffer = (char *)malloc(encodedSize+1);
 
 	  stream = fmemopen(*buffer, encodedSize+1, "w");

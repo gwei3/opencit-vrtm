@@ -98,7 +98,7 @@ typedef unsigned char byte;
 
 void tcBufferprint(tcBuffer* p)
 {
-    fprintf(g_logFile, "Buffer:  req: %ld, size: %ld, status: %ld\n",
+    LOG_INFO(, "Buffer:  req: %ld, size: %ld, status: %ld\n",
            (long int)p->m_reqID, (long int)p->m_reqSize,
            (long int)p->m_ustatus);
 }
@@ -118,6 +118,7 @@ bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     int                 iError= 0;
     int                 l;
 
+    LOG_TRACE("");
 //    fprintf(g_logFile, "open server FILE: %s\n", szunixPath);
     unlink(szunixPath);
     if((fd=socket(AF_UNIX, SOCK_STREAM, 0))==(-1))
@@ -130,11 +131,11 @@ bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
 
     iError= bind(fd, psrv, slen);
     if(iError<0) {
-        fprintf(g_logFile, "openserver:bind error %s\n", strerror(errno));
+        LOG_ERROR("openserver:bind error %s\n", strerror(errno));
         return false;
     }
     if(listen(fd, iQsize)==(-1)) {
-        fprintf(g_logFile, "listen error in server init");
+        LOG_ERROR("listen error in server init");
         return false;
     }
 
@@ -150,6 +151,7 @@ bool openclient(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     int     slen= strlen(szunixPath)+sizeof(psrv->sa_family)+1;
     int     iError= 0;
 
+    LOG_TRACE("");
 //    fprintf(g_logFile, "open client FILE: %s\n", szunixPath);
     if((fd=socket(AF_UNIX, SOCK_STREAM, 0))==(-1))
         return false;
@@ -160,7 +162,7 @@ bool openclient(int* pfd, const char* szunixPath, struct sockaddr* psrv)
 
     iError= connect(fd, psrv, slen);
     if(iError<0) {
-        fprintf(g_logFile, "openclient: Cant connect client, %s\n", strerror(errno));
+        LOG_ERROR( "openclient: Cant connect client, %s\n", strerror(errno));
         close(fd);
         return false;
     }
@@ -177,6 +179,7 @@ bool tcChannel::OpenBuf(u32 type, int fd, const char* file, u32 flags)
 	
     m_uType= type;
     m_fd= -1;
+    LOG_TRACE("");
 #ifdef TCSERVICE
 //v:
 	pthread_mutex_init(&gm, NULL);
@@ -224,6 +227,7 @@ sem_t   g_sem_sess;
 
 int generate_req_id() {
 	int t_req_id;
+	LOG_TRACE("");
 	pthread_mutex_lock(&req_id_mutex);
 	req_id = (req_id + 1)%INT32_MAX;
 	t_req_id = req_id;
@@ -237,24 +241,26 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 	int tcBuffer_size = sizeof(tcBuffer);
 	u32 uReq;
 	int payload_size = 0;
+	LOG_DEBUG("Size of Data Received from client : %d and data : %s", data_size, buf);
 	if(data_size < tcBuffer_size) {
-		fprintf(g_logFile,"In start_request_processing() : data received is not valid\n");
+		LOG_ERROR("In start_request_processing() : data received is not valid");
 		return -1;
 	}
 	tcBuffer* recv_tc_buff = (tcBuffer *)buf;
 	uReq = recv_tc_buff->m_reqID;
 	payload_size = recv_tc_buff->m_reqSize;
+	LOG_DEBUG("API Request No. : %u and Payload size %d", uReq, payload_size );
 	if( payload_size > PARAMSIZE ) {
-		fprintf(g_logFile, "size of payload recieved is more than buffer size\n");
+		LOG_ERROR( "size of Payload received is more than buffer size");
 		return -1;
 	}
 	outparams = (char *) calloc(1,sizeof(byte)*PARAMSIZE);
 	if(!serviceRequest(req_id, uReq, payload_size, (byte *)buf + tcBuffer_size, &outparams_size, (byte *)outparams)) {
-		fprintf(g_logFile,"Error in serving the request \n");
-		//return -1;
+		LOG_ERROR("Error in serving the request");
 	}
+	LOG_DEBUG("Output data size after request processing %d", outparams_size);
 	if( outparams_size > PADDEDREQ ) {
-		fprintf(g_logFile,"Can't send the response, data is more than available buffer\n");
+		LOG_ERROR("Can't send the response, data is more than available buffer");
 		return -1;
 	}
 	memset(buf,0,PADDEDREQ);
@@ -267,15 +273,18 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 	else {
 		send_tc_buff->m_ustatus = 0;
 	}
+	LOG_DEBUG("Response tcbuffer Attributes API Request No. : %d payload size : %d response status : %d",
+			send_tc_buff->m_reqID, send_tc_buff->m_reqSize, send_tc_buff->m_ustatus);
 	int res_buf_size = tcBuffer_size + outparams_size;
 	memcpy(&buf[tcBuffer_size], outparams, outparams_size);
 	free(outparams);
 	int data_send_size = -1;
 	data_send_size = ch_write(fd, buf, res_buf_size);
 	if ( data_send_size < 0 ) {
-		fprintf(g_logFile,"Error in writing response");
+		LOG_TRACE("Error in writing response");
 		return -1;
 	}
+	LOG_TRACE("Response written ...");
 	return 0;
 }
 
@@ -290,41 +299,39 @@ void* handle_session(void* p) {
 	int domid = -1;
 	//int fd1 = ps->fd;
 	int fd1 = *(int *)p;
-	fprintf(g_logFile, "Entered handle_session() with fd1 as %d\n",fd1);
-	fprintf(g_logFile, "handle_session(): Client connection from domid %d\n", domid);
+	LOG_DEBUG("Entered handle_session() with fd1 as %d",fd1);
+	//fprintf(g_logFile, "handle_session(): Client connection from domid %d\n", domid);
 	
 	//generate new request Id
 	domid = generate_req_id();
-	fprintf(g_logFile, "handle_session():inter-domain channel registered for id %d\n", domid);
+	LOG_ERROR("request id of request is : %d", domid);
 	
 	sz_data = sz_buf;
 	err = 0;
 	memset(buf, 0, sz_buf);
-	fprintf(g_logFile,"handle_session():XXXX dom_listener reading \n");
+	LOG_INFO("XXXX dom_listener reading ");
 
 	//read command from the client
 	err = ch_read(fd1, buf, sz_buf);
+	LOG_TRACE("Done reading from client...");
 	if (err < 0){
-
-		fprintf(g_logFile, "handle_session():inter-domain channel read failed ... closing thread\n");
+		LOG_ERROR( "inter-domain channel read failed ... closing thread");
 		goto fail;
 	}
-	fprintf(stdout,"g_quit = %d\n",g_quit);
-	fflush(stdout);
 	sz_data = err;
 	if(process_request(fd1, domid, buf, sz_data) < 0 ) {
+		LOG_ERROR("Error in processing the request");
 		goto fail;
 	}
 
 fail:
 		
 #ifdef TEST
-	fprintf(g_logFile,"handle_session():closing fd1 = %d \n",fd1);
+	LOG_TRACE("closing fd1 = %d",fd1);
 #endif
-	fprintf(stdout,"closing connection for fd : %d\n",fd1);
-	fflush(stdout);
+	LOG_TRACE("closing connection for fd : %d",fd1);
 	close(fd1);
-	fprintf(g_logFile,"handle_session():exiting\n");		
+	LOG_TRACE("exiting thread");
 	return 0;
 }
 
@@ -344,14 +351,14 @@ void* dom_listener_main ( void* p)
     pthread_t tid;
     pthread_attr_t  attr;
 
-    fprintf(g_logFile, "\nEntered dom_listener_main()\n");
+    LOG_TRACE("Entered dom_listener_main()");
     pthread_attr_init(&attr);
     sem_init(&g_sem_sess, 0, 1);
 	
     fd= socket(AF_INET, SOCK_STREAM, 0);
 
     if(fd<0) {
-        fprintf(g_logFile, "Can't open socket\n");
+        LOG_ERROR("Can't open socket");
         g_ifc_status = IFC_ERR;
         return false;
     }
@@ -369,7 +376,7 @@ void* dom_listener_main ( void* p)
 
     iError= bind(fd,(const struct sockaddr *) &server_addr, slen);
     if(iError<0) {
-        fprintf(g_logFile, "dom_listener_main():Can't bind socket %s", strerror(errno));
+        LOG_ERROR("dom_listener_main():Can't bind socket %s", strerror(errno));
         g_ifc_status = IFC_ERR;
         return false;
     }
@@ -384,9 +391,9 @@ void* dom_listener_main ( void* p)
    
     int sigRv = sigaction(SIGCHLD, &sigAct, NULL);
     if (sigRv < 0) {
-        fprintf(g_logFile, "dom_listener_main():Failed to set signal disposition for SIGCHLD\n");
+        LOG_ERROR( "dom_listener_main():Failed to set signal disposition for SIGCHLD");
     } else {
-        fprintf(g_logFile, "dom_listener_main():Set SIGCHLD to avoid zombies\n");
+        LOG_INFO( "dom_listener_main():Set SIGCHLD to avoid zombies");
     }
 
 	g_ifc_status = IFC_UP;
@@ -398,22 +405,22 @@ void* dom_listener_main ( void* p)
         if (flag >= 0) {
 			flag =  fcntl (newfd, F_SETFD, flag|FD_CLOEXEC);
 			if (flag < 0) {
-				fprintf(g_logFile, "Socket resource may leak to child process..%s", strerror(errno));
+				LOG_WARN( "Socket resource may leak to child process..%s", strerror(errno));
 			}
 		}else {
-				fprintf(g_logFile, "Socket resources may leak to child process %s", strerror(errno));
+				LOG_WARN( "Socket resources may leak to child process %s", strerror(errno));
 		}
 
         if(newfd<0) {
-            fprintf(g_logFile, "dom_listener_main():Can't accept socket %s", strerror(errno));
+            LOG_WARN( "dom_listener_main():Can't accept socket %s", strerror(errno));
             continue;
         }
 		
-		fprintf(g_logFile, "dom_listener_main():Client connection from %s \n", inet_ntoa(client_addr.sin_addr));
-	if (g_quit)                                                       
-		continue;
-	thread_fd = (int *)malloc(sizeof(int));
-	*thread_fd=newfd;
+		LOG_WARN( "dom_listener_main():Client connection from %s ", inet_ntoa(client_addr.sin_addr));
+		if (g_quit)
+			continue;
+		thread_fd = (int *)malloc(sizeof(int));
+		*thread_fd=newfd;
 		pthread_create(&tid, &attr, handle_session, (void*)thread_fd);
 
     }
@@ -426,7 +433,7 @@ void* dom_listener_main ( void* p)
 bool start_rp_interface(const char* name)
 {
     if(!g_reqChannel.OpenBuf(TCDEVICEDRIVER, 0, name ,0)) {
-        fprintf(g_logFile, "%s: OpenBuf returned false \n", __FUNCTION__);
+        LOG_ERROR("%s: OpenBuf returned false");
         return false;
     }
     return true;

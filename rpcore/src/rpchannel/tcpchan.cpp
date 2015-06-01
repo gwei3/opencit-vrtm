@@ -13,13 +13,14 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+#include "logging.h"
 #include "tcpchan.h"
 
 #define g_logFile stdout
 
 int ch_read(int fd, void* buf, int bufsize){
    
-   fprintf(stdout, "reading data.....%d \n", bufsize);
+   LOG_DEBUG("reading data.....%d \n", bufsize);
    
    tcBuffer*   pReq= (tcBuffer*) buf;
    int sz_header = sizeof(tcBuffer);
@@ -30,7 +31,7 @@ int ch_read(int fd, void* buf, int bufsize){
    
       ssize_t ret = read(fd, (char*)buf + bytesRead, sz_header - bytesRead);
       if (ret < 0) {
-        fprintf(g_logFile, "Could not read a bufferfrom the network after %d bytes were read\n",  bytesRead);
+        LOG_ERROR("Could not read a bufferfrom the network after %d bytes were read\n",  bytesRead);
         return ret;
       }
 	  
@@ -38,14 +39,13 @@ int ch_read(int fd, void* buf, int bufsize){
 		break;
 	
 	  bytesRead += ret;
-	  //fprintf(stdout, "byteRead %d last chunk %d \n", bytesRead, ret );
       
     } while (bytesRead < sz_header);
 
 
 #ifdef TEST
-    /*fprintf(stdout, "From RPCore pReq is procid = %d, reqid=%d, reqsize=%d, status=%d, origprocid=%d \n",
-				pReq->m_procid, pReq->m_reqID, pReq->m_reqSize, pReq->m_ustatus, pReq->m_origprocid);*/
+    LOG_INFO("From RPCore pReq is reqid = %d, reqsize=%d, status=%d\n",
+				pReq->m_reqID, pReq->m_reqSize, pReq->m_ustatus);
 #endif
 				
    if (pReq->m_reqSize == 0) {
@@ -58,7 +58,7 @@ int ch_read(int fd, void* buf, int bufsize){
    
       ssize_t ret = read(fd, (char*)buf + bytesRead, bufsize - bytesRead);
       if (ret < 0) {
-        fprintf(g_logFile, "Could not read a bufferfrom the network after %d bytes were read\n",  bytesRead);
+        LOG_ERROR("Could not read a bufferfrom the network after %d bytes were read\n",  bytesRead);
         return ret;
       }
 	  
@@ -79,7 +79,7 @@ int ch_write(int fd, void* buf, int len) {
     do {
       ssize_t ret = write(fd, (char*)buf + bytesWritten, len - bytesWritten);
       if (ret < 0) {
-        fprintf(stdout, "Could not write the full buffer of length %d to the network after %d bytes were written\n", len, bytesWritten);
+        LOG_ERROR("Could not write the full buffer of length %d to the network after %d bytes were written\n", len, bytesWritten);
         return ret;
       }
 
@@ -138,7 +138,7 @@ int ch_open(char* serverip, int port) {
 
 	if(fd < 0)
 	{
-        	fprintf(stdout, "Open error chandu: %s\n", strerror(errno));
+        	LOG_ERROR("Can't connect with server, Please check that it's running : %s\n", strerror(errno));
         	return -1;
     } 
     

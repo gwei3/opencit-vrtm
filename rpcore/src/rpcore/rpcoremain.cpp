@@ -42,11 +42,15 @@
 
 #include "tcIO.h"
 #include "logging.h"
+#include "log_rpchannel.h"
 #include "tcconfig.h"
 //#include "jlmcrypto.h"
 
+#define    g_config_file "../configuration/vRTM.cfg"
+#define	   log_properties_file "../configuration/vRTMlog.properties"
+
 char    g_python_scripts[256] = "../scripts";
-char    g_config_file[256]      = "vRTM.cfg";
+//char    g_config_file[256]      = "vRTM.cfg";
 char    g_rpcore_ip [64]        = "127.0.0.1";
 int     g_rpcore_port 		= 16005;
 int     g_max_thread_limit 	= 64;
@@ -79,8 +83,10 @@ int LoadConfig(const char * configFile)
 	int line_size = 512;
 	char *key;
 	char *value;
+	LOG_TRACE("");
 	if(fp == NULL)
 	{
+		LOG_ERROR("Failed to load vRTM config file");
 		return -1;
 	}
 	while(true)
@@ -104,12 +110,25 @@ int read_config()
 {
 	int count=0;
 	std::string rpcore_ip, rpcore_port, max_thread_limit;
+	LOG_TRACE("");
 	rpcore_ip = config_map["rpcore_ip"];
-	if(rpcore_ip == "") return -1;else count++;		
+	if(rpcore_ip == ""){
+		rpcore_ip = "127.0.0.1";
+		LOG_WARN("vRTM IP is not found in vRTM.cfg. Using default IP %s", rpcore_ip.c_str());
+	}
+	count++;
 	rpcore_port = config_map["rpcore_port"];
-	if(rpcore_port == "") return -1;else count++;		
+	if(rpcore_port == ""){
+		rpcore_port = "16005";
+		LOG_WARN("vRTM Port No. is not found in vRTM.cfg. Using default Port %s", rpcore_port.c_str());
+	}
+	count++;
 	max_thread_limit = config_map["max_thread_limit"];
-	if(max_thread_limit == "") return -1;else count++;		
+	if(max_thread_limit == ""){
+		max_thread_limit = "63";
+		LOG_WARN("Thread Limit for vRTM is not found in vRTM.cfg. Using default limit %s", max_thread_limit.c_str());
+	}
+	count++;
 	strcpy(g_rpcore_ip,rpcore_ip.c_str());
 	//sprintf(g_rpcore_port,"%d", rpcore_port);
 	//sprintf(g_max_thread_limit,"%d",max_thread_limit);
@@ -133,7 +152,7 @@ int singleInstanceRpcoreservice()
     if( ( g_fdLock = open(lockFile, O_WRONLY | O_CREAT, 0666)) == -1) 
     {
 #ifdef TEST
-    	fprintf(stdout, "Can't open rpcoreservice lock file \n");
+    	LOG_ERROR("Can't open rpcoreservice lock file \n");
 #endif
         return -1;
      }
@@ -143,7 +162,7 @@ int singleInstanceRpcoreservice()
      if ( fcntl(g_fdLock, F_SETLK, &rpcsFlock) == -1) {
 
 #ifdef TEST
-    	fprintf(stdout, "Already locked - rpcoreservice lock file \n");
+    	LOG_ERROR( "Already locked - rpcoreservice lock file \n");
 #endif
 		return -2;
      }
@@ -159,22 +178,25 @@ int main(int an, char** av)
 {
     int            	iRet= 0;
     int 			instanceValid = 0;
-    const char*		configfile = "../../config/vRTM.cfg";
+    //const char*		configfile = "../../config/vRTM.cfg";
+    //const char * 	log_properties_file = "../../config/vRTMlog.properties";
 //------------------------------------------------------------------
-    
+    // Start the instance of logger, currently using log4cpp
+    if( initLog(log_properties_file) ){
+    	return 1;
+    }
+    //set same logger instance in rp_channel
+    set_logger_rpchannel(rootLogger);
+
     if ((instanceValid = singleInstanceRpcoreservice()) == -2) {
-    	fprintf(stdout, "Process(rpcoreservice) already running\n");
+    	LOG_ERROR("Process(rpcoreservice) already running\n");
 		return 1;
     }
     
     if(instanceValid == -1) {
-    	fprintf(stdout, "Process(rpcoreservice) could not open lock file\n");
+    	LOG_ERROR( "Process(rpcoreservice) could not open lock file\n");
 		return 1;
     }
-
-//--------------------------------------------------------------------
-	  initLog("log_rpcoresvc.log");
-	  
 //------------------------------------------------------------------
 	/*
 	 * Start rpinterface
@@ -183,34 +205,21 @@ int main(int an, char** av)
 	//init linux service 
 
 	if(!start_rp_interface(NULL)) {
-		fprintf(g_logFile, "%s : %d: cant init start_rp_interface\n", __FUNCTION__, __LINE__);
+		LOG_ERROR("cant init start_rp_interface\n");
 		goto cleanup;
 	}
 
-	// initialize configuration
-	//
-	
-
-	if ( LoadConfig(configfile) < 0 ) {
-		fprintf(stdout, "tcService main: can't load config file %s\n", configfile);
+	if ( LoadConfig(g_config_file) < 0 ) {
+		LOG_ERROR("tcService main: can't load config file %s\n", g_config_file);
 		goto cleanup;
 	}
 	if ( read_config() < 0)
 	{
-		fprintf(stdout,"tcService main : cant't find required values in config file");
+		LOG_ERROR("tcService main : cant't find required values in config file");
 		goto cleanup;
 	}
 	
 	return iRet;
-
-	/*if ( modmain(an, av) == 1) {
-		fprintf(stdout, "tcService main: initialization failed");
-        goto cleanup;
-    }
-	
-	g_quit = 1;
-	
-	sleep(100);*/
 //------------------------------------------------------------------
 
 cleanup:

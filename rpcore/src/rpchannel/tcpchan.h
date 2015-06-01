@@ -4,6 +4,7 @@
 #ifndef TCSERVICE
 struct tcBuffer {
     //int                 m_procid;
+	//m_reqID represent the API Number
     unsigned int        m_reqID;
     unsigned int        m_reqSize;
     unsigned int 		m_ustatus;

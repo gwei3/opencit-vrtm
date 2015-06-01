@@ -24,6 +24,8 @@ RP-proxy will call qemu with VM launch options after the VM image measurement is
 #include "channelcoding.h"
 #include "pyifc.h"
 #include "rp_api_code.h"
+#include "logging.h"
+#include "log_rpchannel.h"
 
 #define QEMU_SYSTEM_PATH            "/usr/bin/qemu-system-x86_64_orig"
 #define RP_PROXY_LOGFILE            "/var/log/rp_proxy.log"
@@ -34,7 +36,7 @@ RP-proxy will call qemu with VM launch options after the VM image measurement is
 #define RP_LISTENER_IP_ADDR         "127.0.0.1"
 #define RP_LISTENER_SERVICE_PORT    16004
 #define VM_NAME_MAXLEN              2048
-
+#define log_properties_file "/opt/dcg_security-vrtm-cleanup-1.5/rpcore/configuration/rp_proxylog.properties"
 #ifndef byte
 typedef unsigned char byte;
 #endif
@@ -44,6 +46,7 @@ FILE* f = fopen(RP_PROXY_LOGFILE, "a");
 
 int channel_open() {
     int fd = -1;
+    LOG_TRACE("");
 
 #ifndef USE_DRV_CHANNEL //not defined
     fd =  ch_open(NULL, 0);
@@ -52,7 +55,7 @@ int channel_open() {
 
 #endif
     if(fd < 0) {
-            fprintf(stdout, "rrr Open error chandu: %s\n", strerror(errno));
+            LOG_ERROR("Can't connect with vRTM: %s", strerror(errno));
             return -1;
     }
 
@@ -79,7 +82,7 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
 
     /*if (init_pyifc("rppy_ifc") < 0 )
         return -1;*/
-
+    LOG_TRACE("");
     av[an++] = "./vmtest";
     av[an++] = "-kernel";
     av[an++] = kernel_path;
@@ -93,13 +96,13 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
     av[an++] = "config";
  
 #ifdef DEBUG
-    fprintf(f, "get_rpcore_response(): Opening device driver .. \n");
+    LOG_TRACE( "get_rpcore_response(): Opening device driver .. ");
 #endif
 
     rp_fd = channel_open();
 
     if(rp_fd < 0) {
-        fprintf(f, "get_rpcore_response(): error opening socket: %s\n", strerror(errno));
+        LOG_ERROR( "get_rpcore_response(): error opening socket: %s", strerror(errno));
         return -1;
     }
 
@@ -113,18 +116,18 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
     pReq->m_reqSize = size;
 
 #ifdef DEBUG
-    fprintf(f, "get_rpcore_response(): sending request size %d \n", size + sizeof(tcBuffer));
+    LOG_TRACE("get_rpcore_response(): sending request size %d", size + sizeof(tcBuffer));
 #endif
     
     err = ch_write(rp_fd, rgBuf, size + sizeof(tcBuffer) );
 
     if (err < 0){
-        fprintf(f, "get_rpcore_response(): write error %s\n", strerror(errno));
+        LOG_ERROR( "get_rpcore_response(): write error %s", strerror(errno));
         goto fail;
     }
 
     memset(rgBuf, 0, sizeof(rgBuf));
-    fprintf(f, "get_rpcore_response(): sent request ..........\n");
+    LOG_TRACE("get_rpcore_response(): sent request ..........");
     
 again:  
     err = ch_read(rp_fd, rgBuf, sizeof(rgBuf));
@@ -134,17 +137,17 @@ again:
             goto again;
         }
 
-        fprintf(f, "get_rpcore_response(): read error:%d  %s\n", errno, strerror(errno));
+        LOG_ERROR("get_rpcore_response(): read error:%d  %s", errno, strerror(errno));
         goto fail;
     }
 
-    fprintf(f, "get_rpcore_response(): response  from server status %d return %d\n", 
+    fprintf(f, "get_rpcore_response(): response  from server status %d return %d",
             pReq->m_ustatus, *(int*) &rgBuf[sizeof(tcBuffer)]);
 
     if(pReq->m_ustatus == 0)
-        fprintf(f, "get_rpcore_response(): VM entry creation in rpcore was successful\n");
+        LOG_INFO( "get_rpcore_response(): VM entry creation in rpcore was successful");
     else {
-        fprintf(f, "get_rpcore_response(): VM entry creation in rpcore failed\n");
+        LOG_ERROR( "get_rpcore_response(): VM entry creation in rpcore failed");
         return -1;
     }
     retval = *(int*) &rgBuf[sizeof(tcBuffer)];
@@ -167,11 +170,11 @@ int notify_rp_listener(int rp_domid, char* vm_name) {
     char    msg[4096];
     char    resp[4];
     int     name_len;
-     
+     LOG_TRACE("");
     sock = socket(AF_INET, SOCK_STREAM, 0);
 
     if (sock == -1) {
-        fprintf(f, "notify_rp_listener(): Could not create socket");
+        LOG_ERROR("notify_rp_listener(): Could not create socket");
     }
      
     server.sin_addr.s_addr = inet_addr(RP_LISTENER_IP_ADDR);
@@ -180,7 +183,7 @@ int notify_rp_listener(int rp_domid, char* vm_name) {
 
     if (connect(sock, (struct sockaddr *)&server, sizeof(server)) < 0) {
         close(sock);
-        fprintf(f, "notify_rp_listener():connection to rp listener failed");
+        LOG_ERROR( "notify_rp_listener():connection to rp listener failed");
         return 1;
     }
 
@@ -194,18 +197,18 @@ int notify_rp_listener(int rp_domid, char* vm_name) {
     memcpy(&msg[2*sizeof(int)], vm_name, strlen(vm_name));
     
     if(send(sock, msg, 2*sizeof(int) + name_len, 0) < 0) {
-        fprintf(f, "notify_rp_listener():sending data to rp listener failed");
+        LOG_ERROR( "notify_rp_listener():sending data to rp listener failed");
         close(sock);
         return 1;
     }
      
     if(recv(sock, resp, 4, 0) < 0) {
         close(sock);
-        fprintf(f, "notify_rp_listener():failed to get response from rp listener");
+        LOG_ERROR( "notify_rp_listener():failed to get response from rp listener");
         return 1;
     }
      
-    fprintf(f, "notify_rp_listener():response from rp listener is %d", *(int*)resp);
+    LOG_TRACE( "notify_rp_listener():response from rp listener is %d", *(int*)resp);
 
     close(sock);
 
@@ -228,9 +231,17 @@ int main(int argc, char** argv) {
     bool    is_launch_request = false;
     bool    kernel_provided = false;
     int     vm_pid;
+    //const char* log_properties_file = "/opt/dcg_security-vrtm-cleanup-2.0/rpcore/config/rp_proxylog.properties";
+    // instantiate the logger
+    if( initLog(log_properties_file) ){
+       	return 1;
+    }
+    // set same logger instance in rp_channel
+    set_logger_rpchannel(rootLogger);
 
+    LOG_TRACE("");
     vm_pid = getpid();
-    fprintf(f, "rp_proxy process id is %d\n", vm_pid);
+    LOG_DEBUG("rp_proxy process id is %d\n", vm_pid);
 
 #ifdef DEBUG
     /* 
@@ -240,11 +251,10 @@ int main(int argc, char** argv) {
     II. Start a qemu process for new VM. In this case first send request to RPCore and proceed only
         if RPCore allows the launch.
     */
-    fprintf(f, "original qemu command:\n");
+    LOG_DEBUG( "original qemu command:");
     for (i=0; i<argc; i++) {
-        fprintf(f, "%s%s", " ", argv[i]);
+        LOG_DEBUG("\n%s%s\n", " ", argv[i]);
     }
-    fprintf(f, "\n");
 #endif
 
     argv[0] = QEMU_SYSTEM_PATH;
@@ -255,20 +265,26 @@ int main(int argc, char** argv) {
         // the type for each drive and pass the drive that is the disk
         if ( argv[i] && (strcmp(argv[i], "-drive") == 0) && (strstr(argv[i+1], "/disk.config") == NULL) ) {
             has_drive = true;
+
             drive_data = argv[i+1];
+            LOG_DEBUG("has drive : %d drive data : ",has_drive, drive_data);
         }
         if ( argv[i] && strcmp(argv[i], "-smbios") == 0 ) {
             has_smbios = true;
+            LOG_DEBUG("has smbios : %d", has_smbios);
         }
         if ( argv[i] && strcmp(argv[i], "-name") == 0 ) {
             vm_name = argv[i+1];
+            LOG_DEBUG("vm_NAME : ", vm_name);
         }
         if ( argv[i] && strcmp(argv[i], "-kernel") == 0 ) {
             kernel_path = argv[i+1];
             kernel_provided = true;
+            LOG_DEBUG("kerne path : %s kernel provided status : %d", kernel_path, kernel_provided);
         }
         if ( argv[i] && strcmp(argv[i], "-initrd") == 0 ) {
             initrd_path = argv[i+1];
+            LOG_DEBUG("initrd path : %s", initrd_path);
         }
         // Extra kernel arguments, if provided
         if ( argv[i] && strcmp(argv[i], "-append") == 0 ) {
@@ -281,6 +297,7 @@ int main(int argc, char** argv) {
     // If its not a VM launch request and execute the command without any processing
     if(!is_launch_request) {
         fclose(f);
+        LOG_INFO("Not vm launch request");
         execve(argv[0], argv, NULL);
         return 0;
     }
@@ -296,8 +313,8 @@ int main(int argc, char** argv) {
 
 // If not measured launch then execute command without calling vRTM
     if(access(manifest_path, F_OK)!=0){
-	fprintf(f, "Trustpolicy.xml doesn't exist at  %s\n", manifest_path);
-	fprintf(f, "Forwarding request for normal non-measured VM launch");
+	LOG_INFO("Trustpolicy.xml doesn't exist at  %s", manifest_path);
+	LOG_INFO( "Forwarding request for normal non-measured VM launch");
         fclose(f);
         execve(argv[0], argv, NULL);
         return 0;
@@ -307,11 +324,9 @@ int main(int argc, char** argv) {
     kernel_path = (kernel_path == NULL) ? "" : kernel_path;
     initrd_path = (initrd_path == NULL) ? "" : initrd_path;
 
-#ifdef DEBUG
-    fprintf(f, "vm name: %s\n", vm_name);
-    fprintf(f, "kernel_path=%s, ramdisk_path=%s, disk_path=%s, manifest_path=%s\n", 
+    LOG_DEBUG( "vm name: %s\n", vm_name);
+    LOG_DEBUG("kernel_path=%s, ramdisk_path=%s, disk_path=%s, manifest_path=%s\n",
                 kernel_path, initrd_path, disk_path, manifest_path);
-#endif
     rpcore_ip = getenv("RPCORE_IPADDR");
     if (!rpcore_ip)
         rpcore_ip = RPCORE_DEFAULT_IP_ADDR;
@@ -334,14 +349,12 @@ int main(int argc, char** argv) {
     //deinit_pyifc();
 
     if (rp_domid <= 0) {
-        fprintf(f, "Launch denied by RPCore\n");
+        LOG_ERROR("Launch denied by RPCore\n");
         fclose(f);
         return EXIT_FAILURE;
     }
 
-#ifdef DEBUG
-    fprintf(f, "response from rpcore is : %d\n", rp_domid);
-#endif
+    LOG_DEBUG( "response from rpcore is : %d\n", rp_domid);
     // add RPCore ip and port in kernel arguments for the VM. The VM can use it to contact RPCore
     if(kernel_provided) {
         index++;
@@ -350,17 +363,14 @@ int main(int argc, char** argv) {
         sprintf(kernel_args, "%s rp_port=%d", kernel_args, rpcore_port);
         argv[index] = kernel_args;
         
-#ifdef DEBUG
-        fprintf(f, "modified kernel args: %s\n", kernel_args);
-#endif
+        LOG_DEBUG( "modified kernel args: %s\n", kernel_args);
 }
 
     // dump the updated qemu command
-    fprintf(f, "modified qemu command:\n");
+    LOG_DEBUG("modified qemu command:\n");
     for (i=0; i<argc; i++) {
-        fprintf(f, "%s%s", " ", argv[i]);
+        LOG_DEBUG( "%s%s", " ", argv[i]);
     }
-    fprintf(f, "\n");
 
     /* If RPCore allows the launch then the id returned by RPCore needs to be replaced with
        the actual UUID of the VM after successful launch. The control will be lost when we call execve command, so notify rp_listener now.

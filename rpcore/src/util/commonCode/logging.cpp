@@ -42,82 +42,47 @@
 #include <errno.h>
 
 #include "jlmTypes.h"
-
+#include "logging.h"
 
 // ------------------------------------------------------------------------------
 
+log4cpp::Category* rootLogger;
 
-FILE*   g_logFile= stdout;
-//#define g_logFile stdout
-
-
-#ifdef __FLUSHIO__
-
-int         g_ithread= -1;
-pthread_t   g_flushIOthread;
-
-
-void*  flushIO(void* ptr)
-{
-    fprintf(g_logFile, "flush thread running\n");
-    for(;;) {
-        sleep(5);
-        fflush(g_logFile);
-    }
-
-    // unreachable, but eliminates a useless warning
-    return NULL;
-}
-#endif
-
-
-bool initLog(const char* szLogFile)
-{
-
-    if(szLogFile==NULL) {
-        g_logFile= stdout;
-        return true;
-    }
-
-    g_logFile= fopen(szLogFile, "w+");
-    if(g_logFile==NULL)
-        return false;
-
-#ifdef __FLUSHIO__
-    memset(&g_flushIOthread, 0, sizeof(pthread_t));
-    g_ithread= pthread_create(&g_flushIOthread, NULL, flushIO, NULL);
-    if(g_ithread!=0) {
-        fprintf(g_logFile, "initLog: Cant create flush thread\n");
-        fprintf(g_logFile, "errno: %d\n", errno);
-    }
-#endif
-    return true;
+bool initLog(const char* log_properties_file) {
+	std::string log_props_file = std::string(log_properties_file);
+	bool init_log_failed = false;
+	try {
+		log4cpp::PropertyConfigurator::configure(log_props_file);
+		log4cpp::Category& root = log4cpp::Category::getRoot();
+		rootLogger = &root;
+	}
+	catch( log4cpp::ConfigureFailure& config_failure) {
+		fprintf(stderr,"%s",config_failure.what());
+		fprintf(stderr,"Failed to load the configuration");
+		fflush(stderr);
+		init_log_failed = true;
+	}
+	return init_log_failed;
 }
 
-
-void closeLog()
-{
-    if(g_logFile!=stdout) {
-        fclose(g_logFile);
-        g_logFile= NULL;
-    }
+void closeLog() {
+	log4cpp::Category::shutdown();
 }
-
 
 void PrintBytes(const char* szMsg, byte* pbData, int iSize, int col)
 {
     int i;
-
-    fprintf(g_logFile, "%s", szMsg);
+    LOG_INFO( "%s", szMsg);
     for (i= 0; i<iSize; i++) {
-        fprintf(g_logFile, "%02x", pbData[i]);
+        LOG_INFO( "%02x", pbData[i]);
         if((i%col)==(col-1))
-            fprintf(g_logFile, "\n");
-        }
-    fprintf(g_logFile, "\n");
+            LOG_INFO( "\n");
+    }
 }
 
-
+void set_logger(log4cpp::Category& root) {
+	log4cpp::Category& rootLogger = root;
+}
 // ------------------------------------------------------------------------------------
 
 

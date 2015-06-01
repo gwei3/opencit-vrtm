@@ -10,18 +10,23 @@
 #include <libxml/xmlstring.h>
 #include "pyifc.h"
 #include "base64.h"
+#include "logging.h"
 
 #ifndef NULL
 #define NULL ((void *)0)
 #endif
 
+
 int cbuf_to_xmlrpc(const char* func, const char* method, int size, const byte* data, int bufsize, byte* buf) {
 
 	xmlDocPtr doc;
 	xmlNodePtr root, params_node, param, param_value, value_type;
+	LOG_TRACE("%s", data);
+	//eprin("abd");
 	doc = xmlNewDoc(BAD_CAST "1.0");
 	root = xmlNewNode(NULL,BAD_CAST "methodCall");
 	xmlDocSetRootElement(doc, root);
+	LOG_DEBUG("XML doc created, root element set");
 	xmlNewChild(root, NULL, BAD_CAST "methodName", (xmlChar *)method);
 	params_node = xmlNewChild(root, NULL, BAD_CAST "params", NULL);
 	param = xmlNewChild(params_node, NULL, BAD_CAST "param", NULL);
@@ -29,15 +34,17 @@ int cbuf_to_xmlrpc(const char* func, const char* method, int size, const byte* d
 	// TODO base64encode the input data make param_value child
 	char* encoded_data;
 	if (Base64Encode( (char *)data, &(encoded_data)) == 0 ) {
+		LOG_DEBUG("Encoded Data : %s", encoded_data);
 		value_type = xmlNewChild(param_value, NULL, BAD_CAST "string", BAD_CAST encoded_data);
-
 		xmlChar * xmlbuf;
 		xmlDocDumpFormatMemory(doc, &xmlbuf, &bufsize, 0);
 		memcpy(buf, xmlbuf, bufsize + 1);
+		LOG_DEBUG("XML Data : %s", buf);
 		free(xmlbuf);
 		free(encoded_data);
 	}
 	else {
+		LOG_INFO("Error!, Encoding the data");
 		bufsize = -1;
 	}
 
@@ -55,15 +62,19 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 	xmlNewChild(root, NULL, BAD_CAST "methodName",(xmlChar *) method);
 	params_node = xmlNewChild(root, NULL, BAD_CAST "params", NULL);
 	char* encoded_data;
+	LOG_DEBUG("No of parameters to converted in XML %d", nargs);
 	for( int i = 0 ; i < nargs ; i ++ ) {
 		param = xmlNewChild(params_node, NULL, BAD_CAST "param", NULL);
 		param_value = xmlNewChild(param, NULL, BAD_CAST "value", NULL);
+		LOG_DEBUG("Parameter %d : %s ", i+1, args[i]);
 		// TODO base64encode the input data make param_value child
 		if (Base64Encode(args[i], &encoded_data) == 0) {
+			LOG_DEBUG("Encoded Parameter : %s", encoded_data);
 			xmlNewChild(param_value, NULL, BAD_CAST "string", BAD_CAST encoded_data);
 			free(encoded_data);
 		}
 		else {
+			LOG_DEBUG("Error! in encoding the parameter");
 			xmlFreeDoc(doc);
 			xmlCleanupParser();
 			return -1;
@@ -86,7 +97,7 @@ int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf) {
 	xmlNode * root = NULL, *cur_node = NULL, *param_node = NULL;
 	char *method, *param;
 	int xmldata_size = -1;
-
+	LOG_DEBUG("XML to be parsed : %s", buf);
 	doc = xmlParseMemory((char *)buf, strlen((char *)buf));
 	root = xmlDocGetRootElement(doc);
 	char *decoded_data;
@@ -100,12 +111,14 @@ int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf) {
 				if(xmlNodeIsText(param_node))
 					continue;
 				param = (char *)xmlNodeGetContent(cur_node);
-
+				LOG_DEBUG("Encoded Node content : %s", param);
 				if (Base64Decode(param, &decoded_data) ) {
+					LOG_DEBUG("Error! in decoding the Node content");
 					xmldata_size = *psize = -1;
 					free(param);
 					break;
 				}
+				LOG_DEBUG("Decoded Node Content : %s", decoded_data);
 				*psize = strlen(decoded_data);
 				memcpy(data, decoded_data, *psize+1);
 				xmldata_size = *psize;
@@ -126,7 +139,7 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 	xmlNode *root = NULL, *cur_node = NULL, *param_node = NULL;
 	char *method, *param, *decoded_data;
 	int i=0, arg_count = 0, status = -1;
-
+	LOG_DEBUG("XML to be parsed : %s", buf);
 	doc = xmlParseMemory((char*)buf, strlen((char*)buf));
 	root = xmlDocGetRootElement(doc);
 
@@ -142,17 +155,16 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 				if(xmlNodeIsText(param_node)) 
 					continue;
 				param = (char*) xmlNodeGetContent(param_node);
-				/*if (param[strlen(param)-1] == '\n')
-					param[strlen(param)-1] = '\0';
-				if (param[0] == '\n')
-					param ++;*/
+				LOG_DEBUG("Encoded Node content : %s", param);
 				if(Base64Decode(param, &decoded_data) == 0 ) {
+					LOG_DEBUG("Decoded Node content : %s", decoded_data);
 					pargs[arg_count] = strdup( decoded_data);
 					free(decoded_data);
 					free(param);
 					arg_count++;
 				}
 				else {
+					LOG_DEBUG("Error in Decodign the node content");
 					free(param);
 					for( i = 0 ;i < arg_count ; i++ ) {
 						free(pargs[i]);
@@ -265,13 +277,13 @@ int main(int argc, char **argv)
      * this is to debug memory for regression tests
      */
     xmlMemoryDump();
-	char * data = "vijay";
+	char * data = "abra";
 	
 	cbuf_to_xmlrpc("foo", "foo", 5, data, temp_buffer_size, temp_buffer);
 	printf("cbuf to xmlrpc: length : %d :\n %s\n:",temp_buffer_size,temp_buffer);
 	char * buff_arr[2];
-	buff_arr[0] = &"vijay";
-	buff_arr[1] = &"prakash";
+	buff_arr[0] = &"abra";
+	buff_arr[1] = &"ka dabra";
 	args_to_xmlrpc("foo", 2, buff_arr, temp_buffer_size, temp_buffer);
 
 	printf("args_to_xmlrpc : length : %d : \n %s\n",temp_buffer_size,temp_buffer);

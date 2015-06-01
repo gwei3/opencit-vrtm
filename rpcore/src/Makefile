@@ -5,15 +5,16 @@
 # 
 #RPROOT=~/rp
 RPROOT=..
-OBJROOTR=$(RPROOT)/build/release
-OBJROOTD=$(RPROOT)/build/debug
+OBJROOTR=$(RPROOT)/build
+#OBJROOTD=$(RPROOT)/build/debug
 BIN=$(RPROOT)/bin
 LIB=$(RPROOT)/lib
 
-RMOBJROOTR=../build/release
-RMOBJROOTD=../build/debug
+RMOBJROOTR=../build/
+#RMOBJROOTD=../build/debug
 RMBIN=../bin
 RMLIB=../lib
+ 
 
 BUILD_TARGETS=  makedirstructure \
 		rpchannel-g  \
@@ -26,18 +27,16 @@ TARGETS=$(BUILD_TARGETS) clean
 
 all: $(BUILD_TARGETS)
 makedirstructure:
-	mkdir -p $(BIN)/debug
-	mkdir -p $(BIN)/release
+	mkdir -p $(BIN)
 	mkdir -p $(LIB)
 	mkdir -p $(OBJROOTR)
-	mkdir -p $(OBJROOTD)
 nontpmrpcorsvc-g:
-	mkdir -p $(OBJROOTD)/nontpmrpcorsvcobjects
-	$(MAKE) -C rpcore -f nontpmrpcorsvc-g.mak
+	mkdir -p $(OBJROOTR)/nontpmrpcorsvcobjects
+	$(MAKE) -C rpcore debug=$(debug) -f nontpmrpcorsvc-g.mak
 
 rpchannel-g:
-	mkdir -p $(OBJROOTD)/rpchannelobjects
-	$(MAKE) -C rpchannel -f rpchannel-g.mak
+	mkdir -p $(OBJROOTR)/rpchannelobjects
+	$(MAKE) -C rpchannel debug=$(debug) -f rpchannel-g.mak
 clean:
 
 	rm -f $(RMOBJROOTR)/*objects/*.o
@@ -46,14 +45,8 @@ clean:
 	rm -f $(RMOBJROOTR)/*/*.o
 	rm -f $(RMOBJROOTR)/*/*.s
 	rm -rf $(RMOBJROOTR)/*
-	rm -f $(RMBIN)/release/*.exe
-	rm -f $(RMBIN)/release/*
-	rm -f $(RMLIB)/*.a
-	rm -f $(RMOBJROOTD)/*/*.o
-	rm -f $(RMOBJROOTD)/*/*.s
-	rm -rf $(RMOBJROOTD)/*
-	rm -f $(RMBIN)/debug/*.exe
-	rm -f $(RMBIN)/debug/*
+	rm -f $(RMBIN)/*.exe
+	rm -f $(RMBIN)/*
 	rm -f $(RMLIB)/*.a
 	rm -f $(RMLIB)/*.so
 

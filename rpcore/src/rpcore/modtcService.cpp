@@ -79,9 +79,10 @@ bool uidfrompid(int pid, int* puid)
 {
     char        szfileName[256];
     struct stat fattr;
+    LOG_TRACE("");
     sprintf(szfileName, "/proc/%d/stat", pid);
     if((lstat(szfileName, &fattr))!=0) {
-        printf("uidfrompid: stat failed\n");
+        LOG_DEBUG("uidfrompid: stat failed");
         return false;
     }
     *puid= fattr.st_uid;
@@ -90,28 +91,33 @@ bool uidfrompid(int pid, int* puid)
 // ------------------------------------------------------------------------------
 void serviceprocEnt::print()
 {
-    fprintf(g_logFile, "procid: %ld, ", (long int)m_procid);
+	LOG_TRACE("");
+    LOG_INFO("vRTM id: %ld, ", (long int)m_procid);
     if(m_szexeFile!=NULL)
-        fprintf(g_logFile, "file: %s, ", m_szexeFile);
-    fprintf(g_logFile, "hash size: %d, ", m_sizeHash);
+        LOG_INFO( "file: %s, ", m_szexeFile);
+    	LOG_INFO("hash size: %d, ", m_sizeHash);
     PrintBytes("", m_rgHash, m_sizeHash);
 }
 
 serviceprocTable::serviceprocTable()
 {
+	//LOG_TRACE("Constructor called");
     loc_proc_table = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
 }
 
 serviceprocTable::~serviceprocTable()
 {
+	//LOG_TRACE("Destructor Called");
 }
 
 bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char** av,
                                     int sizeHash, byte* hash)
 {
-   //printf("Entering in addprocEntry");
-    if(sizeHash>32)
+    LOG_DEBUG("vRTM id : %d file : %s hash size : %d hash : %s", procid, file, sizeHash, hash);
+    if(sizeHash>32) {
+    	LOG_ERROR("Size of hash is more than 32 bytes");
         return false;
+    }
     pthread_mutex_lock(&loc_proc_table);
     serviceprocEnt proc_ent;
     //proc_ent.m_procid = procid;
@@ -119,8 +125,8 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
     proc_ent.m_sizeHash = sizeHash;
     memcpy(proc_ent.m_rgHash,hash,sizeHash);
     proc_table.insert(std::pair<int, serviceprocEnt>(procid, proc_ent));
-    fprintf(g_logFile,"Entry added for procid %d\n",procid);
     pthread_mutex_unlock(&loc_proc_table);
+    LOG_INFO("Entry added for vRTM id %d\n",procid);
     return true;
 }
 
@@ -128,68 +134,72 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
 //Step through linked list m_pMap and delete node matching procid
 void   serviceprocTable::removeprocEntry(int procid)
 {
+	LOG_DEBUG("vRTM id to be removed : %d", procid);
 	pthread_mutex_lock(&loc_proc_table);
 	proc_table_map::iterator table_it = proc_table.find(procid);
 	if( table_it == proc_table.end()) {
-		fprintf(g_logFile,"Table entry can't be removed, given RPID : %d doesn't exist\n", procid);
 		pthread_mutex_unlock(&loc_proc_table);
+		LOG_ERROR("Table entry can't be removed, given RPID : %d doesn't exist\n", procid);
 		return;
 	}
 	proc_table.erase(table_it);
-	fprintf(g_logFile,"Table entry removed successfully for RPID : %d\n",procid);
 	pthread_mutex_unlock(&loc_proc_table);
+	LOG_INFO("Table entry removed successfully for vRTM ID : %d\n",procid);
 	return;
 }
 
 //Step through linked list m_pMap and delete node matching uuid
 void   serviceprocTable::removeprocEntry(char* uuid)
 {
+	LOG_DEBUG(" UUID to be removed from vrtm map : %s", uuid);
 	int proc_id = getprocIdfromuuid(uuid);
 	if ( proc_id == NULL ) {
-		fprintf(g_logFile,"Entry removal failed from Table, UUID is not registered with vRTM\n");
+		LOG_ERROR("Entry removal failed from Table, UUID is not registered with vRTM\n");
 		return;
 	}
 	pthread_mutex_lock(&loc_proc_table);
 	proc_table_map::iterator table_it = proc_table.find(proc_id);
 	if(table_it == proc_table.end()) {
-		fprintf(g_logFile,"Entry removal failed from Table, UUID is not registered with vRTM\n");
 		pthread_mutex_unlock(&loc_proc_table);
+		LOG_ERROR("Entry removal failed from Table, UUID is not registered with vRTM\n");
 		return;
 	}
 	proc_table.erase(table_it);
-	fprintf(g_logFile,"Entry removed from Table for UUID : %s\n", uuid);
 	pthread_mutex_unlock(&loc_proc_table);
+	LOG_INFO("Entry removed from Table for UUID : %s\n", uuid);
 	return;
 }
 
 bool serviceprocTable::updateprocEntry(int procid, char* uuid, char *vdi_uuid)
 {
-   //printf("Inside updateprocEntry");
+	LOG_DEBUG("vRTM map entry of vRTM id : %d to be updated with UUID : %s and VDIUUID : %s ", procid, uuid, vdi_uuid);
     pthread_mutex_lock(&loc_proc_table);
     proc_table_map::iterator table_it = proc_table.find(procid);
 	if (table_it == proc_table.end()) {
-		fprintf(g_logFile,"UUID can't be registered with vRTM, given rpid doesn't exist\n");
 		pthread_mutex_unlock(&loc_proc_table);
+		LOG_ERROR("UUID can't be registered with vRTM, given rpid doesn't exist\n");
 		return false;
 	}
     memset(table_it->second.m_uuid, 0, g_max_uuid);
     memset(table_it->second.m_vdi_uuid, 0, g_max_uuid);
     memcpy(table_it->second.m_uuid, uuid, g_sz_uuid);
     memcpy(table_it->second.m_vdi_uuid, vdi_uuid, g_sz_uuid);
-    fprintf(g_logFile,"UUID : %s is registered with vRTM successfully\n",table_it->second.m_uuid);
     pthread_mutex_unlock(&loc_proc_table);
+    LOG_INFO("UUID : %s is registered with vRTM successfully\n",table_it->second.m_uuid);
     return true;
 }
 
 bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash,
 									char* vm_manifest_signature, char *launch_policy, bool verification_status, char * vm_manifest_dir) {
     //geting the procentry related to this procid
-
+	LOG_DEBUG("vRTM map entry of vRTM id : %d to be updated with vm image id : %s vm customer id : %s vm hash : %s"
+			" vm manifest signature : %s launch policy : %s verification status : %d vm manifest dir : %s", procid, vm_image_id,
+			vm_customer_id, vm_manifest_hash, vm_manifest_signature, launch_policy, verification_status, vm_manifest_dir);
 	pthread_mutex_lock(&loc_proc_table);
 	proc_table_map::iterator table_it = proc_table.find(procid);
 	if( table_it == proc_table.end()) {
-		fprintf(g_logFile,"Couldn't update the given data in table, rpid doesn't exist\n");
 		pthread_mutex_unlock(&loc_proc_table);
+		LOG_ERROR("Couldn't update the given data in table, rpid doesn't exist\n");
 		return false;
 	}
 	strcpy(table_it->second.m_vm_image_id,vm_image_id);
@@ -205,31 +215,37 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 	strcpy(table_it->second.m_vm_launch_policy, launch_policy);
 	table_it->second.m_size_vm_launch_policy = strlen(table_it->second.m_vm_launch_policy);
 	table_it->second.m_vm_verfication_status = verification_status;
-	fprintf(g_logFile,"Data updated against RPID : %d in the Table\n", procid);
 	pthread_mutex_unlock(&loc_proc_table);
+	LOG_INFO("Data updated against vRTM ID : %d in the Table\n", procid);
     return true;
 }
 
 serviceprocEnt* serviceprocTable::getEntfromprocId(int procid) {
+	LOG_DEBUG("Looking for Map Entry of vRTM Id : %d", procid);
 	pthread_mutex_lock(&loc_proc_table);
 	proc_table_map::iterator table_it = proc_table.find(procid);
 	if(table_it == proc_table.end()) {
 		pthread_mutex_unlock(&loc_proc_table);
+		LOG_ERROR("Entry with vRTM Id not found");
 		return NULL;
 	}
 	pthread_mutex_unlock(&loc_proc_table);
+	LOG_ERROR("Entry with vRTM Id found");
 	return &(table_it->second);
 }
 
 int serviceprocTable::getprocIdfromuuid(char* uuid) {
+	LOG_DEBUG("Finding vRTM Id of map entry w having UUID : %s", uuid);
 	pthread_mutex_lock(&loc_proc_table);
 	for (proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++ ) {
 		if(strcmp(table_it->second.m_uuid,uuid) == 0 ) {
 			pthread_mutex_unlock(&loc_proc_table);
+			LOG_INFO("vRTM ID of entry with UUID is : ", table_it->first);
 			return (table_it->first);
 		}
 	}
 	pthread_mutex_unlock(&loc_proc_table);
+	LOG_ERROR("Given UUID is not registered with vRTM");
 	return NULL;
 }
 
@@ -240,7 +256,7 @@ void serviceprocTable::print()
 	for(proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++ ) {
 		table_it->second.print();
 	}
-	fprintf(g_logFile,"Table has %d entries\n",proc_table.size());
+	LOG_INFO("Table has %d entries\n",proc_table.size());
     pthread_mutex_unlock(&loc_proc_table);
     return;
 }
@@ -249,13 +265,13 @@ void serviceprocTable::print()
 // -------------------------------------------------------------------
 void tcServiceInterface::printErrorMessagge(int error) {
         if ( error == EAGAIN ){
-                fprintf(g_logFile, "Insufficient resources to create another thread");
+                LOG_ERROR( "Insufficient resources to create another thread");
         }
         if ( error == EINVAL) {
-                fprintf(g_logFile, "Invalid settings in pthreadInit");
+        	LOG_ERROR( "Invalid settings in pthreadInit");
         }
         if ( error == EPERM ) {
-                fprintf(g_logFile, "No permission to set the scheduling policy and parameters specified in pthreadInit");
+        	LOG_ERROR( "No permission to set the scheduling policy and parameters specified in pthreadInit");
         }
 }
 
@@ -268,7 +284,7 @@ tcServiceInterface::tcServiceInterface()
 	threadCount = 0;
 	if ( (error = pthread_attr_init (&pthreadInit)) ) {
 		errno = error;
-		fprintf(g_logFile, "Asynchronous measured launch will not work %s", strerror(errno) );
+		//LOG_ERROR( "Asynchronous measured launch will not work %s", strerror(errno) );
 		THREAD_ENABLED = false;
 		return;
 	}
@@ -280,8 +296,7 @@ tcServiceInterface::tcServiceInterface()
 
 tcServiceInterface::~tcServiceInterface()
 {
-	fprintf(stdout,"*************************************destructor called");
-	fflush(stdout);
+	//LOG_INFO("*************************************destructor called**********");
 	pthread_attr_destroy (&pthreadInit);
 }
 
@@ -294,11 +309,11 @@ TCSERVICE_RESULT tcServiceInterface::initService(const char* execfile, int an, c
     byte    rgHash[SHA256DIGESTBYTESIZE];
 
     if(!getfileHash(execfile, &hashType, &sizehash, rgHash)) {
-        fprintf(g_logFile, "initService: getfileHash failed %s\n", execfile);
+        LOG_ERROR("initService: getfileHash failed %s\n", execfile);
         return TCSERVICE_RESULT_FAILED;
     }
 #ifdef TEST
-    fprintf(g_logFile, "initService size hash %d\n", sizehash);
+    LOG_INFO( "initService size hash %d\n", sizehash);
     PrintBytes("getfile hash: ", rgHash, sizehash);
 #endif
 
@@ -317,15 +332,15 @@ TCSERVICE_RESULT tcServiceInterface::initService(const char* execfile, int an, c
 
 TCSERVICE_RESULT tcServiceInterface::GetRpId(char *vm_uuid, byte * rpidbuf, int * rpidsize)
 {
-    fprintf(g_logFile,"In GetRpId function\n");
-    int proc_id = m_procTable.getprocIdfromuuid(vm_uuid);
+	LOG_DEBUG("Finding vRTM ID for given VMUUID : %s", vm_uuid);
+	int proc_id = m_procTable.getprocIdfromuuid(vm_uuid);
     if(proc_id == NULL)
 	{
-		fprintf(g_logFile,"match not found for Given UUID\n");
+		LOG_ERROR("match not found for Given UUID\n");
 		return TCSERVICE_RESULT_FAILED;
 	}
 
-    fprintf(g_logFile,"match found for Given UUID\n");
+    LOG_INFO("match found for Given UUID\n");
 	sprintf((char *)rpidbuf,"%d",proc_id);
 	*rpidsize = strlen((char *)rpidbuf);
 	return TCSERVICE_RESULT_SUCCESS;
@@ -337,16 +352,16 @@ TCSERVICE_RESULT tcServiceInterface::GetVmMeta(int procId, byte *vm_imageId, int
     						byte * vm_customerId, int * vm_customerIdsize, byte * vm_manifestHash, int * vm_manifestHashsize,
     						byte * vm_manifestSignature, int * vm_manifestSignaturesize)
 {
-    fprintf(g_logFile,"In function GetVmMeta\n");
+	LOG_DEBUG("Finding map entry for vRTM ID : %d", procId);
     serviceprocEnt *pEnt = m_procTable.getEntfromprocId(procId);
     if(pEnt == NULL ) {
-    	fprintf(g_logFile,"Given RPID is not registered to RPCORE\n");
+    	LOG_ERROR("Given RPID is not registered to RPCORE\n");
     	return TCSERVICE_RESULT_FAILED;
     }
-	fprintf(g_logFile,"Match found for given RPid\n");
-	fprintf(g_logFile,"vmimage id : %s\n",pEnt->m_vm_image_id);
+	LOG_INFO("Match found for given RPid\n");
+	LOG_TRACE("vmimage id : %s\n",pEnt->m_vm_image_id);
 	memcpy(vm_imageId,pEnt->m_vm_image_id,pEnt->m_size_vm_image_id + 1);
-	fprintf(g_logFile,"vmimage id copied : %s\n",vm_imageId);
+	LOG_TRACE("vmimage id copied : %s\n",vm_imageId);
 	*vm_imageIdsize = pEnt->m_size_vm_image_id ;
 	memcpy(vm_customerId,pEnt->m_vm_customer_id,pEnt->m_size_vm_customer_id + 1);
 	*vm_customerIdsize = pEnt->m_size_vm_customer_id ;
@@ -360,40 +375,42 @@ TCSERVICE_RESULT tcServiceInterface::GetVmMeta(int procId, byte *vm_imageId, int
 /****************************return verification status of vm with attestation policy*********************** */
 TCSERVICE_RESULT tcServiceInterface::IsVerified(char *vm_uuid, int* verification_status)
 {
-	fprintf(g_logFile,"\nIn function IsVerified\n");
+	LOG_DEBUG("Finding verification status of UUID : %s", vm_uuid);
 	pthread_mutex_lock(&m_procTable.loc_proc_table);
 	for (proc_table_map::iterator table_it = m_procTable.proc_table.begin(); table_it != m_procTable.proc_table.end() ; table_it++ ) {
 		if(strcmp(table_it->second.m_uuid,vm_uuid) == 0 ) {
-			fprintf(g_logFile,"Match found for given UUID \n");
 			*verification_status = table_it->second.m_vm_verfication_status;
 			pthread_mutex_unlock(&m_procTable.loc_proc_table);
+			LOG_INFO("Match found for given UUID \n");
 			return TCSERVICE_RESULT_SUCCESS;
 		}
 	}
 	pthread_mutex_unlock(&m_procTable.loc_proc_table);
-	fprintf(g_logFile,"Match not found for given UUID \n");
+	LOG_ERROR("Match not found for given UUID \n");
 	return TCSERVICE_RESULT_FAILED;
 }
 
 // Need to get nonce also as input
 TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *nonce, char* vm_manifest_dir)
 {
-	fprintf(g_logFile, "\nIn function Generate SAML report\n");
+	LOG_DEBUG("Generating SAML Report for UUID: %s and getting manifest Directory against nonce : %s", vm_uuid, nonce);
 	int proc_id = m_procTable.getprocIdfromuuid(vm_uuid);
 	if (proc_id == NULL) {
-		fprintf(g_logFile, "UUID : %s is not registered with vRTM\n");
+		LOG_ERROR("UUID : %s is not registered with vRTM\n", vm_uuid);
 		return TCSERVICE_RESULT_FAILED;
 	}
 	serviceprocEnt * pEnt = m_procTable.getEntfromprocId(proc_id);
-	fprintf(g_logFile, "Match found for given UUID \n");
+	LOG_INFO("Match found for given UUID \n");
 
 	sprintf(vm_manifest_dir, "/var/lib/nova/instances/%s/", vm_uuid);
+	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
 	////OLD CODE HERE
 	char xmlstr[8192] = { 0 };
 	sprintf(xmlstr,
 			"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",
 			nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash);
 	char tempfile1[50];
+	LOG_DEBUG("XML content : %s", xmlstr);
 	sprintf(tempfile1, "%sus_xml.xml", vm_manifest_dir);
 	FILE * fp = fopen(tempfile1, "w");
 
@@ -402,33 +419,41 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	char command1[200] = { 0 };
 	sprintf(command1, "openssl dgst -sha1 -binary -out %shash.input %s",
 			vm_manifest_dir, tempfile1);
+	LOG_DEBUG("command generated to calculate hash: %s", command1);
 	system(command1);
 	//two JB's commands tht use hash.in and store signature in hash.out
 	system(
 			"export SIGNING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2)");
 	char command2[400] = { 0 };
 	sprintf(command2,
-			"/opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig 495b2740ddbca3fdbc2c9f61066b4683608c565f -x",
+			"/opt/trustagent/bin/tpm_signdata -i %shash.input -k "
+			"/opt/trustagent/configuration/signingkey.blob -o %shash.sig 495b2740ddbca3fdbc2c9f61066b4683608c565f -x",
 			vm_manifest_dir, vm_manifest_dir);
 	char command3[800] = { 0 };
 	sprintf(command3,
-			"export SIGNING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2); /opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q SIGNING_KEY_PASSWORD -t -x",
+			"export SIGNING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | "
+			"grep signing.key.secret | cut -d = -f 2); "
+			"/opt/trustagent/bin/tpm_signdata -i %shash.input -k "
+			"/opt/trustagent/configuration/signingkey.blob -o %shash.sig -q SIGNING_KEY_PASSWORD -t -x",
 			vm_manifest_dir, vm_manifest_dir);
 
-	fprintf(g_logFile, "%s \n\n \n ", command2);
-	fflush(stdout);
+	LOG_DEBUG("COMMAND2 :%s \n", command2);
+	LOG_DEBUG("COMMAND3 :%s \n", command3);
+
 	system(command3);
 
 	char convertHashInputToBase64[200] = { 0 };
 	sprintf(convertHashInputToBase64,
 			"openssl base64 -in %shash.input -out %shash.input.b64",
 			vm_manifest_dir, vm_manifest_dir);
+	LOG_DEBUG("Command to convert Hash to base64 : %s", convertHashInputToBase64);
 	system(convertHashInputToBase64);
 
 	char convertHashSigToBase64[200] = { 0 };
 	sprintf(convertHashSigToBase64,
 			"openssl base64 -A -in %shash.sig -out %shash.sig.b64",
 			vm_manifest_dir, vm_manifest_dir);
+	LOG_DEBUG("Command to convert signature to base64 : %s", convertHashSigToBase64);
 	system(convertHashSigToBase64);
 
 	char tempfile2[200];
@@ -450,11 +475,13 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	sprintf(command,
 			"openssl x509 -in %s -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' > %sfile",
 			path, vm_manifest_dir);
+	LOG_DEBUG("Command to generate certificate : %s", command);
 	system(command);
 	memset(command, '\0', strlen(command));
 	sprintf(command,
 			"grep -vwE \"(-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----)\" %sfile  > %sfile2",
 			vm_manifest_dir, vm_manifest_dir);
+	LOG_DEBUG("Command to extract certificate Content : %s", command);
 	system(command);
 	char *file_contents;
 	long input_file_size;
@@ -485,6 +512,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 //	sprintf(vm_manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
 	sprintf(filepath, "%ssigned_report.xml", vm_manifest_dir);
 	fp = fopen(filepath, "w");
+	LOG_INFO("\n\nSingned xml report : %s\n", xmlstr);
 	fprintf(fp, "%s", xmlstr);
 	fclose(fp);
 	//system ("rm us_xml.xml hash.sig hash.input");
@@ -495,9 +523,10 @@ TCSERVICE_RESULT tcServiceInterface::TerminateApp(int sizeIn, byte* rgIn, int* p
 {
 	//remove entry from table.
 	char uuid[48] = {0};
-	
-	if ((rgIn == NULL) || (psizeOut == NULL) || (out == NULL))
+	if ((rgIn == NULL) || (psizeOut == NULL) || (out == NULL)){
+		LOG_ERROR("Can't remove entry for given NULL UUID");
 		return TCSERVICE_RESULT_FAILED;
+	}
 	memset(uuid, 0, g_max_uuid);
     memcpy(uuid, rgIn, g_sz_uuid);
     g_myService.m_procTable.removeprocEntry(uuid);
@@ -513,8 +542,10 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
 	char uuid[48] = {0};
 	char vuuid[48] = {0};
 	int  rp_id = -1; 
-	if ((str_rp_id == NULL) || (in_uuid == NULL) || (out == NULL))
+	if ((str_rp_id == NULL) || (in_uuid == NULL) || (out == NULL)){
+		LOG_ERROR("Can't Register UUID with vRTM either vRTM ID or UUID is NULL");
  		return TCSERVICE_RESULT_FAILED;
+	}
 	rp_id = atoi(str_rp_id);
 	int inuuid_len = strlen(in_uuid);
 	int invdiuuid_len = strlen(vdi_uuid);
@@ -522,6 +553,7 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
     memcpy(uuid, in_uuid, inuuid_len);
 	memset(vuuid, 0, g_max_uuid);	
 	memcpy(vuuid, vdi_uuid, invdiuuid_len);
+	LOG_DEBUG("UUID and VDI UUID to updated against vRTM ID", rp_id, uuid, vuuid);
 	if ( !g_myService.m_procTable.updateprocEntry(rp_id, uuid, vuuid) ) {
 		return TCSERVICE_RESULT_FAILED;
 	}
@@ -542,6 +574,7 @@ include="*.out" ....> returns *.out and so on..
 char NodeValue[500];
 char* tagEntry (char* line){
 
+	LOG_TRACE("");
         char key[500];
                 /*We use a local string 'key' here so that we dont make any changes
                 to the line pointer passed to the funciton.
@@ -564,6 +597,7 @@ char* tagEntry (char* line){
                 Its contents are copied after its new value addition immediately
                 */
                 strcpy(NodeValue,start);
+        LOG_DEBUG("Current Node value : %s", NodeValue);
         return start;
 }
 
@@ -571,8 +605,6 @@ char* tagEntry (char* line){
 TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
 									int an, char** av, int* poutsize, byte* out)
 {
-        		fprintf(g_logFile, " Inside StartApp \n");
-        		fprintf(stdout, " Inside StartApp \n");
     int     size= SHA256DIGESTBYTESIZE;
     byte    rgHash[SHA256DIGESTBYTESIZE];
     int     child= 0;
@@ -591,77 +623,67 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
     char*   vm_manifest_signature;
     char    vm_manifest_dir[2048] ={0};
     bool 	verification_status = false;
-
+    LOG_TRACE("");
     if(an>30) {
+    	LOG_ERROR("Number of arguments passed are more than limit 30");
         return TCSERVICE_RESULT_FAILED;
     }
 
 
     for ( i = 1; i < an; i++) {
 
-        		fprintf(stdout, "arg parsing %d \n", i);
+        LOG_TRACE( "arg parsing %d \n", i);
         if( av[i] && strcmp(av[i], "-kernel") == 0 ){
             strcpy(kernel_file, av[++i]);
+            LOG_DEBUG("Kernel File Name : %s", kernel_file);
         }
 
         if( av[i] && strcmp(av[i], "-ramdisk") == 0 ){
             strcpy(ramdisk_file, av[++i]);
+            LOG_DEBUG("RAM disk : %s", ramdisk_file);
         }
 
         if( av[i] && strcmp(av[i], "-config") == 0 ){
             config_file = av[++i];
+            LOG_DEBUG("config file : %s",config_file);
         }
 
         if( av[i] && strcmp(av[i], "-disk") == 0 ){
-                        strcpy(disk_file, av[++i]);
-                }
+        	strcpy(disk_file, av[++i]);
+            LOG_DEBUG("Disk : %s",disk_file );
+        }
         if( av[i] && strcmp(av[i], "-manifest") == 0 ){
                         strcpy(manifest_file, av[++i]);
 			//Create path for just list of files to be passes to verifier
-        		fprintf(g_logFile, "Manifest path %s\n", manifest_file);
-        		fprintf(stdout, "Manifest path %s\n", manifest_file);
-	   	       
+        		LOG_DEBUG( "Manifest file : %s\n", manifest_file);
 		        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
-        		fprintf(g_logFile, "Manifest list path %s\n", nohash_manifest_file);
-        		fprintf(stdout, "Manifest list path %s\n", nohash_manifest_file);
+        		LOG_DEBUG( "Manifest list path %s\n", nohash_manifest_file);
         		strcpy(vm_manifest_dir, nohash_manifest_file);
         		sprintf(formatted_manifest_file, "%s%s", nohash_manifest_file, "/fmanifest.xml");
-		
         		sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
-        		fprintf(g_logFile, "Manifest list path 2%s\n",nohash_manifest_file);
-        		fprintf(stdout, "Manifest list path %s\n",nohash_manifest_file);
-		        
+        		LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
         		strncpy(cumulativehash_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
         		sprintf(cumulativehash_file, "%s%s", cumulativehash_file, "/measurement.sha256");
-                }
+        		LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
+        }
     }
 
     //v: this code will be replaced by IMVM call flow
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-
        //create domain process shall check the whitelist
-        		fprintf(g_logFile, "Before create domain manifest \n");
-        		fprintf(stdout, "Before create domain manifest \n");
-        		child = procid;
-        // unlock here
-
-
-        // There will be two input files now, one the manifest and other just the list of files to be passed to verifier 
+		child = procid;
+    // There will be two input files now, one the manifest and other just the list of files to be passed to verifier
 	// Could be moved to separate function
 	// Paths to 2nd manifest and output are hardcoded	
 
 //	char * nohash_manifest_file ="/root/nohash_manifest.xml"; // Need to be passed by policy agent
-
         char launchPolicy[10];
         char goldenImageHash[65];
-	
-
         FILE *fp, *fq ;
         char * line = NULL;
     	char * temp;
     	char * end;
     	size_t length = 0;
-
 
    //Open Manifest to get list of files to hash
     	xmlDocPtr Doc;
@@ -677,34 +699,32 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
 
         while (getline(&line, &length, fp) != -1) {
 
-        		fprintf(g_logFile, "Reading a line  \n");
+       		LOG_TRACE("Reading a line");
         	if(strstr(line,"<LaunchControlPolicy")!= NULL){
-        		fprintf(g_logFile,  "Found tag  \n");
+        		LOG_DEBUG("Found tag");
         		temp = tagEntry(line);
-        		fprintf(g_logFile,  "Processed tag  \n");
-        		fprintf(g_logFile,"<Policy=\"%s\">",NodeValue);
-
+        		LOG_DEBUG("<Policy=\"%s\">",NodeValue);
         		if (strcmp(NodeValue, "MeasureOnly") == 0) {
                     strcpy(launchPolicy, "Audit");
                 }
                 else if (strcmp(NodeValue, "MeasureAndEnforce") ==0) {
                     strcpy(launchPolicy, "Enforce");
                 }
-
         	if (strcmp(launchPolicy, "Audit") != 0 && strcmp(launchPolicy, "Enforce") !=0) {
         		fclose(fp);
+        		LOG_INFO("Launch policy is neither Audit nor Enforce so vm verification is not not carried out");
         		return TCSERVICE_RESULT_SUCCESS;
         	}
         }
 
         if(strstr(line,"<ImageHash")!= NULL){
-        	fprintf(g_logFile,  "Found tag imagehash  \n");
+        	LOG_DEBUG( "Found tag imagehash ");
             temp = tagEntry(line);
-            fprintf(g_logFile,"<Image Hash=\"%s\"> \n",NodeValue);
+            LOG_DEBUG("<Image Hash=\"%s\"> ",NodeValue);
             strcpy(goldenImageHash, NodeValue);
             vm_manifest_hash = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
 			if(vm_manifest_hash == NULL) {
-				fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_manifest_hash");
+				LOG_ERROR("StartApp : Error in allocating memory for vm_manifest_hash");
 				return TCSERVICE_RESULT_FAILED;
 			}
 			strcpy(vm_manifest_hash,NodeValue);
@@ -712,37 +732,37 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
 
 
         if(strstr(line,"<ImageId")!= NULL){
-        	fprintf(g_logFile,   "Found image  id tag  \n");
+        	LOG_DEBUG("Found image  id tag");
             temp = tagEntry(line);
-            fprintf(g_logFile,"<Image Id =\"%s\">\n",NodeValue);
+            LOG_DEBUG("<Image Id =\"%s\">",NodeValue);
             vm_image_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
             if(vm_image_id == NULL) {
-            	fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_image_id");
+            	LOG_ERROR("StartApp : Error in allocating memory for vm_image_id");
                 return TCSERVICE_RESULT_FAILED;
            }
            strcpy(vm_image_id,NodeValue);
         }
 
         if(strstr(line,"<CustomerId")!= NULL){
-        		fprintf(g_logFile,   "found custoimer id tag  \n");
-        		temp = tagEntry(line);
-        		fprintf(g_logFile,   "Processed custoimer id tag  \n");
-        		fprintf(g_logFile,"<Customer Id =\"%s\">\n",NodeValue);
-        		vm_customer_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
-				if(vm_customer_id == NULL) {
-					fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_customer_id");
-					return TCSERVICE_RESULT_FAILED;
-				}
+        	LOG_DEBUG("found custoimer id tag");
+        	temp = tagEntry(line);
+        	LOG_DEBUG("Processed custoimer id tag");
+        	LOG_DEBUG("<Customer Id =\"%s\">\n",NodeValue);
+        	vm_customer_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
+			if(vm_customer_id == NULL) {
+				LOG_DEBUG(" StartApp : Error in allocating memory for vm_customer_id");
+				return TCSERVICE_RESULT_FAILED;
+			}
 				strcpy(vm_customer_id,NodeValue);
           }
 		if(strstr(line,"SignatureValue")!= NULL){
 				temp = tagEntry(line);
-				fprintf(g_logFile,"<Manifest Signature  =\"%s\">\n",NodeValue);
+				LOG_DEBUG("<Manifest Signature  =\"%s\">",NodeValue);
 				vm_manifest_signature = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
-						if(vm_manifest_signature == NULL) {
-							fprintf(g_logFile,"\n  StartApp : Error in allocating memory for vm_manifest_hash");
-							return TCSERVICE_RESULT_FAILED;
-						}
+				if(vm_manifest_signature == NULL) {
+					LOG_ERROR("StartApp : Error in allocating memory for vm_manifest_hash");
+					return TCSERVICE_RESULT_FAILED;
+				}
 			   strcpy(vm_manifest_signature,NodeValue);
 			  }
 		} // end of file parsing
@@ -751,14 +771,15 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
         fclose(fp);
 // Only call verfier when measurement is required
         char command[512]={0};
-            	// append rpid to /tmp/imvm-result_"rpid".out
+        // append rpid to /tmp/imvm-result_"rpid".out
         sprintf(command,"./verifier %s %s IMVM  > /tmp/imvm-result_%d.out 2>&1", nohash_manifest_file, disk_file,child);
+        LOG_DEBUG("Command to execute verifier binary : %s", command);
         system(command);
 // Open measurement log file at a specified location
         fq = fopen(cumulativehash_file, "rb");
         if(!fq) 
 		{
-        	fprintf(stdout, "Error returned by verifer in generating cumulative hash, please check imvm-result.out for more logs\n");
+        	LOG_ERROR("Error returned by verifer in generating cumulative hash, please check imvm-result.out for more logs\n");
         	free(vm_image_id);
 			free(vm_customer_id);
 			free(vm_manifest_hash);
@@ -777,25 +798,23 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
             }
         }
         fclose(fq);
+        LOG_DEBUG("Calculated hash : %s and Golden Hash : %s",imageHash, goldenImageHash);
         if (strcmp(imageHash, goldenImageHash) ==0) {
-        	fprintf(stdout, "IMVM Verification Successfull\n");
+        	LOG_INFO("IMVM Verification Successfull\n");
             verification_status = true;
             flag=1;
         }
 		else if ((strcmp(launchPolicy, "Audit") == 0)) {
-			fprintf(g_logFile, "IMVM Verification Failed, but continuing with VM launch as MeasureOnly launch policy is used\n");
-			fprintf(stdout, "IMVM Verification Failed, but continuing with VM launch as MeasureOnly launch policy is used\n");
+			LOG_INFO("IMVM Verification Failed, but continuing with VM launch as MeasureOnly launch policy is used\n");
 			flag=1;
 		}
 		else {
-			fprintf(g_logFile, "IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used\n");
-			fprintf(stdout, "IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used\n");
+			LOG_ERROR("IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used\n");
 			flag=0;
 		}
 
         if (flag == 0) {
-        	fprintf(g_logFile, "IMVM Verification Failed\n");
-            fprintf(stdout, "IMVM Verification Failed\n");
+        	LOG_INFO("IMVM Verification Failed\n");
             free(vm_image_id);
 			free(vm_customer_id);
 			free(vm_manifest_hash);
@@ -816,12 +835,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
     }
 
     if(!g_myService.m_procTable.addprocEntry(child, kernel_file, 0, (char**) NULL, size, rgHash)) {
-        fprintf(g_logFile, "StartApp: cant add to proc table\n");
+    	LOG_ERROR( "StartApp: cant add to vRTM Map\n");
         return TCSERVICE_RESULT_FAILED;
     }
 
    if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir)) {
-        fprintf(g_logFile, "SartApp : can't update proc table entry\n");
+	   	LOG_ERROR("SartApp : can't update proc table entry\n");
         return TCSERVICE_RESULT_FAILED;
     }
 
@@ -858,37 +877,26 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 	//outparams[PARAMSIZE] = {0};
 	//outparams = (byte *) calloc(1,sizeof(byte)*PARAMSIZE);
 #ifdef TEST
-    fprintf(g_logFile, "Entering serviceRequest\n");
+    LOG_TRACE("Entering serviceRequest");
 #endif
 
     *outparamsize = PARAMSIZE;
 
-#ifdef TEST
-/*    fprintf(g_logFile, "serviceRequest after get procid: %d, req, %d, origprocid %d\n",
-           procid, uReq, origprocid);*/
-#endif
-	fprintf(g_logFile,"Input Parameters before switch case : %s\n",inparams);
+	LOG_DEBUG("Input Parameters before switch case : %s",inparams);
     switch(uReq) {
 
       case VM2RP_STARTAPP:
-#ifdef TCTEST1
-        fprintf(g_logFile, "serviceRequest, RP2VM_STARTAPP, decoding\n");
-#endif
         an= 20;
         if(!decodeVM2RP_STARTAPP(&szappexecfile, &an, 
                     (char**) av, inparams)) {
-            fprintf(g_logFile, "serviceRequest: decodeRP2VM_STARTAPP failed\n");
+        	LOG_ERROR( "failed to decode the input XML");
             outparams = NULL;
             *outparamsize = 0;
             return false;
         }
         *outparamsize= PARAMSIZE;
-#ifdef TEST
-        /*fprintf(g_logFile, "serviceRequest, about to StartHostedProgram %s, for %d\n",
-                szappexecfile, origprocid);*/
-#endif
         if(g_myService.StartApp(procid,szappexecfile,an,av,outparamsize,outparams)) {
-        	fprintf(g_logFile, "serviceRequest: StartHostedProgram failed %s\n", szappexecfile);
+        	LOG_ERROR("serviceRequest: StartHostedProgram failed %s", szappexecfile);
         	outparams = NULL;
         	*outparamsize = 0;
         	free(szappexecfile);
@@ -897,9 +905,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         	}
         	return false;
         }
-#ifdef TEST
-        fprintf(g_logFile, "serviceRequest, StartHostedProgram succeeded, about to send\n");
-#endif
+        LOG_INFO("Start App successful");
         free(szappexecfile);
         return true;
 
@@ -907,26 +913,22 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
       case VM2RP_SETUUID:
  
 #ifdef TCTEST1
-        fprintf(g_logFile, "serviceRequest, RP2VM_SETUUID, decoding\n");
+        LOG_TRACE( "serviceRequest, RP2VM_SETUUID, decoding");
 #endif
         an= 20;
         if(!decodeVM2RP_SETUUID(&str_rp_id, &an, (char**) av, inparams)) {
-            fprintf(g_logFile, "serviceRequest: decodeRP2VM_SETUUID failed\n");
+        	LOG_ERROR( "failed to decode the input XML");
             outparams = NULL;
             *outparamsize = 0;
             return false;
         }
         *outparamsize= PARAMSIZE;
         
-#ifdef TEST
-        /*fprintf(g_logFile, "serviceRequest, about to setuuid %s, for %d\n",
-                av[1], origprocid);*/
-#endif
-        fprintf(g_logFile,"In SET_UUID : params after decoding : %s , %s, %s",av[0], av[1], av[2]);
+        LOG_DEBUG("In SET_UUID : params after decoding : %s , %s, %s",av[0], av[1], av[2]);
 		if (av[0] ){
 			if(g_myService.UpdateAppID(av[0], av[1], av[2], outparamsize, outparams)
 					!=TCSERVICE_RESULT_SUCCESS) {
-				fprintf(g_logFile, "serviceRequest: setuuid failed %s\n", str_rp_id);
+				LOG_ERROR( "serviceRequest: setuuid failed %s", str_rp_id);
 				free(str_rp_id);
 				for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
 					free(av[fr_var]);
@@ -937,34 +939,29 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 			}
 			
 		}
-#ifdef TEST
-        fprintf(g_logFile, "serviceRequest, setuuid succeeded, about to send\n");
-#endif
-        free(str_rp_id);
+		LOG_INFO("UUID is registration with vRTM successful");
+		free(str_rp_id);
 		for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
 			free(av[fr_var]);
 		}
         return true;
         
       case VM2RP_TERMINATEAPP:
-#ifdef TCTEST1
-        fprintf(g_logFile, "serviceRequest, RP2VM_TERMINATEAPP, decoding\n");
-#endif
-        
+        LOG_TRACE( "decoding the input XML");
         if(!decodeVM2RP_TERMINATEAPP(outparamsize, outparams, inparams)) {
-            fprintf(g_logFile, "serviceRequest: decodeRP2VM_TERMINATEAPP failed\n");
+            LOG_ERROR( "failed to decode the input XML");
             outparams = NULL;
             *outparamsize = 0;
             return false;
         }
-        
+        LOG_DEBUG("Data after decoding : %s ", outparams);
         memcpy(inparams, outparams, *outparamsize);
         inparamsize = *outparamsize;
         *outparamsize= PARAMSIZE;
         memset(outparams, 0, *outparamsize);
         if(g_myService.TerminateApp(inparamsize, inparams, outparamsize, outparams)
                 !=TCSERVICE_RESULT_SUCCESS) {
-            fprintf(g_logFile, "serviceRequest: terminate app failed %s\n", szappexecfile);
+            LOG_ERROR("failed to deregister VM of given vRTM ID : %s", inparams);
             outparams = NULL;
             *outparamsize = 0;
             return false;
@@ -972,9 +969,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         
         //outparam will be success or failure
         
-#ifdef TEST
-        fprintf(g_logFile, "serviceRequest, terminate app succeeded, about to send\n");
-#endif
+        LOG_INFO( "deregister of VM succeeded, about to send");
         return true;
 
 			/***********new API ******************/
@@ -983,13 +978,12 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         	*outparamsize = PARAMSIZE;
         	if(!decodeRP2VM_GETRPID(outparamsize,outparams,inparams))
         	{
-        		fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
+        		LOG_ERROR( "failed to decode the input XML");
         		outparams = NULL;
         		*outparamsize = 0;
         		return false;
         	}
-            fprintf(g_logFile,"Inparams after decoding : %s\n",inparams);
-            fprintf(g_logFile,"outparams after decoding: %s\n",outparams);
+            LOG_DEBUG("outparams after decoding: %s",outparams);
         	char uuid[50];
         	char rpid[16];
         	int rpidsize=16;
@@ -997,24 +991,24 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         	//call getRPID(outparams,&inparams)
         	if(g_myService.GetRpId(uuid,(byte *)rpid,&rpidsize))
         	{
-        		fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETRPID uuid does not exist\n");
+        		LOG_ERROR( "Failed to get vRTM ID for given UUID");
         		outparams = NULL;
         		*outparamsize = 0;
 				return false;
         	}
-            fprintf(g_logFile,"rpid : %s\n",rpid);
+            LOG_DEBUG("vRTM ID : %s",rpid);
 
         	//then encode the result
         	*outparamsize = PARAMSIZE;
         	*outparamsize = encodeRP2VM_GETRPID(rpidsize,(byte *)rpid,*outparamsize,outparams);
-            fprintf(g_logFile,"after encode : %s",outparams);
+            LOG_DEBUG("after encode : %s",outparams);
         	if(*outparamsize<0) {
-				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETRPID buf too small\n");
+				LOG_ERROR( "Failed to send the vRTM ID ,Encoded data too small");
 				outparams = NULL;
 				*outparamsize = 0;
 				return false;
         	}
-            fprintf(g_logFile,"************succesfully send the response*************** ");
+            LOG_INFO("Successfully sent vRTM ID for given UUID");
             return true;
         }
         case VM2RP_GETVMMETA:
@@ -1022,19 +1016,20 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         	*outparamsize = PARAMSIZE;
 			if(!decodeRP2VM_GETVMMETA(outparamsize,outparams,inparams))
 			{
-				fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
+				LOG_ERROR( "failed to decode the input XML");
 				outparams = NULL;
 				*outparamsize = 0;
 				return false;
 			}
 			//call to getVMMETA
+			LOG_DEBUG("Decoded data : %s", outparams);
 			byte *vm_rpcustomerId;
 			byte *vm_rpimageId;
 			byte *vm_rpmanifestHash;
 			byte *vm_rpmanifestSignature;
 			vm_rpcustomerId = (byte *)malloc(sizeof(byte)*256);
 			if(vm_rpcustomerId == NULL) {
-					fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for customerId \n");
+					LOG_ERROR( "Failed to send VM meta data, memory cann't be allocated for customerId");
 					outparams = NULL;
 					*outparamsize = 0;
 					return false;
@@ -1042,21 +1037,21 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 
 			vm_rpimageId = (byte *) malloc(sizeof(byte)*256);
 			if(vm_rpimageId == NULL) {
-					fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for imageId \n");
+					LOG_ERROR( "Failed to send VM meta data, memory cann't be allocated for imageId");
 					outparams = NULL;
 					*outparamsize = 0;
 					return false;
 			}
 			vm_rpmanifestSignature = (byte *) malloc(sizeof(byte) *512);
 			if(vm_rpmanifestSignature == NULL) {
-					fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for manifestSignature \n");
+					LOG_ERROR( "Failed to send VM meta data, memory cann't be allocated for manifestSignature");
 					outparams = NULL;
 					*outparamsize = 0;
 					return false;
 			}
 			vm_rpmanifestHash = (byte *) malloc(sizeof(byte) * 256);
 			if( vm_rpmanifestHash== NULL) {
-					fprintf(g_logFile, "RP2VM_GETRPID: memory cann't be allocated for vm_rpmanifestHash \n");
+					LOG_ERROR("Failed to send VM meta data, memory cann't be allocated for vm_rpmanifestHash");
 					outparams = NULL;
 					*outparamsize = 0;
 					return false;
@@ -1066,16 +1061,16 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 			if(g_myService.GetVmMeta(in_procid,vm_rpimageId, &vm_rpimageIdsize,vm_rpcustomerId, &vm_rpcustomerIdsize,
 					vm_rpmanifestHash, &vm_rpmanifestHashsize,vm_rpmanifestSignature, &vm_rpmanifestSignaturesize))
 			{
-				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETVMMETA RPID does not exist\n");
+				LOG_ERROR( "Failed to send VM meta data, vRTM ID does not exist");
 				outparams = NULL;
 				*outparamsize = 0;
 				return false;
 			}
 			//create a map of data vmmeta data
-			fprintf(g_logFile,"vmimage id : %s\n",vm_rpimageId);
-			fprintf(g_logFile,"vmcustomer id : %s\n",vm_rpcustomerId);
-			fprintf(g_logFile,"vmmanifest hash : %s\n",vm_rpmanifestHash);
-			fprintf(g_logFile,"vm manifest signature : %s\n",vm_rpmanifestSignature);
+			LOG_DEBUG("vmimage id : %s",vm_rpimageId);
+			LOG_DEBUG("vmcustomer id : %s",vm_rpcustomerId);
+			LOG_DEBUG("vmmanifest hash : %s",vm_rpmanifestHash);
+			LOG_DEBUG("vm manifest signature : %s",vm_rpmanifestSignature);
 			byte * metaMap[4];
 			metaMap[0] = vm_rpimageId;
 			metaMap[1] = vm_rpcustomerId;
@@ -1085,14 +1080,14 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 			//encode the vmMeta data
 			*outparamsize = PARAMSIZE;
 			*outparamsize = encodeRP2VM_GETVMMETA(numOfMetaComp,metaMap,*outparamsize,outparams);
-			fprintf(g_logFile,"after encode : %s\n",outparams);
+			LOG_DEBUG("after encode : %s\n",outparams);
 			if(*outparamsize<0) {
-				fprintf(g_logFile, "RP2VM_GETRPID: encodeRP2VM_GETVMMETA buf too small\n");
+				LOG_ERROR("Failed to Send VM Metadata, Encoded data to small");
 				outparams = NULL;
 				*outparamsize = 0;
 				return false;
 			}
-			fprintf(g_logFile,"************succesfully send the response*************** \n");
+			LOG_INFO("VM Meta data Successfully sent");
 			free(vm_rpimageId);
 			free(vm_rpcustomerId);
 			free(vm_rpmanifestHash);
@@ -1102,16 +1097,15 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 
         case VM2RP_ISVERIFIED:
         {
-                fprintf(g_logFile, "\nin case ISVerified \n");
+                LOG_TRACE("Processing ISVerified API request");
                 if(!decodeRP2VM_ISVERIFIED(outparamsize,outparams,inparams))
 				{
-						fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETRPID failed\n");
+                		LOG_ERROR( "failed to decode the input XML");
 						outparams = NULL;
 						*outparamsize = 0;
 						return false;
 				}
-                fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
-                fprintf(g_logFile, "\noutparams after decode : %s \n",outparams);
+                LOG_DEBUG("outparams after decode : %s",outparams);
 
 				char uuid[50];
 				char verificationstat[8];
@@ -1120,7 +1114,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 				int verification_status;
 				if(g_myService.IsVerified(uuid,&verification_status))
 				{
-						fprintf(g_logFile, "RP2VM_ISVERIFIED : uuid does not exist\n");
+						LOG_ERROR("Failed to send verification status, uuid does not exist");
 						outparams = NULL;
 						*outparamsize = 0;
 						return false;
@@ -1131,33 +1125,32 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 
 				*outparamsize = encodeRP2VM_ISVERIFIED(verificationstatsize, (byte *)verificationstat, *outparamsize, outparams);
 				if(*outparamsize<0) {
-						fprintf(g_logFile, "RP2VM_ISVERIFIED: encodeRP2VM_isverified buf too small\n");
+						LOG_ERROR("Failed to Send Verification status, Encoded data to small");
 						outparams = NULL;
 						*outparamsize = 0;
 						return false;
 				}
-				fprintf(g_logFile,"************succesfully send the response*************** ");
+				LOG_INFO("successfully sent verification status of given UUID");
 				return true;
         }
 
 	case VM2RP_GETVMREPORT:
         {
-        	fprintf(g_logFile, "\nin case GETVMREPORT \n");
+        	LOG_TRACE("in case GETVMREPORT");
             if(!decodeRP2VM_GETVMREPORT(&str_rp_id, &an, (char**) av, inparams))
 			{
-				fprintf(g_logFile, "serviceRequest: decodeRP2VM_GETVMREPORT failed\n");
+            	LOG_ERROR( "failed to decode the input XML");
 				outparams = NULL;
 				*outparamsize = 0;
 				return false;
 			}
             free(str_rp_id); // not used, free'd
-        	fprintf(g_logFile, "\ninparams before decode : %s\n",inparams);
-        	fprintf(g_logFile, "\noutparams after decode : %s %s \n", av[0], av[1]);
+        	LOG_DEBUG( "outparams after decode : %s %s ", av[0], av[1]);
 
 			char * vm_manifest_dir = (char *) malloc(sizeof(char) * 1024);
 			if(g_myService.GenerateSAMLAndGetDir(av[0],av[1], vm_manifest_dir))
 			{
-					fprintf(g_logFile, "RP2VM_GETVMREPORT : uuid does not exist\n");
+					LOG_ERROR( "Failed to GET VMREPORT given uuid does not exist");
 					outparams = NULL;
 					*outparamsize = 0;
 					for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
@@ -1174,13 +1167,13 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 
 			*outparamsize = encodeRP2VM_GETVMREPORT(vm_manifest_dir_size, (byte *)vm_manifest_dir, *outparamsize, outparams);
 			if(outparamsize<0) {
-				fprintf(g_logFile, "RP2VM_GETVMREPORT: encodeRP2VM_isverified buf too small\n");
+				LOG_ERROR("Failed to Send VM Report and manifest Dir, Encoded data to small");
 				outparams = NULL;
 				*outparamsize = 0;
 				return false;
 			}
 			free(vm_manifest_dir);
-			fprintf(g_logFile,"************succesfully send the response*************** ");
+			LOG_INFO("Successfully send the VM Report and manifest Directory ");
 			return true;
         }
 
@@ -1202,7 +1195,8 @@ int modmain(int an, char** av)
 
     for(i=0; i<an; i++) {
         if(strcmp(av[i], "-help")==0) {
-            fprintf(g_logFile, "\nUsage: tcService.exe [-initKeys] ");
+            LOG_INFO( "\nUsage: tcService.exe [-initKeys] ");
+
             return 0;
         }
         if(strcmp(av[i], "-initKeys")==0) {
@@ -1224,13 +1218,13 @@ int modmain(int an, char** av)
 #if 0
     ret= g_myService.initService(szexecFile, 0, NULL);
     if(ret!=TCSERVICE_RESULT_SUCCESS) {
-        fprintf(g_logFile, "tcService main: initService failed %s\n", szexecFile);
+    	LOG_ERROR("tcService main: initService failed %s\n", szexecFile);
         iRet= 1;
         goto cleanup;
     }
 #endif
 
-
+    LOG_TRACE("Exiting ...");
 cleanup:
 
     closeLog();
