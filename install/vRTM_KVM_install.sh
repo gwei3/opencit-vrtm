@@ -91,13 +91,14 @@ function updateFlavourVariables()
 function untarResources()
 {
 	cd "$RES_DIR"
-	cp KVM_*.tar.gz "$INSTALL_DIR"
+	cp KVM_install.tar.gz "$INSTALL_DIR"
 	cd "$INSTALL_DIR"
-	tar xvzf *.tar.gz
+	tar xvzf KVM_install.tar.gz
         if [ $? -ne 0 ]; then
                 echo "ERROR : Untarring of $RES_DIR/*.tar.gz unsuccessful"
                 exit
         fi
+	rm -rf KVM_install.tar.gz
 }
 
 function installKVMPackages_rhel()
@@ -566,8 +567,7 @@ function validate()
 function main_default()
 {
   if [ -z "$INSTALL_DIR" ]; then
-    BUILD_TIMESTAMP=`ls KVM_*.tar.gz | awk 'BEGIN{FS="_"} {print $3}' | awk 'BEGIN{FS="."}{print $2}'`
-    INSTALL_DIR="$DEFAULT_INSTALL_DIR/RP_$BUILD_TIMESTAMP"
+    INSTALL_DIR="$DEFAULT_INSTALL_DIR"
   fi
   mkdir -p "$INSTALL_DIR"
   mkdir -p "$LOG_DIR" 

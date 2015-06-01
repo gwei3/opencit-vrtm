@@ -15,7 +15,8 @@ DIST_DIR=$PWD/../dist
 TBOOT_REPO=${TBOOT_REPO:-"$SRC_ROOT_DIR/../dcg_security-tboot-xm"}
 
 BUILD_LIBVIRT="FALSE"
-PACKAGE="rpcore/scripts rpcore/bin rpcore/rptmp rpcore/lib"
+VERSION_INFO_FILE=vrtm.version
+PACKAGE="rpcore/scripts rpcore/bin rpcore/rptmp rpcore/lib $VERSION_INFO_FILE"
 
 # This function returns either rhel fedora ubuntu suse
 # TODO : This function can be moved out to some common file
@@ -259,8 +260,7 @@ function main()
 	echo "Building RPListener binaries..."
 	buildRplistener
 
-	BUILD_VER=`date +%Y%m%d%H%M%S`
-	BUILD_VER=$FLAVOUR.$BUILD_VER
+	date +%Y%m%d%H%M%S > $VERSION_INFO_FILE
 	grep -i ' error' "$BUILD_DIR/outfile"
 	
 	echo "Verifying for any errors, please verify the output below : "
@@ -274,8 +274,8 @@ function main()
 		echo "Removing libvirt.so ..."
 		rm -rf ./rpcore/lib/libvirt.so	
 	fi
-        tar czf KVM_install_$BUILD_VER.tar.gz $PACKAGE
-        mv KVM_install_$BUILD_VER.tar.gz "$DIST_DIR"
+        tar czf KVM_install.tar.gz $PACKAGE
+        mv KVM_install.tar.gz "$DIST_DIR"
         cp install/vRTM_KVM_install.sh "$DIST_DIR"
 	tr -d '\r' < "$DIST_DIR/vRTM_KVM_install.sh" > /tmp/output.file
 	mv /tmp/output.file "$DIST_DIR/vRTM_KVM_install.sh"
@@ -284,7 +284,7 @@ function main()
 
 	if [ $arg -eq 0 ]
 	then
-	    echo "Build KVM_install_$BUILD_VER.tar.gz created successfully !!"
+	    echo "Build KVM_install.tar.gz created successfully !!"
 	else
 	    echo "Verifying for any errors, please verify the output below : "
 	    echo Install tar file has been created but it might might has some errors. Please see $BUILD_DIR/outfile file.
