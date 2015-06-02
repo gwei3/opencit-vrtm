@@ -60,6 +60,7 @@ int run = 1;
 int delete_rp_uuid(char*);
 int map_rpid_uuid(int, char*);
 std::map<std::string, int> rp_id_map;
+static int exit_status = 0;
 
 
 int channel_open() {
@@ -128,7 +129,6 @@ static int domainEventCallback(virConnectPtr conn ATTRIBUTE_UNUSED, virDomainPtr
         //send the request to RPCore
         delete_rp_uuid(vm_uuid);
     }
-
     return 0;
 }
 
@@ -160,6 +160,7 @@ void* listen_libvirt_events( void* input) {
     LOG_TRACE("");
     if (virInitialize() < 0) {
         LOG_ERROR("listen_libvirt_events(): Failed to initialize libvirt");
+		exit_status = 1;
         return 1;
     }
 
@@ -167,12 +168,14 @@ void* listen_libvirt_events( void* input) {
         virErrorPtr err = virGetLastError();
         LOG_ERROR("listen_libvirt_events(): Failed to register event implementation: %s",
                 err && err->message ? err->message: "Unknown error");
+		exit_status = 1;
         return 1;
     }
 
     dconn = virConnectOpenAuth(NULL, virConnectAuthPtrDefault, VIR_CONNECT_RO);
     if (!dconn) {
     	LOG_ERROR( "listen_libvirt_events(): error opening vir");
+		exit_status = 1;
         return 1;
     }
 
@@ -204,7 +207,7 @@ void* listen_libvirt_events( void* input) {
     if (dconn && virConnectClose(dconn) < 0) {
         LOG_ERROR( "listen_libvirt_events(): error closing vir connection");
     }
-
+	exit_status = 1;
     return 0;
 }
 
@@ -406,7 +409,6 @@ void *conn_handler(void *socket_desc) {
     else if (read_size == -1) {
         LOG_ERROR( "conn_handler(): recv failed");
     }
-         
     free(socket_desc);
     free(resp);
     return 0;
@@ -424,6 +426,7 @@ void* listen_rp_proxy_requests(void* data) {
 
     if (socket_desc == -1) {
         LOG_ERROR( "listen_rp_proxy_requests(): could not create socket to listen");
+		exit_status = 1;
     }
      
     server.sin_family = AF_INET;
@@ -432,6 +435,7 @@ void* listen_rp_proxy_requests(void* data) {
      
     if (bind(socket_desc, (struct sockaddr *)&server , sizeof(server)) < 0) {
         LOG_ERROR("listen_rp_proxy_requests(): bind failed. Error");
+		exit_status = 1;
         return 1;
     }
      
@@ -457,6 +461,7 @@ void* listen_rp_proxy_requests(void* data) {
      
     if (client_sock < 0) {
         LOG_ERROR( "listen_rp_proxy_requests(): accept failed");
+		exit_status = 1;
         return 1;
     }
      
@@ -506,7 +511,7 @@ int main() {
     } else
         LOG_TRACE( "created thread for listening libvirt events\n");
 
-    while(1) {
+    while(!exit_status) {
         sleep(1);
     }
 

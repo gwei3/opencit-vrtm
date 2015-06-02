@@ -81,7 +81,8 @@ export VRTM_JAVA=$VRTM_HOME/java
 export VRTM_ENV=$VRTM_HOME/env
 
 vrtm_backup_configuration() {
-  if [ -n "$VRTM_CONFIGURATION" ] && [ -d "$VRTM_CONFIGURATION" ]; then
+  if [ -n "$VRTM_CONFIGURATION" ] && [ -d "$VRTM_CONFIGURATION" ] &&
+    (find "$VRTM_CONFIGURATION" -mindepth 1 -print -quit | grep -q .); then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/vrtm.configuration.$datestr
     mkdir -p "$backupdir"
@@ -90,7 +91,8 @@ vrtm_backup_configuration() {
 }
 
 vrtm_backup_repository() {
-  if [ -n "$VRTM_REPOSITORY" ] && [ -d "$VRTM_REPOSITORY" ]; then
+  if [ -n "$VRTM_REPOSITORY" ] && [ -d "$VRTM_REPOSITORY" ] &&
+    (find "$VRTM_REPOSITORY" -mindepth 1 -print -quit | grep -q .); then
     datestr=`date +%Y%m%d.%H%M`
     backupdir=/var/backup/vrtm.repository.$datestr
     mkdir -p "$backupdir"
@@ -101,12 +103,6 @@ vrtm_backup_repository() {
 # backup current configuration and data, if they exist
 vrtm_backup_configuration
 vrtm_backup_repository
-
-if [ -d $VRTM_CONFIGURATION ]; then
-  backup_conf_dir=$VRTM_REPOSITORY/backup/configuration.$(date +"%Y%m%d.%H%M")
-  mkdir -p $backup_conf_dir
-  cp -R $VRTM_CONFIGURATION/* $backup_conf_dir
-fi
 
 # create application directories (chown will be repeated near end of this script, after setup)
 for directory in $VRTM_HOME $VRTM_CONFIGURATION $VRTM_REPOSITORY $VRTM_JAVA $VRTM_BIN $VRTM_LOGS $VRTM_ENV; do
@@ -151,6 +147,10 @@ chmod 700 $VRTM_HOME/dist/*.sh
 
 (cd $VRTM_HOME/dist && ./vRTM_KVM_install.sh)
 rm -rf /$VRTM_HOME/dist
+
+#Register vRTM start script
+register_startup_script /usr/local/bin/vrtm vrtm
+register_startup_script /usr/local/bin/rp_listener rplistener
 
 ### CURRENTLY DONE IN vRTM_KVM_install.sh
 ##verifier

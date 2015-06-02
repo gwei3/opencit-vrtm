@@ -42,14 +42,17 @@ typedef unsigned char byte;
 #endif
 
 int rp_fd = -1;
+int rp_listener_fd = -1;
 FILE* f = fopen(RP_PROXY_LOGFILE, "a");
+
+
 
 int channel_open() {
     int fd = -1;
     LOG_TRACE("");
 
 #ifndef USE_DRV_CHANNEL //not defined
-    fd =  ch_open(NULL, 0);
+    fd =  ch_open(NULL, 0); 
 #else
     fd = open("/dev/chandu", O_RDWR);
 
@@ -57,11 +60,37 @@ int channel_open() {
     if(fd < 0) {
             LOG_ERROR("Can't connect with vRTM: %s", strerror(errno));
             return -1;
-    }
+    }   
 
     //ch_register(fd);
 
     return fd;
+}
+
+
+int conn_open() {
+	struct sockaddr_in rp_listener_server;
+	rp_fd = channel_open();
+	if( rp_fd < 0 ) {
+		fprintf(f,"can't connect to vRTM\n");
+		return 1;
+	}
+	rp_listener_fd = socket(AF_INET, SOCK_STREAM, 0);
+	if( rp_listener_fd < 0 ) {
+		fprintf(f, "couldn't create socket for rp_listener\n");
+		ch_close (rp_fd);
+		return 1;
+	}
+	rp_listener_server.sin_addr.s_addr = inet_addr(RP_LISTENER_IP_ADDR);
+	rp_listener_server.sin_family = AF_INET;
+	rp_listener_server.sin_port = htons(RP_LISTENER_SERVICE_PORT);
+	if( connect(rp_listener_fd, (struct sockaddr*)&rp_listener_server, sizeof(rp_listener_server)) < 0) {
+		close(rp_listener_fd);
+		fprintf(f, "connection to rp_listener is failed\n");
+		ch_close (rp_fd);
+		return 1;
+	}
+	return 0;	
 }
 
 
@@ -99,7 +128,7 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
     LOG_TRACE( "get_rpcore_response(): Opening device driver .. ");
 #endif
 
-    rp_fd = channel_open();
+    //rp_fd = channel_open();
 
     if(rp_fd < 0) {
         LOG_ERROR( "get_rpcore_response(): error opening socket: %s", strerror(errno));
@@ -165,8 +194,8 @@ fail:
 
 int notify_rp_listener(int rp_domid, char* vm_name) {
 
-    int     sock;
-    struct  sockaddr_in server;
+    int     sock = rp_listener_fd;
+    //struct  sockaddr_in server;
     char    msg[4096];
     char    resp[4];
     int     name_len;
@@ -301,7 +330,6 @@ int main(int argc, char** argv) {
         execve(argv[0], argv, NULL);
         return 0;
     }
-
     // Parse the command line request and extract the disk path and manifest path
     disk_start_ptr = strstr(drive_data, "file=") + strlen("file=");
     disk_end_ptr = strstr(drive_data, ",if=none");
@@ -319,7 +347,10 @@ int main(int argc, char** argv) {
         execve(argv[0], argv, NULL);
         return 0;
     }
-
+	if ( conn_open() ) { 
+        fclose(f);
+        return 0;
+    }
     // If kernel and initrd are not passed then pass them as empty strings
     kernel_path = (kernel_path == NULL) ? "" : kernel_path;
     initrd_path = (initrd_path == NULL) ? "" : initrd_path;

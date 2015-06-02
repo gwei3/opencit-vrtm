@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 //
 //  File: tcService.cpp
 //  Description: tcService implementation
@@ -401,7 +402,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	}
 	serviceprocEnt * pEnt = m_procTable.getEntfromprocId(proc_id);
 	LOG_INFO("Match found for given UUID \n");
-
 	sprintf(vm_manifest_dir, "/var/lib/nova/instances/%s/", vm_uuid);
 	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
 	////OLD CODE HERE
@@ -409,14 +409,14 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	sprintf(xmlstr,
 			"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",
 			nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash);
-	char tempfile1[50];
+	char tempfile1[200];
 	LOG_DEBUG("XML content : %s", xmlstr);
 	sprintf(tempfile1, "%sus_xml.xml", vm_manifest_dir);
 	FILE * fp = fopen(tempfile1, "w");
 
 	fprintf(fp, "%s", xmlstr);
 	fclose(fp);
-	char command1[200] = { 0 };
+	char command1[500] = { 0 };
 	sprintf(command1, "openssl dgst -sha1 -binary -out %shash.input %s",
 			vm_manifest_dir, tempfile1);
 	LOG_DEBUG("command generated to calculate hash: %s", command1);
@@ -424,7 +424,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	//two JB's commands tht use hash.in and store signature in hash.out
 	system(
 			"export SIGNING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2)");
-	char command2[400] = { 0 };
+	char command2[500] = { 0 };
 	sprintf(command2,
 			"/opt/trustagent/bin/tpm_signdata -i %shash.input -k "
 			"/opt/trustagent/configuration/signingkey.blob -o %shash.sig 495b2740ddbca3fdbc2c9f61066b4683608c565f -x",
@@ -442,14 +442,14 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 	system(command3);
 
-	char convertHashInputToBase64[200] = { 0 };
+	char convertHashInputToBase64[500] = { 0 };
 	sprintf(convertHashInputToBase64,
 			"openssl base64 -in %shash.input -out %shash.input.b64",
 			vm_manifest_dir, vm_manifest_dir);
 	LOG_DEBUG("Command to convert Hash to base64 : %s", convertHashInputToBase64);
 	system(convertHashInputToBase64);
 
-	char convertHashSigToBase64[200] = { 0 };
+	char convertHashSigToBase64[500] = { 0 };
 	sprintf(convertHashSigToBase64,
 			"openssl base64 -A -in %shash.sig -out %shash.sig.b64",
 			vm_manifest_dir, vm_manifest_dir);
@@ -470,7 +470,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	fscanf(fp, "%s", digval);
 	fclose(fp);
 	char *path = "/opt/trustagent/configuration/signingkey.pem";
-	char command[200];
+	char command[500];
 
 	sprintf(command,
 			"openssl x509 -in %s -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' > %sfile",
@@ -485,7 +485,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	system(command);
 	char *file_contents;
 	long input_file_size;
-	char tempfile4[50];
+	char tempfile4[200];
 	sprintf(tempfile4, "%sfile2", vm_manifest_dir);
 	FILE *input_file = fopen(tempfile4, "r");
 	fseek(input_file, 0, SEEK_END);
