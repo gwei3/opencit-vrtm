@@ -14,6 +14,7 @@ NON_TPM="false"
 BUILD_LIBVIRT="FALSE"
 KVM_BINARY=""
 LOG_DIR="/var/log/vrtm"
+VERSION_INFO_FILE=vrtm.version
 
 function valid_ip()
 {
@@ -448,8 +449,11 @@ function createvRTMStartScript()
 	        echo \"Stopping all vrtm processes (if any ) ...\"
 	        pkill -9 nontpmrpcore
 	   ;;
+	 version)
+		cat \"$INSTALL_DIR/$VERSION_INFO_FILE\"
+	   ;;
 	 *)
-	   echo \"Usage: {start|stop}\" >&2
+	   echo \"Usage: {start|stop|version}\" >&2
 	   exit 3
 	   ;;
 	esac
@@ -521,8 +525,11 @@ function createvRTMStartScript()
 				rm -rf /etc/monit/conf.d/rplistener.monit
 				service monit restart > /dev/null 2>&1 &
            ;;
+         version)
+                cat \"$INSTALL_DIR/$VERSION_INFO_FILE\"
+           ;;
          *)
-           echo \"Usage: {start|stop}\" 
+           echo \"Usage: {start|stop|version}\" 
            exit 3
            ;;
         esac

@@ -15,8 +15,7 @@ DIST_DIR=$PWD/../dist
 TBOOT_REPO=${TBOOT_REPO:-"$SRC_ROOT_DIR/../dcg_security-tboot-xm"}
 
 BUILD_LIBVIRT="FALSE"
-VERSION_INFO_FILE=vrtm.version
-PACKAGE="rpcore/scripts rpcore/bin rpcore/rptmp rpcore/lib $VERSION_INFO_FILE"
+PACKAGE="rpcore/scripts rpcore/bin rpcore/rptmp rpcore/lib"
 
 # This function returns either rhel fedora ubuntu suse
 # TODO : This function can be moved out to some common file
@@ -260,7 +259,6 @@ function main()
 	echo "Building RPListener binaries..."
 	buildRplistener
 
-	date +%Y%m%d%H%M%S > $VERSION_INFO_FILE
 	grep -i ' error' "$BUILD_DIR/outfile"
 	
 	echo "Verifying for any errors, please verify the output below : "
