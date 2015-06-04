@@ -21,7 +21,7 @@ PY=	    	/usr/include/python2.7
 PYTHON=		python2.7
 LXML=		/usr/include/libxml2/
 OPENSSL=    /usr/include/openssl/
-LOG4CPP=	/usr/local/include/log4cpp/
+LOG4CPP=	/usr/include/log4cpp/
 
 RELEASE_CFLAGS   := -Wall  -Wno-unknown-pragmas -Wno-format -O3
 O1RELEASE_CFLAGS   := -Wall  -Wno-unknown-pragmas -Wno-format -O1

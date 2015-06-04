@@ -18,7 +18,7 @@ SBM=        ../util/jlmbignum
 CH=         ../vrtmchannel
 TM=	    	../vrtmcore
 DM=			../measurer
-LOG4CPP=	/usr/local/include/log4cpp/
+LOG4CPP=	/usr/include/log4cpp/
 
 #DEBUG_CFLAGS     := -Wall  -Wno-format -g -DDEBUG
 RELEASE_CFLAGS   := -Wall  -Wno-unknown-pragmas -Wno-format -O3

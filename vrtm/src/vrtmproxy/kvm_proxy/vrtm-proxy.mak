@@ -12,7 +12,7 @@ LIB             = $(RPROOT)/lib
 INC		= $(RPROOT)/inc
 TM      = ../../vrtmchannel
 RPCORE  = ../../vrtmcore/
-LOG4CPP=	/usr/local/include/log4cpp/
+LOG4CPP=	/usr/include/log4cpp/
 SC=         ../../util/commonCode
 
 

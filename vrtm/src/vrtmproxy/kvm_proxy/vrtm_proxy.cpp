@@ -36,7 +36,7 @@ RP-proxy will call qemu with VM launch options after the VM image measurement is
 #define RP_LISTENER_IP_ADDR         "127.0.0.1"
 #define RP_LISTENER_SERVICE_PORT    16004
 #define VM_NAME_MAXLEN              2048
-#define log_properties_file "/opt/dcg_security-vrtm-cleanup-1.5/rpcore/configuration/vrtm_proxylog.properties"
+#define log_properties_file "/opt/vrtm/configuration/vrtm_proxylog.properties"
 #ifndef byte
 typedef unsigned char byte;
 #endif
