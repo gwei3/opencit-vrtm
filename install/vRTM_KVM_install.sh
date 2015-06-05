@@ -80,6 +80,7 @@ function untarResources()
                 echo "ERROR : Untarring of $RES_DIR/*.tar.gz unsuccessful"
                 exit
         fi
+	chmod 755 "$INSTALL_DIR/vrtm"
 	rm KVM_*.tar.gz 
 }
 
@@ -375,7 +376,7 @@ function createvRTMStartScript()
         	#cp -r \"$INSTALL_DIR/vrtm/rptmp\" /tmp
 		#cp /tmp/rptmp/config/TrustedOS/privatekey /tmp/rptmp/config/TrustedOS/privatekey.pem
         	cd \"$INSTALL_DIR/vrtm/bin\"
-        	nohup ./vrtmcore &
+        	nohup ./vrtmcore > /var/log/vrtm/vrtm_crash.log 2>&1 &
 		sleep 5
 	}
 	
@@ -428,7 +429,7 @@ function createvRTMStartScript()
         export RPCORE_PORT=16005
         export LD_LIBRARY_PATH=\"$INSTALL_DIR/vrtm/lib:$LD_LIBRARY_PATH\"
         cd \"$INSTALL_DIR/vrtm/bin\"
-        nohup ./vrtm_listener &
+        nohup ./vrtm_listener > /var/log/vrtm/vrtm_listener_crash.log 2>&1 &
 		echo \$! > \$RPLISTENER_PID_FILE
     }
     installMonitFile()
