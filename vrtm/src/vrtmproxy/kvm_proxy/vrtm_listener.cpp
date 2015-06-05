@@ -22,7 +22,6 @@ VM’s UUID to clean up the VM’s record in RPCore.
 #include <pthread.h>
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
-#include <config.h>
 #include <map>
 #include <iostream>
 #include "tcpchan.h"
@@ -53,7 +52,6 @@ VM’s UUID to clean up the VM’s record in RPCore.
 typedef unsigned char byte;
 #endif
 
-static int fd1;
 virConnectPtr dconn = NULL;
 int g_fd = 0;
 int run = 1;
@@ -85,7 +83,7 @@ static int domainEventCallback(virConnectPtr conn ATTRIBUTE_UNUSED, virDomainPtr
 
     int eventType = (virDomainEventType) event;
     bool notifyRPCore = false;
-    LOG_TRACE("");
+    LOG_TRACE("Received event call back from Libvirt");
     /*
     check the event type for the event received from libvirt, if it indicated shutdown/failure/crash of the VM 
     then send request to RPCore to delete the entry for this VM from RPCore
@@ -108,7 +106,7 @@ static int domainEventCallback(virConnectPtr conn ATTRIBUTE_UNUSED, virDomainPtr
     } else if (eventType == VIR_DOMAIN_CRASHED) {
         notifyRPCore = true;
     } else if (eventType == VIR_DOMAIN_EVENT_STARTED) {
-		LOG_INFO( "In VIR_DOMAIN_EVENT_STARTED event");
+		LOG_INFO( "Received VIR_DOMAIN_EVENT_STARTED event");
 		char vm_uuid[UUID_LENGTH+1];
 		std::string vm_name_str(virDomainGetName(dom));
 		LOG_TRACE( "VM Name: %s", vm_name_str.c_str());
@@ -134,20 +132,20 @@ static int domainEventCallback(virConnectPtr conn ATTRIBUTE_UNUSED, virDomainPtr
 
 static void connectClose(virConnectPtr conn ATTRIBUTE_UNUSED, int reason, 
                             void *opaque ATTRIBUTE_UNUSED) {
-	LOG_TRACE("");
+	LOG_TRACE("Connect Close called with reason: %d", reason);
     run = 0;
 }
 
 static void freeFunc(void *opaque) {
     char *str = opaque;
-    LOG_TRACE("");
+    LOG_TRACE("Free func get called with value %s", str);
     free(str);
 }
 
 
 static void stopOnSignal(int sig) {
 
-	LOG_TRACE( "Exiting on signal %d", sig);
+	LOG_INFO( "Exiting on signal %d", sig);
     run = 0;
 }
 
@@ -157,36 +155,42 @@ void* listen_libvirt_events( void* input) {
     struct sigaction action_stop;
     memset(&action_stop, 0, sizeof(action_stop));
     action_stop.sa_handler = stopOnSignal;
-    LOG_TRACE("");
+    LOG_TRACE("Registering for listening to Libvirt events");
+
+    LOG_TRACE("Call virInitialize");
     if (virInitialize() < 0) {
-        LOG_ERROR("listen_libvirt_events(): Failed to initialize libvirt");
+        LOG_ERROR("Failed to initialize libvirt");
 		exit_status = 1;
         return 1;
     }
 
+    LOG_TRACE("Call virEventRegisterDefaultImpl");
     if (virEventRegisterDefaultImpl() < 0) {
         virErrorPtr err = virGetLastError();
-        LOG_ERROR("listen_libvirt_events(): Failed to register event implementation: %s",
+        LOG_ERROR("Failed to register event implementation: %s",
                 err && err->message ? err->message: "Unknown error");
 		exit_status = 1;
         return 1;
     }
 
+    LOG_TRACE("Call virConnectOpenAuth");
     dconn = virConnectOpenAuth(NULL, virConnectAuthPtrDefault, VIR_CONNECT_RO);
     if (!dconn) {
-    	LOG_ERROR( "listen_libvirt_events(): error opening vir");
+    	LOG_ERROR( "Error opening vir using virConnectOpenAuth");
 		exit_status = 1;
         return 1;
     }
 
+    LOG_TRACE("Register close callback");
     virConnectRegisterCloseCallback(dconn, connectClose, NULL, NULL);
     sigaction(SIGTERM, &action_stop, NULL);
     sigaction(SIGINT, &action_stop, NULL);
 
+    LOG_TRACE("Register domain event callback");
     if ( !virConnectDomainEventRegister(dconn, domainEventCallback, strdup("callback"), freeFunc)) {
         if (virConnectSetKeepAlive(dconn, 5, 3) < 0) {
             virErrorPtr err = virGetLastError();
-            LOG_ERROR( "listen_libvirt_events(): Failed to start keepalive protocol: %s",
+            LOG_ERROR( "Failed to start keepalive protocol: %s",
                     err && err->message ? err->message : "Unknown error");
             run = 0;
         }
@@ -194,26 +198,28 @@ void* listen_libvirt_events( void* input) {
         while (run) {
             if (virEventRunDefaultImpl() < 0) {
                 virErrorPtr err = virGetLastError();
-                LOG_ERROR("listen_libvirt_events(): Failed to run event loop: %s",
+                LOG_ERROR("Failed to run event loop: %s",
                         err && err->message ? err->message : "Unknown error");
             }
         }
+        LOG_TRACE("Deregistering domain event listener");
         virConnectDomainEventDeregister(dconn, domainEventCallback);
     }
 
     virConnectUnregisterCloseCallback(dconn, connectClose);
     VIR_DEBUG("listen_libvirt_events(): Closing connection");
-    LOG_DEBUG("listen_libvirt_events(): Closing connection");
+    LOG_DEBUG("Closing connection");
     if (dconn && virConnectClose(dconn) < 0) {
-        LOG_ERROR( "listen_libvirt_events(): error closing vir connection");
+        LOG_ERROR( "Error closing vir connection");
     }
 	exit_status = 1;
     return 0;
 }
 
-// send request to RPCore to replace the dom id with actual VM UUID in RPCore data structures
+// send request to vRTM to map rp_domid with actual VM UUID in vRTM data structures
 int map_rpid_uuid(int rpid, char* uuid) {
-    
+   
+    int fd1; 
     char buf[32] = {0};
     int err = -1;
     int retval;
@@ -223,18 +229,19 @@ int map_rpid_uuid(int rpid, char* uuid) {
     tcBuffer*   pReq= (tcBuffer*) rgBuf;
     char*       vdi_uuid = ""; 
 
-    LOG_TRACE("");
+    LOG_TRACE("Start mapping rp_domid %d with vm UUID %s", rpid, uuid);
     sprintf(buf, "%d", rpid);
-    LOG_TRACE( "map_rpid_uuid(): Opening channel ..");
+    LOG_TRACE( "Opening channel with vRTM");
 
     if (!fd1)
         fd1 = channel_open();
 
     if(fd1 < 0) {
-        LOG_ERROR( "map_rpid_uuid(): Open error channel: %s", strerror(errno));
+        LOG_ERROR( "Error while openning channel: %s", strerror(errno));
         return -1;
     }
-
+    
+    LOG_TRACE("Prepare request data");
     //create and send the request to RPCore over the channel
     size = sizeof(tcBuffer);
     size= encodeVM2RP_SETUUID (buf, uuid, vdi_uuid, PARAMSIZE -size, (byte*)&rgBuf[size]);
@@ -245,40 +252,42 @@ int map_rpid_uuid(int rpid, char* uuid) {
     //pReq->m_origprocid= 0;
     pReq->m_reqSize= size;
 
-    LOG_DEBUG("map_rpid_uuid():Sending request size %d \n %s",
+    LOG_DEBUG("Sending request size: %d \n Payload: %s",
                 size + sizeof(tcBuffer), &rgBuf[20]);
     
     err = ch_write(fd1, rgBuf, size + sizeof(tcBuffer) );
     if (err < 0){
-        LOG_ERROR("map_rpid_uuid():write error: %s", strerror(errno));
-	retval = 0;
+        LOG_ERROR("Write error: %s", strerror(errno));
+        retval = 0;
         goto fail;
     }
 
     memset(rgBuf, 0, sizeof(rgBuf));
-    LOG_INFO( "map_rpid_uuid():Sent request ..........");
-    
+    LOG_TRACE( "Request sent successfully");
+    LOG_TRACE( "Reading from socket for response");
+
 again:  
     err = ch_read(fd1, rgBuf, sizeof(rgBuf));
     if (err < 0){
+        LOG_TRACE("Read error: %d", errno);
         if (errno == 11) {
+            LOG_TRACE("Retrying to read from socket");
             sleep(1);
             goto again;
         }
 
-        LOG_ERROR( "map_rpid_uuid():read error:%d  %s", errno, strerror(errno));
-	retval = 0;
+        LOG_ERROR( "Read error:%d  %s", errno, strerror(errno));
+        retval = 0;
         goto fail;
     }
 
-
-    LOG_DEBUG( "map_rpid_uuid():Response  from server status %d return %d",
+    LOG_DEBUG( "Response from vRTM. status: %d return: %d",
                 pReq->m_ustatus, *(int*) &rgBuf[sizeof(tcBuffer)]);
 
     if(pReq->m_ustatus == 0)
-        LOG_INFO( "map_rpid_uuid():mapping uuid was successfull for VM uuid %s", uuid);
+        LOG_INFO( "Mapping uuid was successfull for VM uuid %s", uuid);
     else {
-        LOG_ERROR( "map_rpid_uuid():mapping uuid failed for VM uuid %s", uuid);
+        LOG_ERROR( "Mapping uuid failed for VM uuid %s", uuid);
         return -1;
     }
 
@@ -286,75 +295,81 @@ again:
     //return retval;
 
 fail:
+    LOG_TRACE("Closing channel");
     if ( fd1 >= 0)
         ch_close (fd1);
     fd1 = 0;
     return retval;
 }
 
-// Send request to RPCore to remove the entry for a particular VM
+// Send request to vRTM to remove the entry for a particular VM
 int delete_rp_uuid(char* uuid) {
     
+    int fd1;
     int err = -1;
     int retval;
     
     int         size= PARAMSIZE;
     byte        rgBuf[PARAMSIZE];
     tcBuffer*   pReq= (tcBuffer*) rgBuf;
-    LOG_TRACE( "delete_rp_uuid(): Opening channel .. ");
-
+    
+    LOG_TRACE( "Opening channel with vRTM to delete UUID mapping for UUID = %s ", uuid);
     if (!fd1)
         fd1 = channel_open();
 
     if(fd1 < 0)
     {
-            LOG_ERROR( "delete_rp_uuid(): Open error channel: %s", strerror(errno));
+            LOG_ERROR( "Error while opening channel: %s", strerror(errno));
             return -1;
     }
 
     //create and send the request to RPCore over the channel
+    LOG_TRACE("Prepare request data");
     size = sizeof(tcBuffer);
     size= encodeVM2RP_TERMINATEAPP (strlen(uuid), uuid, PARAMSIZE -size, (byte*)&rgBuf[size]);
 
 //    pReq->m_procid= 0;
-    pReq->m_reqID=  VM2RP_TERMINATEAPP ;
+    pReq->m_reqID=  VM2RP_TERMINATEAPP;
     pReq->m_ustatus= 0;
     //pReq->m_origprocid= 0;
     pReq->m_reqSize= size;
 
-    LOG_DEBUG( "delete_rp_uuid(): Requesting rpcore to remove entry for vm with uuid %s", uuid);
-    LOG_TRACE( "delete_rp_uuid(): Sending request size %d \n %s",
+    LOG_DEBUG( "Requesting rpcore to remove entry for vm with uuid %s", uuid);
+    LOG_TRACE( "Sending request size: %d \n Payload: %s",
                 size + sizeof(tcBuffer), &rgBuf[20]);
     
     err = ch_write(fd1, rgBuf, size + sizeof(tcBuffer) );
     if (err < 0){
-        LOG_ERROR( "delete_rp_uuid(): write error: %s", strerror(errno));
-	retval = -1;
+        LOG_ERROR( "Socket write error: %s", strerror(errno));
+        retval = -1;
         goto fail;
     }
 
     memset(rgBuf, 0, sizeof(rgBuf));
-    LOG_TRACE( "delete_rp_uuid(): Sent request ..........\n");
+    LOG_TRACE( "Request sent successfully");
+    LOG_TRACE( "Reading from socket for response");
     
 again:  
     err = ch_read(fd1, rgBuf, sizeof(rgBuf));
     if (err < 0){
+        LOG_TRACE("Read error: %d", errno);
         if (errno == 11) {
+            LOG_TRACE("Retrying to read from socket");
             sleep(1);
             goto again;
         }
 
-        LOG_ERROR("delete_rp_uuid(): read error:%d  %s\n", errno, strerror(errno));
-	retval = -1;
+        LOG_ERROR("Read error: %d  %s\n", errno, strerror(errno));
+        retval = -1;
         goto fail;
     }
 
-    LOG_DEBUG( "delete_rp_uuid(): Response  from server status %d return %d\n", pReq->m_ustatus, *(int*) &rgBuf[sizeof(tcBuffer)]);
+    LOG_DEBUG( "Response from vRTM. status: %d return: %d\n", pReq->m_ustatus, *(int*) &rgBuf[sizeof(tcBuffer)]);
 
     if(pReq->m_ustatus == 0)
-        LOG_INFO( "delete_rp_uuid():deleting rpcore entry was successfull for VM uuid %s\n", uuid);
+        LOG_INFO( "Deleting VM entry from vRTM is successful for VM uuid %s\n", uuid);
     else {
-        LOG_ERROR( "map_rpid_uuid():deleting rpcore entry failed for VM uuid %s\n", uuid);
+        LOG_ERROR( "Deleting VM entry from vRTM is failed for VM uuid %s\n", uuid);
         return -1;
     }
 
@@ -362,17 +377,18 @@ again:
     //return retval;
 
 fail:
-    if ( fd1 >= 0)
+    LOG_TRACE("Closing channel");
+    if (fd1 >= 0)
         ch_close (fd1);
     fd1 = 0;
     return retval;
 }
 
-// wrapper on map_rpid_uuid. 
-// get VM UUID using VM name and call the function to replace the domid with actual VM UUID.
+// Add VM name and rp_domid mapping in map for later use.
+// Once VM get launched this information will be used to update VM UUID - rp_domid mapping in vRTM
 void update_rp_domid(int rp_domid, char* vm_name) {
 	std::string vm_name_str(vm_name);
-	LOG_TRACE("");
+	LOG_DEBUG("Adding vm - rp_domid mapping in map for vm_name = %s and rp_domid = %d", vm_name, rp_domid);
 	rp_id_map[vm_name_str]=rp_domid; 
 }
 
@@ -388,79 +404,85 @@ void *conn_handler(void *socket_desc) {
     char    *resp;
     int     response = 1;
 
-    LOG_TRACE("");
+    LOG_TRACE("Start processing request in separate thread");
     resp = (char*) malloc(sizeof(int));
     memcpy(resp, &response, sizeof(int));
 
+    LOG_TRACE("Reading date from socket");
     if ((read_size = recv(sock, msg, MAX_MSG_SIZE, 0)) > 0 ) {
         memcpy(&rp_domid, msg, sizeof(int));
         memcpy(&name_len, &msg[sizeof(int)], sizeof(int));
         memcpy(&vm_name, &msg[2*sizeof(int)], name_len);
         vm_name[name_len] = '\0';
 
-        LOG_DEBUG("conn_handler(): rp_domid=%d, vm_name=%s", rp_domid, vm_name);
+        LOG_DEBUG("Received data from socket: rp_domid=%d, vm_name=%s", rp_domid, vm_name);
         update_rp_domid(rp_domid, vm_name);
+        LOG_DEBUG("Writing response to socket: Response=%d", resp);
         write(sock, resp, sizeof(int));
     }
      
     if (read_size == 0) {
-        LOG_INFO("conn_handler(): client disconnected");
+        LOG_INFO("Client disconnected");
     }
     else if (read_size == -1) {
-        LOG_ERROR( "conn_handler(): recv failed");
+        LOG_ERROR( "Recv failed");
     }
     free(socket_desc);
     free(resp);
     return 0;
 }
 
-// create a TCP server to listen to RP Proxy requests, this is a multithreaded server
+// create a TCP server to listen to vRTM Proxy requests, this is a multithreaded server
 // On receiving a request, create a thread and process it
 void* listen_rp_proxy_requests(void* data) {
 
     int socket_desc , client_sock , c , *new_sock;
     struct sockaddr_in server , client;
      
-    LOG_TRACE("");
+    LOG_TRACE("Thread started to start a socket");
     socket_desc = socket(AF_INET , SOCK_STREAM , 0);
 
     if (socket_desc == -1) {
-        LOG_ERROR( "listen_rp_proxy_requests(): could not create socket to listen");
+        LOG_ERROR( "Could not create socket to listen");
 		exit_status = 1;
     }
-     
+    LOG_TRACE("Socket has been created");
+ 
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_port = htons(TCP_LISTEN_PORT);
-     
+    
+    LOG_TRACE("Binding socket"); 
     if (bind(socket_desc, (struct sockaddr *)&server , sizeof(server)) < 0) {
-        LOG_ERROR("listen_rp_proxy_requests(): bind failed. Error");
+        LOG_ERROR("Bind failed");
+        LOG_ERROR("Exiting thread");
 		exit_status = 1;
         return 1;
     }
-     
+    LOG_TRACE("Binded successfully");
+
     listen(socket_desc, 10);
     c = sizeof(struct sockaddr_in);
 
-    LOG_TRACE("listen_rp_proxy_requests(): listening for new connections");
+    LOG_INFO("Listening for new requests from vRTM proxy");
 
     while ((client_sock = accept(socket_desc, (struct sockaddr *)&client, (socklen_t*)&c))) {
         
-        LOG_TRACE("listen_rp_proxy_requests(): connection accepted from client");
+        LOG_TRACE("Connection accepted from client");
         pthread_t th;
         new_sock = (int*) malloc(sizeof(int));
         *new_sock = client_sock;
          
         if (pthread_create(&th, NULL,  conn_handler, (void*)new_sock) < 0) {
-            LOG_ERROR( "listen_rp_proxy_requests(): failed to create thread");
-            return 1;
-        }
-        LOG_TRACE( "listen_rp_proxy_requests(): Handler assigned for tcp connection");
-        sleep(1);
+            LOG_ERROR("Failed to create thread. Request will not get processed");
+            LOG_INFO("Continue listening for next request");
+        } 
+        else
+            LOG_TRACE( "Handler assigned for processing request");
     }
      
     if (client_sock < 0) {
-        LOG_ERROR( "listen_rp_proxy_requests(): accept failed");
+        LOG_ERROR( "Accept failed");
 		exit_status = 1;
         return 1;
     }
@@ -470,9 +492,6 @@ void* listen_rp_proxy_requests(void* data) {
 
 
 int main() {
-
-    /*if (init_pyifc("rppy_ifc") < 0 )
-        return -1;*/
 
     struct sigaction sigAct;
     memset(&sigAct, 0, sizeof(sigAct));
@@ -486,7 +505,7 @@ int main() {
     //set same logger instance in rp_channel
     set_logger_vrtmchannel(rootLogger);
 
-    LOG_TRACE("");
+    LOG_TRACE("Logger initialized");
     int sigRv = sigaction(SIGCHLD, &sigAct, NULL);
 
     if (sigRv < 0) {
@@ -498,26 +517,26 @@ int main() {
     pthread_t th1, th2;
 
     // create a thread to start TCP server to listen requests from RP Proxy
+    LOG_DEBUG("Creating a thread to start listening on socket");
     if (pthread_create(&th1, NULL, &listen_rp_proxy_requests, NULL) < 0) {
-        LOG_ERROR( "failed to create thread");
-	closeLog();
+        LOG_ERROR( "Failed to create thread for listening on socket");
+        closeLog();
         return 1;
     } else
-        LOG_TRACE( "created thread for listening rp_proxy requests\n");
+        LOG_TRACE( "Created thread for to start listening rp_proxy requests on socket");
 
     // create a thread to listen libvirt events
+    LOG_DEBUG("Creating a thread to listen to Libvirt events");
     if (pthread_create(&th2, NULL, &listen_libvirt_events, NULL) < 0) {
-        LOG_ERROR( "failed to create thread\n");
+        LOG_ERROR( "Failed to create thread to listen to Libvirt events");
 	closeLog();
         return 1;
     } else
-        LOG_TRACE( "created thread for listening libvirt events\n");
+        LOG_INFO("Created a thread for listening libvirt events");
 
     while(!exit_status) {
         sleep(1);
     }
-
-    //deinit_pyifc();
 
     return 0;
 }
