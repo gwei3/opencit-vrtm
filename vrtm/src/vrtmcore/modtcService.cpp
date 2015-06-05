@@ -511,7 +511,8 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 //	sprintf(vm_manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
 	sprintf(filepath, "%ssigned_report.xml", vm_manifest_dir);
 	fp = fopen(filepath, "w");
-	LOG_INFO("\n\nSingned xml report : %s\n", xmlstr);
+	//This log comment cause crash 
+	//LOG_INFO("\n\nSingned xml report : %s\n", xmlstr);
 	fprintf(fp, "%s", xmlstr);
 	fclose(fp);
 	//system ("rm us_xml.xml hash.sig hash.input");

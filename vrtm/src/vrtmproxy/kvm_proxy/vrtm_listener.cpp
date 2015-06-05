@@ -219,7 +219,7 @@ void* listen_libvirt_events( void* input) {
 // send request to vRTM to map rp_domid with actual VM UUID in vRTM data structures
 int map_rpid_uuid(int rpid, char* uuid) {
    
-    int fd1; 
+    int fd1=0; 
     char buf[32] = {0};
     int err = -1;
     int retval;
@@ -233,8 +233,7 @@ int map_rpid_uuid(int rpid, char* uuid) {
     sprintf(buf, "%d", rpid);
     LOG_TRACE( "Opening channel with vRTM");
 
-    if (!fd1)
-        fd1 = channel_open();
+    fd1 = channel_open();
 
     if(fd1 < 0) {
         LOG_ERROR( "Error while openning channel: %s", strerror(errno));
@@ -305,7 +304,7 @@ fail:
 // Send request to vRTM to remove the entry for a particular VM
 int delete_rp_uuid(char* uuid) {
     
-    int fd1;
+    int fd1 = 0;
     int err = -1;
     int retval;
     
@@ -314,8 +313,7 @@ int delete_rp_uuid(char* uuid) {
     tcBuffer*   pReq= (tcBuffer*) rgBuf;
     
     LOG_TRACE( "Opening channel with vRTM to delete UUID mapping for UUID = %s ", uuid);
-    if (!fd1)
-        fd1 = channel_open();
+    fd1 = channel_open();
 
     if(fd1 < 0)
     {
