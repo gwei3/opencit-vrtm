@@ -332,7 +332,7 @@ function installRPProxyAndListner()
 		echo "RP-Proxy binary is already updated, might be old and will be replaced" 
 	else
 		echo "Backup of /usr/bin/qemu-system-x86_64 taken"
-		cp "$QEMU_INSTALL_LOCATION" /usr/bin/qemu-system-x86_64_orig
+		cp --preserve=all "$QEMU_INSTALL_LOCATION" /usr/bin/qemu-system-x86_64_orig
 	fi
 	cp "$INSTALL_DIR/rpcore/bin/debug/rp_proxy" "$QEMU_INSTALL_LOCATION"
 	
