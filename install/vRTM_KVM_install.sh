@@ -309,18 +309,20 @@ function installvrtmProxyAndListner()
 	fi
 
 	chmod +x "$QEMU_INSTALL_LOCATION"
-	touch $LOG_DIR/vrtm_proxy.log
-	chmod 666 $LOG_DIR/vrtm_proxy.log
-	chown nova:nova $LOG_DIR/rp_proxy.log
+	#touch $LOG_DIR/vrtm_proxy.log
+	#chmod 666 $LOG_DIR/vrtm_proxy.log
+	#chown nova:nova $LOG_DIR/vrtm_proxy.log
 	cp "$INSTALL_DIR/vrtm/lib/libvrtmchannel-g.so" /usr/local/lib
 	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
 		selinuxenabled
 		if [ $? -eq 0 ] ; then
 			echo "Updating the selinux policies for vRTM files"
-			 semanage fcontext -a -t virt_log_t $LOG_DIR/vrtm_proxy.log
-			 restorecon -v $LOG_DIR/vrtm_proxy.log
+			 #semanage fcontext -a -t virt_log_t $LOG_DIR/vrtm_proxy.log
+			 semanage fcontext -a -t virt_log_t $LOG_DIR
+			 #restorecon -v $LOG_DIR/vrtm_proxy.log
+			 restorecon -v $LOG_DIR
 			 semanage fcontext -a -t virt_log_t /opt/vrtm/configuration/vrtm_proxylog.properties
-                         restorecon -v /opt/vrtm/configuration/vrtm_proxylog.properties
+             restorecon -v /opt/vrtm/configuration/vrtm_proxylog.properties
 			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
 			 restorecon -v "$QEMU_INSTALL_LOCATION"
 			 semanage fcontext -a -t qemu_exec_t /usr/local/lib/libvrtmchannel-g.so
@@ -350,7 +352,8 @@ function installvrtmProxyAndListner()
 
 function startNonTPMRpCore()
 {
-        /usr/local/bin/vrtm stop
+    /usr/local/bin/vrtm stop
+    sleep 5
 	echo "Starting non-TPM vrtmCORE...."
 	/usr/local/bin/vrtm start
 
