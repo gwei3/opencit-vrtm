@@ -13,6 +13,8 @@ LINUX_FLAVOUR="ubuntu"
 NON_TPM="false"
 BUILD_LIBVIRT="FALSE"
 KVM_BINARY=""
+LOG_DIR="/var/log/vrtm"
+VERSION_INFO_FILE=vrtm.version
 
 # This function returns either rhel fedora ubuntu suse
 # TODO : This function can be moved out to some common file
@@ -73,15 +75,15 @@ function updateFlavourVariables()
 function untarResources()
 {
 	cd "$RES_DIR"
-	cp KVM_*.tar.gz "$INSTALL_DIR"
+	cp KVM_install.tar.gz "$INSTALL_DIR"
 	cd "$INSTALL_DIR"
-	tar xvzf *.tar.gz
+	tar xvzf KVM_install.tar.gz
         if [ $? -ne 0 ]; then
                 echo "ERROR : Untarring of $RES_DIR/*.tar.gz unsuccessful"
                 exit
         fi
 	chmod 755 "$INSTALL_DIR/vrtm"
-	rm KVM_*.tar.gz 
+	rm -rf KVM_install.tar.gz
 }
 
 function installKVMPackages_rhel()
@@ -292,7 +294,7 @@ function installvrtmProxyAndListner()
 		echo "vrtm-Proxy binary is already updated, might be old and will be replaced" 
 	else
 		echo "Backup of /usr/bin/qemu-system-x86_64 taken"
-		cp "$QEMU_INSTALL_LOCATION" /usr/bin/qemu-system-x86_64_orig
+		cp --preserve=all "$QEMU_INSTALL_LOCATION" /usr/bin/qemu-system-x86_64_orig
 	fi
 	cp "$INSTALL_DIR/vrtm/bin/vrtm_proxy" "$QEMU_INSTALL_LOCATION"
 	
@@ -307,37 +309,52 @@ function installvrtmProxyAndListner()
 	fi
 
 	chmod +x "$QEMU_INSTALL_LOCATION"
-	#touch /var/log/rp_proxy.log
-	#chmod 666 /var/log/rp_proxy.log
-	#chown nova:nova /var/log/rp_proxy.log
-	#cp "$INSTALL_DIR/vrtm/bin/scripts/rppy_ifc.py" $DIST_LOCATION/.
-	#chmod 754 "$DIST_LOCATION/rppy_ifc.py"
+	touch $LOG_DIR/vrtm_proxy.log
+	chmod 666 $LOG_DIR/vrtm_proxy.log
+	chown nova:nova $LOG_DIR/rp_proxy.log
 	cp "$INSTALL_DIR/vrtm/lib/libvrtmchannel-g.so" /usr/local/lib
 	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
 		selinuxenabled
 		if [ $? -eq 0 ] ; then
 			echo "Updating the selinux policies for vRTM files"
-			 semanage fcontext -a -t virt_log_t /var/log/vrtm/vrtm_proxy.log 
-			 restorecon -v /var/log/vrtm/vrtm_proxy.log
+			 semanage fcontext -a -t virt_log_t $LOG_DIR/vrtm_proxy.log
+			 restorecon -v $LOG_DIR/vrtm_proxy.log
 			 semanage fcontext -a -t virt_log_t /opt/vrtm/configuration/vrtm_proxylog.properties
                          restorecon -v /opt/vrtm/configuration/vrtm_proxylog.properties
 			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
 			 restorecon -v "$QEMU_INSTALL_LOCATION"
 			 semanage fcontext -a -t qemu_exec_t /usr/local/lib/libvrtmchannel-g.so
 			 restorecon -v /usr/local/lib/libvrtmchannel-g.so
+                         echo " 
+                               module svirt_for_links 1.0;
+                                
+                               require {
+                               type nova_var_lib_t;
+                               type svirt_t;
+                               class lnk_file read;
+                               }
+                               #============= svirt_t ==============
+                               allow svirt_t nova_var_lib_t:lnk_file read;
+                          " > svirt_for_links.te
+                          /usr/bin/checkmodule -M -m -o svirt_for_links.mod svirt_for_links.te
+                          /usr/bin/semodule_package -o svirt_for_links.pp -m svirt_for_links.mod
+                          /usr/sbin/semodule -i svirt_for_links.pp
+						  rm -rf svirt_for_links.mod svirt_for_links.pp svirt_for_links.te
 		else
 			echo "WARN : Selinux is disabled, enabling SELinux later will conflict vRTM"
 		fi
 	fi
 	ldconfig
 	cd "$INSTALL_DIR"
-
 }
 
 function startNonTPMRpCore()
 {
+        /usr/local/bin/vrtm stop
 	echo "Starting non-TPM vrtmCORE...."
 	/usr/local/bin/vrtm start
+
+	/usr/local/bin/vrtmlistener stop
 	echo "Starting vrtm_listener...."
 	/usr/local/bin/vrtmlistener start
 }
@@ -371,13 +388,8 @@ function createvRTMStartScript()
 	startVrtm()
 	{
 		chown -R nova:nova /var/run/libvirt/
-	        export RPCORE_IPADDR=$CURRENT_IP
-        	export RPCORE_PORT=16005
-        	#cp -r \"$INSTALL_DIR/vrtm/rptmp\" /tmp
-		#cp /tmp/rptmp/config/TrustedOS/privatekey /tmp/rptmp/config/TrustedOS/privatekey.pem
         	cd \"$INSTALL_DIR/vrtm/bin\"
         	nohup ./vrtmcore > /var/log/vrtm/vrtm_crash.log 2>&1 &
-		sleep 5
 	}
 	
 	case \"\$1\" in
@@ -394,8 +406,11 @@ function createvRTMStartScript()
 	        echo \"Stopping all vrtm processes (if any ) ...\"
 	        pkill -9 vrtmcore
 	   ;;
+	 version)
+		cat \"$INSTALL_DIR/$VERSION_INFO_FILE\"
+	   ;;
 	 *)
-	   echo \"Usage: {start|stop}\" >&2
+	   echo \"Usage: {start|stop|version}\" >&2
 	   exit 3
 	   ;;
 	esac
@@ -404,9 +419,9 @@ function createvRTMStartScript()
 	rm -rf /usr/local/bin/vrtm
 	ln -s "$VRTM_SCRIPT" /usr/local/bin/vrtm
 
-	vrtm_LISTNER_SCRIPT="$INSTALL_DIR/vrtm/scripts/vrtmlistener.sh"
-	echo "Creating the startup script.... $vrtm_LISTNER_SCRIPT"
-	touch $vrtm_LISTNER_SCRIPT
+	VRTM_LISTNER_SCRIPT="$INSTALL_DIR/vrtm/scripts/vrtmlistener.sh"
+	echo "Creating the startup script.... $VRTM_LISTNER_SCRIPT"
+	touch $VRTM_LISTNER_SCRIPT
 	echo "#!/bin/bash
 
 ### BEGIN INIT INFO
@@ -425,12 +440,9 @@ function createvRTMStartScript()
 
     startRpListner()
     {
- 		export RPCORE_IPADDR=$CURRENT_IP
-        export RPCORE_PORT=16005
-        export LD_LIBRARY_PATH=\"$INSTALL_DIR/vrtm/lib:$LD_LIBRARY_PATH\"
         cd \"$INSTALL_DIR/vrtm/bin\"
         nohup ./vrtm_listener > /var/log/vrtm/vrtm_listener_crash.log 2>&1 &
-		echo \$! > \$RPLISTENER_PID_FILE
+	echo \$! > \$RPLISTENER_PID_FILE
     }
     installMonitFile()
 	{
@@ -467,15 +479,18 @@ function createvRTMStartScript()
 				rm -rf /etc/monit/conf.d/vrtmlistener.monit
 				service monit restart > /dev/null 2>&1 &
            ;;
+         version)
+                cat \"$INSTALL_DIR/$VERSION_INFO_FILE\"
+           ;;
          *)
-           echo \"Usage: {start|stop}\" 
+           echo \"Usage: {start|stop|version}\" 
            exit 3
            ;;
         esac
-        " > "$vrtm_LISTNER_SCRIPT"
-        chmod +x "$vrtm_LISTNER_SCRIPT"
+        " > "$VRTM_LISTNER_SCRIPT"
+        chmod +x "$VRTM_LISTNER_SCRIPT"
         rm -rf /usr/local/bin/vrtmlistener
-        ln -s "$vrtm_LISTNER_SCRIPT" /usr/local/bin/vrtmlistener
+        ln -s "$VRTM_LISTNER_SCRIPT" /usr/local/bin/vrtmlistener
 }
 
 function validate()
@@ -571,11 +586,13 @@ function install_log4cpp()
 function main_default()
 {
   if [ -z "$INSTALL_DIR" ]; then
-  #  BUILD_TIMESTAMP=`ls KVM_*.tar.gz | awk 'BEGIN{FS="_"} {print $3}' | awk 'BEGIN{FS="."}{print $2}'`
     INSTALL_DIR="$DEFAULT_INSTALL_DIR"
   fi
   mkdir -p "$INSTALL_DIR"
   
+  mkdir -p "$LOG_DIR" 
+  chmod 777 "$LOG_DIR"
+ 
 	FLAVOUR=`getFlavour`
 	updateFlavourVariables
         cd "$INSTALL_DIR"
@@ -599,15 +616,14 @@ function main_default()
         install_log4cpp
 	
 	echo "Creating Log directory for VRTM..."
-        mkdir -p /var/log/vrtm/
-        chmod 777 /var/log/vrtm/
 
 	echo "Installing vrtmcore ..."
-	startNonTPMRpCore
 
 	echo "Installing vrtmProxy and vrtmListener..."
 	installvrtmProxyAndListner
 	
+	startNonTPMRpCore
+
     #verifier symlink
     tbootxmVerifier="/opt/tbootxm/bin/verifier"
     vrtmVerifier="$INSTALL_DIR/vrtm/bin/verifier"

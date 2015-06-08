@@ -23,6 +23,7 @@
 # and it is not saved or used by the app script
 export VRTM_HOME=${VRTM_HOME:-/opt/vrtm}
 VRTM_LAYOUT=${VRTM_LAYOUT:-home}
+VRTM_VERSION_FILE=vrtm.version
 
 # the env directory is not configurable; it is defined as VRTM_HOME/env and
 # the administrator may use a symlink if necessary to place it anywhere else
@@ -146,6 +147,8 @@ chmod 700 $VRTM_HOME/bin/*.sh
 chmod 700 $VRTM_HOME/dist/*.sh
 
 (cd $VRTM_HOME/dist && ./vRTM_KVM_install.sh)
+cp $VRTM_HOME/dist/$VRTM_VERSION_FILE $VRTM_HOME/.
+
 rm -rf /$VRTM_HOME/dist
 
 #Register vRTM start script

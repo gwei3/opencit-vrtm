@@ -359,8 +359,6 @@ function main()
 	echo "Building VRTMListener binaries..."
 	buildvrtmlistener
 
-	BUILD_VER=`date +%Y%m%d%H%M%S`
-	BUILD_VER=$FLAVOUR.$BUILD_VER
 	grep -i ' error' "$BUILD_DIR/outfile"
 	
 	echo "Verifying for any errors, please verify the output below : "
@@ -374,8 +372,8 @@ function main()
 		echo "Removing libvirt.so ..."
 		rm -rf ./vrtm/lib/libvirt.so	
 	fi
-        tar czf KVM_install_$BUILD_VER.tar.gz $PACKAGE
-        mv KVM_install_$BUILD_VER.tar.gz "$DIST_DIR"
+        tar czf KVM_install.tar.gz $PACKAGE
+        mv KVM_install.tar.gz "$DIST_DIR"
         cp install/vRTM_KVM_install.sh "$DIST_DIR"
 	tr -d '\r' < "$DIST_DIR/vRTM_KVM_install.sh" > /tmp/output.file
 	mv /tmp/output.file "$DIST_DIR/vRTM_KVM_install.sh"
@@ -384,7 +382,7 @@ function main()
 
 	if [ $arg -eq 0 ]
 	then
-	    echo "Build KVM_install_$BUILD_VER.tar.gz created successfully !!"
+	    echo "Build KVM_install.tar.gz created successfully !!"
 	else
 	    echo "Verifying for any errors, please verify the output below : "
 	    echo Install tar file has been created but it might might has some errors. Please see $BUILD_DIR/outfile file.

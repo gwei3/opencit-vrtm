@@ -58,8 +58,8 @@ int run = 1;
 int delete_rp_uuid(char*);
 int map_rpid_uuid(int, char*);
 std::map<std::string, int> rp_id_map;
-static int exit_status = 0;
-
+static int exit_status = 1;
+static int sleep_duration_sec = 5;
 
 int channel_open() {
     int fd = -1;
@@ -147,6 +147,7 @@ static void stopOnSignal(int sig) {
 
 	LOG_INFO( "Exiting on signal %d", sig);
     run = 0;
+    exit_status=0;
 }
 
 // register with libvirt and listen to libvirt events
@@ -158,61 +159,64 @@ void* listen_libvirt_events( void* input) {
     LOG_TRACE("Registering for listening to Libvirt events");
 
     LOG_TRACE("Call virInitialize");
-    if (virInitialize() < 0) {
-        LOG_ERROR("Failed to initialize libvirt");
-		exit_status = 1;
-        return 1;
-    }
+    while(exit_status) {
+        if (virInitialize() < 0) {
+            LOG_ERROR("Failed to initialize libvirt");
+            goto retry;
+        }
 
-    LOG_TRACE("Call virEventRegisterDefaultImpl");
-    if (virEventRegisterDefaultImpl() < 0) {
-        virErrorPtr err = virGetLastError();
-        LOG_ERROR("Failed to register event implementation: %s",
-                err && err->message ? err->message: "Unknown error");
-		exit_status = 1;
-        return 1;
-    }
-
-    LOG_TRACE("Call virConnectOpenAuth");
-    dconn = virConnectOpenAuth(NULL, virConnectAuthPtrDefault, VIR_CONNECT_RO);
-    if (!dconn) {
-    	LOG_ERROR( "Error opening vir using virConnectOpenAuth");
-		exit_status = 1;
-        return 1;
-    }
-
-    LOG_TRACE("Register close callback");
-    virConnectRegisterCloseCallback(dconn, connectClose, NULL, NULL);
-    sigaction(SIGTERM, &action_stop, NULL);
-    sigaction(SIGINT, &action_stop, NULL);
-
-    LOG_TRACE("Register domain event callback");
-    if ( !virConnectDomainEventRegister(dconn, domainEventCallback, strdup("callback"), freeFunc)) {
-        if (virConnectSetKeepAlive(dconn, 5, 3) < 0) {
+        LOG_TRACE("Call virEventRegisterDefaultImpl");
+        if (virEventRegisterDefaultImpl() < 0) {
             virErrorPtr err = virGetLastError();
-            LOG_ERROR( "Failed to start keepalive protocol: %s",
-                    err && err->message ? err->message : "Unknown error");
-            run = 0;
+            LOG_ERROR("Failed to register event implementation: %s",
+                err && err->message ? err->message: "Unknown error");
+            goto retry;
+        }
+        LOG_TRACE("Call virConnectOpenAuth");
+
+        dconn = virConnectOpenAuth(NULL, virConnectAuthPtrDefault, VIR_CONNECT_RO);
+        if (!dconn) {
+    	    LOG_ERROR( "Error opening vir using virConnectOpenAuth");
+            goto retry;
         }
 
-        while (run) {
-            if (virEventRunDefaultImpl() < 0) {
+        LOG_TRACE("Register close callback");
+        virConnectRegisterCloseCallback(dconn, connectClose, NULL, NULL);
+        sigaction(SIGTERM, &action_stop, NULL);
+        sigaction(SIGINT, &action_stop, NULL);
+
+        LOG_TRACE("Register domain event callback");
+        if ( !virConnectDomainEventRegister(dconn, domainEventCallback, strdup("callback"), freeFunc)) {
+            if (virConnectSetKeepAlive(dconn, 5, 3) < 0) {
                 virErrorPtr err = virGetLastError();
-                LOG_ERROR("Failed to run event loop: %s",
-                        err && err->message ? err->message : "Unknown error");
+                LOG_ERROR( "Failed to start keepalive protocol: %s",
+                    err && err->message ? err->message : "Unknown error");
+                run = 0;
             }
+            LOG_TRACE("Polling to libvirt events");
+            while (run) {
+                if (virEventRunDefaultImpl() < 0) {
+                    virErrorPtr err = virGetLastError();
+                    LOG_ERROR("Failed to run event loop: %s",
+                            err && err->message ? err->message : "Unknown error");
+                }
+            }
+            LOG_TRACE("Deregistering domain event listener");
+            virConnectDomainEventDeregister(dconn, domainEventCallback);
         }
-        LOG_TRACE("Deregistering domain event listener");
-        virConnectDomainEventDeregister(dconn, domainEventCallback);
-    }
 
-    virConnectUnregisterCloseCallback(dconn, connectClose);
-    VIR_DEBUG("listen_libvirt_events(): Closing connection");
-    LOG_DEBUG("Closing connection");
-    if (dconn && virConnectClose(dconn) < 0) {
-        LOG_ERROR( "Error closing vir connection");
+        virConnectUnregisterCloseCallback(dconn, connectClose);
+        VIR_DEBUG("listen_libvirt_events(): Closing connection");
+        LOG_DEBUG("Closing connection");
+        if (dconn && virConnectClose(dconn) < 0) {
+            LOG_ERROR( "Error closing vir connection");
+        }
+        retry: 
+            LOG_INFO ("Will try to connect to libvirt again in %d seconds", sleep_duration_sec);
+            sleep(sleep_duration_sec);
+            run=1;
+            LOG_INFO("Retrying now...");
     }
-	exit_status = 1;
     return 0;
 }
 
@@ -442,7 +446,7 @@ void* listen_rp_proxy_requests(void* data) {
 
     if (socket_desc == -1) {
         LOG_ERROR( "Could not create socket to listen");
-		exit_status = 1;
+	exit_status = 0;
     }
     LOG_TRACE("Socket has been created");
  
@@ -454,7 +458,7 @@ void* listen_rp_proxy_requests(void* data) {
     if (bind(socket_desc, (struct sockaddr *)&server , sizeof(server)) < 0) {
         LOG_ERROR("Bind failed");
         LOG_ERROR("Exiting thread");
-		exit_status = 1;
+	exit_status = 0;
         return 1;
     }
     LOG_TRACE("Binded successfully");
@@ -481,7 +485,7 @@ void* listen_rp_proxy_requests(void* data) {
      
     if (client_sock < 0) {
         LOG_ERROR( "Accept failed");
-		exit_status = 1;
+	exit_status = 0;
         return 1;
     }
      
@@ -532,12 +536,11 @@ int main() {
     } else
         LOG_INFO("Created a thread for listening libvirt events");
 
-    while(!exit_status) {
+    while(exit_status) {
         sleep(1);
     }
-
+    // Give Libvirt event listener to exit gracefully
+    sleep(sleep_duration_sec);
     return 0;
 }
-
-
 
