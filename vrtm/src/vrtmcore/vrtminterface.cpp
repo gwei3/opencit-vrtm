@@ -19,7 +19,7 @@
 
 // -------------------------------------------------------------------
 
-
+#define __STDC_LIMIT_MACROS
 #include "jlmTypes.h"
 #include "logging.h"
 #include "tcIO.h"
@@ -39,6 +39,7 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <errno.h>
+#include <stdint.h>
 
 #ifdef LINUX
 #include <wait.h>
