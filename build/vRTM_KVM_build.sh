@@ -287,9 +287,9 @@ function log4cpp_inst_redhat()
                 exit -1
         fi
         rpmbuild --rebuild /tmp/log4cpp-1.0-13.el6_5.1.src.rpm
-        rpm -ivh ~/rpmbuild/RPMS/x86_64/log4cpp-1.0-13.el6_5.1.x86_64.rpm
+        rpm -ivh ~/rpmbuild/RPMS/x86_64/log4cpp-1.0-13.el6.1.x86_64.rpm
         #wget ftp://195.220.108.108/linux/centos/6.6/os/x86_64/Packages/log4cpp-devel-1.0-13.el6_5.1.x86_64.rpm
-        rpm -ivh ~/rpmbuild/RPMS/x86_64/log4cpp-devel-1.0-13.el6_5.1.x86_64.rpm
+        rpm -ivh ~/rpmbuild/RPMS/x86_64/log4cpp-devel-1.0-13.el6.1.x86_64.rpm
 	cd "$BUILD_DIR"
 }
 

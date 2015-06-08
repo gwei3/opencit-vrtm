@@ -513,11 +513,11 @@ function validate()
 
 function log4cpp_inst_ubuntu()
 {
-        echo "Installing log4cpp devel for Ubuntu..."
+        echo "Installing log4cpp for Ubuntu..."
         apt-get -y install liblog4cpp5
         if [ `echo $?` -ne 0 ]
         then
-                echo "Failed to install log4cpp devel..."
+                echo "Failed to install log4cpp..."
                 exit -1
         fi
         echo "Successfully installed log4cpp"
@@ -525,11 +525,11 @@ function log4cpp_inst_ubuntu()
 
 function log4cpp_inst_fedora()
 {
-        echo "Installing log4cpp devel for Fedora..."
+        echo "Installing log4cpp for Fedora..."
         yum install -y log4cpp.x86_64
         if [ `echo $?` -ne 0 ]
         then
-                echo "Failed to install log4cpp devel..."
+                echo "Failed to install log4cpp..."
                 exit -1
         fi
         echo "Successfully installed log4cpp"
@@ -537,39 +537,32 @@ function log4cpp_inst_fedora()
 
 function log4cpp_inst_redhat()
 {
-        echo "Installing log4cpp devel for Redhat..."
-        cd /tmp
-        #wget ftp://195.220.108.108/linux/centos/6.6/os/x86_64/Packages/log4cpp-1.0-13.el6_5.1.x86_64.rpm
-        wget http://ftp.redhat.com/pub/redhat/linux/enterprise/6Server/en/os/SRPMS/log4cpp-1.0-13.el6_5.1.src.rpm
-        if [ `echo $?` -eq 0 ]
-        then
-                echo "log4cpp devel is successfully downloaded..."
-        else
-                echo "failed to download src rpm"
-                cd "$BUILD_DIR"
-                exit -1
-        fi
-        rpmbuild --rebuild /tmp/log4cpp-1.0-13.el6_5.1.src.rpm
-        rpm -ivh ~/rpmbuild/RPMS/x86_64/log4cpp-1.0-13.el6_5.1.x86_64.rpm
-        cd "$BUILD_DIR"
+        echo "Installing log4cpp for Redhat..."
+         yum install -y log4cpp.x86_64
+         if [ `echo $?` -ne 0 ]
+         then
+                 echo "Failed to install log4cpp..."
+                 exit -1
+         fi
+         echo "Successfully installed log4cpp"
 }
 
 function log4cpp_inst_suse()
 {
-        echo "Installing log4cpp devel for Suse..."
+        echo "Installing log4cpp for Suse..."
         cd /tmp
         wget ftp://195.220.108.108/linux/centos/6.6/os/x86_64/Packages/log4cpp-1.0-13.el6_5.1.x86_64.rpm
         zypper -n install log4cpp-1.0-13.el6_5.1.x86_64.rpm
         if [ `echo $?` -eq 0 ]
         then
-                echo "log4cpp devel is successfully installed..."
                 cp -Pv /usr/lib64/liblog4cpp* /usr/local/lib/
                 cd $install_dir
         else
-                echo "Failed to download log4cpp library..."
+                echo "Failed to install log4cpp..."
                 cd $install_dir
                 exit -1
         fi
+        echo "Successfully installed log4cpp"
 	cd "$BUILD_DIR"
 }
 
