@@ -83,7 +83,7 @@ int LoadConfig(const char * configFile)
 	int line_size = 512;
 	char *key;
 	char *value;
-	LOG_TRACE("");
+	LOG_TRACE("Loading vRTM config file %s", configFile);
 	if(fp == NULL)
 	{
 		LOG_ERROR("Failed to load vRTM config file");
@@ -95,10 +95,13 @@ int LoadConfig(const char * configFile)
 		fgets(line,line_size,fp);
 		if(feof(fp))
 			break;
+        LOG_TRACE("Line read from config file: %s", line);
 		key=strtok(line,"=");
 		value=strtok(NULL,"=");
 		std::string map_key (key);
 		std::string map_value (value);
+        LOG_TRACE("Parsed Key=%s and Value=%s", map_key.c_str(), map_value.c_str());
+
 		std::pair<std::string, std::string> config_pair (trim_copy(map_key," \t\n"),trim_copy(map_value," \t\n"));
 		config_map.insert(config_pair);
 		free(line);
@@ -110,7 +113,7 @@ int read_config()
 {
 	int count=0;
 	std::string rpcore_ip, rpcore_port, max_thread_limit;
-	LOG_TRACE("");
+	LOG_TRACE("Setting vRTM configuration");
 	rpcore_ip = config_map["rpcore_ip"];
 	if(rpcore_ip == ""){
 		rpcore_ip = "127.0.0.1";
@@ -172,7 +175,6 @@ int singleInstanceRpcoreservice()
 }
 //test function declarations
 void test_host_init();
-int modmain(int an, char** av);
 
 int main(int an, char** av)
 {
@@ -188,13 +190,14 @@ int main(int an, char** av)
     //set same logger instance in rp_channel
     set_logger_vrtmchannel(rootLogger);
 
+    LOG_INFO("Starting vRTM core");
     if ((instanceValid = singleInstanceRpcoreservice()) == -2) {
-    	LOG_ERROR("Process(rpcoreservice) already running\n");
+    	LOG_ERROR("Process(vRTM core service) already running\n");
 		return 1;
     }
     
     if(instanceValid == -1) {
-    	LOG_ERROR( "Process(rpcoreservice) could not open lock file\n");
+    	LOG_ERROR( "Process (vRTM core service) could not open lock file\n");
 		return 1;
     }
 //------------------------------------------------------------------
@@ -203,16 +206,20 @@ int main(int an, char** av)
 	 */
 
 	//init linux service 
-
+   
+    LOG_TRACE("Starting vRTM interface");
 	if(!start_rp_interface(NULL)) {
-		LOG_ERROR("cant init start_rp_interface\n");
+		LOG_ERROR("Can't initialize vRTM interface");
 		goto cleanup;
 	}
 
+    LOG_TRACE("Load config file %s", g_config_file);
 	if ( LoadConfig(g_config_file) < 0 ) {
-		LOG_ERROR("tcService main: can't load config file %s\n", g_config_file);
+		LOG_ERROR("Can't load config file %s", g_config_file);
 		goto cleanup;
 	}
+
+    LOG_TRACE("Read configurations");
 	if ( read_config() < 0)
 	{
 		LOG_ERROR("tcService main : cant't find required values in config file");

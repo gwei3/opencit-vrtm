@@ -52,7 +52,7 @@
 #define STRINGINIZE(X) #X
 #define STRINGINIZE2(X) STRINGINIZE(X)
 
-#define JUXTAPOSE(Y, Z) " In FILE : " Y "\tin Function : %s at LINE No. : " Z " "
+#define JUXTAPOSE(Y, Z)  Y " : %s : " Z " "
 #define JUXTAPOSE2 JUXTAPOSE( __FILE__, STRINGINIZE2(__LINE__))
 
 //#ifdef __unix__

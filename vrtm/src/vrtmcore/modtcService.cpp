@@ -66,9 +66,9 @@ byte                    g_servicehash[32]= {
                         };
 
 uint32_t	g_rpdomid = 1000;
-char 		g_mtwproxy_ip[64] = "127.0.0.1";
-int 		g_mtwproxy_on = 0;
-int 		g_mtwproxy_port = 16006;
+//char 		g_mtwproxy_ip[64] = "127.0.0.1";
+//int 		g_mtwproxy_on = 0;
+//int 		g_mtwproxy_port = 16006;
 #define NUMPROCENTS 200
 #define LAUNCH_ALLOWED		"launch allowed"	 
 #define LAUNCH_NOT_ALLOWED	"launch not allowed"
@@ -91,7 +91,7 @@ bool uidfrompid(int pid, int* puid)
 // ------------------------------------------------------------------------------
 void serviceprocEnt::print()
 {
-	LOG_TRACE("");
+	LOG_TRACE("Printing proc entry");
     LOG_INFO("vRTM id: %ld, ", (long int)m_procid);
     if(m_szexeFile!=NULL)
         LOG_INFO( "file: %s, ", m_szexeFile);
@@ -115,7 +115,7 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
 {
     LOG_DEBUG("vRTM id : %d file : %s hash size : %d hash : %s", procid, file, sizeHash, hash);
     if(sizeHash>32) {
-    	LOG_ERROR("Size of hash is more than 32 bytes");
+    	LOG_ERROR("Size of hash is more than 32 bytes. Hash size = %d", sizeHash);
         return false;
     }
     pthread_mutex_lock(&loc_proc_table);
@@ -154,19 +154,11 @@ void   serviceprocTable::removeprocEntry(char* uuid)
 	LOG_DEBUG(" UUID to be removed from vrtm map : %s", uuid);
 	int proc_id = getprocIdfromuuid(uuid);
 	if ( proc_id == NULL ) {
-		LOG_ERROR("Entry removal failed from Table, UUID is not registered with vRTM\n");
+		LOG_ERROR("Entry removal failed from Table, UUID %s is not registered with vRTM", uuid);
 		return;
 	}
-	pthread_mutex_lock(&loc_proc_table);
-	proc_table_map::iterator table_it = proc_table.find(proc_id);
-	if(table_it == proc_table.end()) {
-		pthread_mutex_unlock(&loc_proc_table);
-		LOG_ERROR("Entry removal failed from Table, UUID is not registered with vRTM\n");
-		return;
-	}
-	proc_table.erase(table_it);
-	pthread_mutex_unlock(&loc_proc_table);
-	LOG_INFO("Entry removed from Table for UUID : %s\n", uuid);
+	removeprocEntry(proc_id);
+    LOG_INFO("Entry removed from Table for UUID : %s\n", uuid);
 	return;
 }
 
@@ -177,7 +169,7 @@ bool serviceprocTable::updateprocEntry(int procid, char* uuid, char *vdi_uuid)
     proc_table_map::iterator table_it = proc_table.find(procid);
 	if (table_it == proc_table.end()) {
 		pthread_mutex_unlock(&loc_proc_table);
-		LOG_ERROR("UUID can't be registered with vRTM, given rpid doesn't exist\n");
+		LOG_ERROR("UUID %s can't be registered with vRTM, given rpid %d doesn't exist", uuid, procid);
 		return false;
 	}
     memset(table_it->second.m_uuid, 0, g_max_uuid);
@@ -199,7 +191,7 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 	proc_table_map::iterator table_it = proc_table.find(procid);
 	if( table_it == proc_table.end()) {
 		pthread_mutex_unlock(&loc_proc_table);
-		LOG_ERROR("Couldn't update the given data in table, rpid doesn't exist\n");
+		LOG_ERROR("Couldn't update the given data in table, rpid %d doesn't exist", procid);
 		return false;
 	}
 	strcpy(table_it->second.m_vm_image_id,vm_image_id);
@@ -226,11 +218,11 @@ serviceprocEnt* serviceprocTable::getEntfromprocId(int procid) {
 	proc_table_map::iterator table_it = proc_table.find(procid);
 	if(table_it == proc_table.end()) {
 		pthread_mutex_unlock(&loc_proc_table);
-		LOG_ERROR("Entry with vRTM Id not found");
+		LOG_WARN("Entry with vRTM Id %d not found", procid);
 		return NULL;
 	}
 	pthread_mutex_unlock(&loc_proc_table);
-	LOG_ERROR("Entry with vRTM Id found");
+	LOG_DEBUG("Entry with vRTM Id %d found", procid);
 	return &(table_it->second);
 }
 
@@ -240,12 +232,12 @@ int serviceprocTable::getprocIdfromuuid(char* uuid) {
 	for (proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++ ) {
 		if(strcmp(table_it->second.m_uuid,uuid) == 0 ) {
 			pthread_mutex_unlock(&loc_proc_table);
-			LOG_INFO("vRTM ID of entry with UUID is : ", table_it->first);
+			LOG_INFO("vRTM ID of entry with UUID is : %d", table_it->first);
 			return (table_it->first);
 		}
 	}
 	pthread_mutex_unlock(&loc_proc_table);
-	LOG_ERROR("Given UUID is not registered with vRTM");
+	LOG_WARN("UUID %s is not registered with vRTM", uuid);
 	return NULL;
 }
 
@@ -256,7 +248,7 @@ void serviceprocTable::print()
 	for(proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++ ) {
 		table_it->second.print();
 	}
-	LOG_INFO("Table has %d entries\n",proc_table.size());
+	LOG_INFO("Table has %d entries",proc_table.size());
     pthread_mutex_unlock(&loc_proc_table);
     return;
 }
@@ -336,11 +328,11 @@ TCSERVICE_RESULT tcServiceInterface::GetRpId(char *vm_uuid, byte * rpidbuf, int 
 	int proc_id = m_procTable.getprocIdfromuuid(vm_uuid);
     if(proc_id == NULL)
 	{
-		LOG_ERROR("match not found for Given UUID\n");
+		LOG_ERROR("Match not found for UUID %s", vm_uuid);
 		return TCSERVICE_RESULT_FAILED;
 	}
 
-    LOG_INFO("match found for Given UUID\n");
+    LOG_INFO("match found for UUID %s", vm_uuid);
 	sprintf((char *)rpidbuf,"%d",proc_id);
 	*rpidsize = strlen((char *)rpidbuf);
 	return TCSERVICE_RESULT_SUCCESS;
@@ -355,19 +347,22 @@ TCSERVICE_RESULT tcServiceInterface::GetVmMeta(int procId, byte *vm_imageId, int
 	LOG_DEBUG("Finding map entry for vRTM ID : %d", procId);
     serviceprocEnt *pEnt = m_procTable.getEntfromprocId(procId);
     if(pEnt == NULL ) {
-    	LOG_ERROR("Given RPID is not registered to RPCORE\n");
+    	LOG_ERROR("vRTM ID %d is not registered in vRTM core", procId);
     	return TCSERVICE_RESULT_FAILED;
     }
-	LOG_INFO("Match found for given RPid\n");
-	LOG_TRACE("vmimage id : %s\n",pEnt->m_vm_image_id);
+	LOG_DEBUG("Match found for given RPid");
+	LOG_TRACE("VM image id : %s",pEnt->m_vm_image_id);
 	memcpy(vm_imageId,pEnt->m_vm_image_id,pEnt->m_size_vm_image_id + 1);
-	LOG_TRACE("vmimage id copied : %s\n",vm_imageId);
+	LOG_TRACE("VM image id copied : %s",vm_imageId);
 	*vm_imageIdsize = pEnt->m_size_vm_image_id ;
 	memcpy(vm_customerId,pEnt->m_vm_customer_id,pEnt->m_size_vm_customer_id + 1);
+    LOG_TRACE("Customer ID: %s", pEnt->m_vm_customer_id);
 	*vm_customerIdsize = pEnt->m_size_vm_customer_id ;
 	memcpy(vm_manifestHash,pEnt->m_vm_manifest_hash, pEnt->m_size_vm_manifest_hash + 1);
+    LOG_TRACE("Manifest Hash: %s", pEnt->m_vm_manifest_hash);
 	*vm_manifestHashsize = pEnt->m_size_vm_manifest_hash ;
 	memcpy(vm_manifestSignature,pEnt->m_vm_manifest_signature,pEnt->m_size_vm_manifest_signature + 1);
+    LOG_TRACE("Manifest Signature: %s", pEnt->m_vm_manifest_signature);
 	*vm_manifestSignaturesize = pEnt->m_size_vm_manifest_signature ;
 	return TCSERVICE_RESULT_SUCCESS;
 }
@@ -381,12 +376,12 @@ TCSERVICE_RESULT tcServiceInterface::IsVerified(char *vm_uuid, int* verification
 		if(strcmp(table_it->second.m_uuid,vm_uuid) == 0 ) {
 			*verification_status = table_it->second.m_vm_verfication_status;
 			pthread_mutex_unlock(&m_procTable.loc_proc_table);
-			LOG_INFO("Match found for given UUID \n");
+			LOG_INFO("Verification status for UUID %s is %d", vm_uuid, verification_status);
 			return TCSERVICE_RESULT_SUCCESS;
 		}
 	}
 	pthread_mutex_unlock(&m_procTable.loc_proc_table);
-	LOG_ERROR("Match not found for given UUID \n");
+	LOG_WARN("Match not found for given UUID %s", vm_uuid);
 	return TCSERVICE_RESULT_FAILED;
 }
 
@@ -511,8 +506,8 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 //	sprintf(vm_manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
 	sprintf(filepath, "%ssigned_report.xml", vm_manifest_dir);
 	fp = fopen(filepath, "w");
-	//This log comment cause crash 
-	//LOG_INFO("\n\nSingned xml report : %s\n", xmlstr);
+    //This log comment cause crash
+    //LOG_INFO("\n\nSingned xml report : %s\n", xmlstr);
 	fprintf(fp, "%s", xmlstr);
 	fclose(fp);
 	//system ("rm us_xml.xml hash.sig hash.input");
@@ -522,6 +517,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 TCSERVICE_RESULT tcServiceInterface::TerminateApp(int sizeIn, byte* rgIn, int* psizeOut, byte* out)
 {
 	//remove entry from table.
+    LOG_TRACE("Terminate VM");
 	char uuid[48] = {0};
 	if ((rgIn == NULL) || (psizeOut == NULL) || (out == NULL)){
 		LOG_ERROR("Can't remove entry for given NULL UUID");
@@ -539,6 +535,7 @@ TCSERVICE_RESULT tcServiceInterface::TerminateApp(int sizeIn, byte* rgIn, int* p
 TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid, char *vdi_uuid, int* psizeOut, byte* out)
 {
 	//remove entry from table.
+    LOG_TRACE("Map UUID %s and VDI UUID %s with ID %s", in_uuid, vdi_uuid, str_rp_id);
 	char uuid[48] = {0};
 	char vuuid[48] = {0};
 	int  rp_id = -1; 
@@ -553,10 +550,10 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
     memcpy(uuid, in_uuid, inuuid_len);
 	memset(vuuid, 0, g_max_uuid);	
 	memcpy(vuuid, vdi_uuid, invdiuuid_len);
-	LOG_DEBUG("UUID and VDI UUID to updated against vRTM ID", rp_id, uuid, vuuid);
 	if ( !g_myService.m_procTable.updateprocEntry(rp_id, uuid, vuuid) ) {
 		return TCSERVICE_RESULT_FAILED;
 	}
+	LOG_DEBUG("UUID %s and VDI UUID %s are updated against vRTM ID %d", uuid, vuuid, rp_id);
 	*psizeOut = sizeof(int);
 	*((int*)out) = (int)1;
 	return TCSERVICE_RESULT_SUCCESS;
@@ -574,7 +571,6 @@ include="*.out" ....> returns *.out and so on..
 char NodeValue[500];
 char* tagEntry (char* line){
 
-	LOG_TRACE("");
         char key[500];
                 /*We use a local string 'key' here so that we dont make any changes
                 to the line pointer passed to the funciton.
@@ -597,7 +593,7 @@ char* tagEntry (char* line){
                 Its contents are copied after its new value addition immediately
                 */
                 strcpy(NodeValue,start);
-        LOG_DEBUG("Current Node value : %s", NodeValue);
+        LOG_TRACE("Current Node value : %s", NodeValue);
         return start;
 }
 
@@ -623,7 +619,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
     char*   vm_manifest_signature;
     char    vm_manifest_dir[2048] ={0};
     bool 	verification_status = false;
-    LOG_TRACE("");
+    LOG_TRACE("Start VM App");
     if(an>30) {
     	LOG_ERROR("Number of arguments passed are more than limit 30");
         return TCSERVICE_RESULT_FAILED;
@@ -800,21 +796,21 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
         fclose(fq);
         LOG_DEBUG("Calculated hash : %s and Golden Hash : %s",imageHash, goldenImageHash);
         if (strcmp(imageHash, goldenImageHash) ==0) {
-        	LOG_INFO("IMVM Verification Successfull\n");
+        	LOG_INFO("IMVM Verification Successfull");
             verification_status = true;
             flag=1;
         }
 		else if ((strcmp(launchPolicy, "Audit") == 0)) {
-			LOG_INFO("IMVM Verification Failed, but continuing with VM launch as MeasureOnly launch policy is used\n");
+			LOG_INFO("IMVM Verification Failed, but continuing with VM launch as MeasureOnly launch policy is used");
 			flag=1;
 		}
 		else {
-			LOG_ERROR("IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used\n");
+			LOG_ERROR("IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used");
 			flag=0;
 		}
 
         if (flag == 0) {
-        	LOG_INFO("IMVM Verification Failed\n");
+        	LOG_INFO("IMVM Verification Failed");
             free(vm_image_id);
 			free(vm_customer_id);
 			free(vm_manifest_hash);
@@ -833,12 +829,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
         sscanf(&imageHash[c], "%02x", &rgHash[c/2]);
         iSize++;
     }
-
+    LOG_TRACE("Adding proc table entry for measured VM");
     if(!g_myService.m_procTable.addprocEntry(child, kernel_file, 0, (char**) NULL, size, rgHash)) {
     	LOG_ERROR( "StartApp: cant add to vRTM Map\n");
         return TCSERVICE_RESULT_FAILED;
     }
-
+    LOG_TRACE("Updating proc table entry");
    if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir)) {
 	   	LOG_ERROR("SartApp : can't update proc table entry\n");
         return TCSERVICE_RESULT_FAILED;
@@ -939,7 +935,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 			}
 			
 		}
-		LOG_INFO("UUID is registration with vRTM successful");
+		LOG_INFO("UUID %s is registered with vRTM ID %s successful", av[1], av[0]);
 		free(str_rp_id);
 		for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
 			free(av[fr_var]);
@@ -969,7 +965,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         
         //outparam will be success or failure
         
-        LOG_INFO( "deregister of VM succeeded, about to send");
+        LOG_INFO( "Deregister VM with vRTM ID %s succussfully", inparams);
         return true;
 
 			/***********new API ******************/
@@ -1183,51 +1179,3 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         return false;
     }
 }
-
-int modmain(int an, char** av)
-{
-    int                 iRet= 0;
-    bool                fInitKeys= false;
-    const char*         szexecFile = av[0];
-    int                 i;
-    bool                fServiceStart;
-    const char*		configfile = "./tcconfig.xml";
-
-    for(i=0; i<an; i++) {
-        if(strcmp(av[i], "-help")==0) {
-            LOG_INFO( "\nUsage: tcService.exe [-initKeys] ");
-
-            return 0;
-        }
-        if(strcmp(av[i], "-initKeys")==0) {
-            fInitKeys= true;
-        }
-         /*if(strcmp(av[i], "-directory")==0) {
-            directory= av[++i];
-        }*/
-		if(strcmp(av[i], "-cfgfile")==0) {
-            configfile= av[++i];
-        }        
-    }
-
-	//populate_whitelist_hashes();
-    g_servicepid = 0;//v: getpid();
-    g_myService.maxThread=g_max_thread_limit;
-    
-
-#if 0
-    ret= g_myService.initService(szexecFile, 0, NULL);
-    if(ret!=TCSERVICE_RESULT_SUCCESS) {
-    	LOG_ERROR("tcService main: initService failed %s\n", szexecFile);
-        iRet= 1;
-        goto cleanup;
-    }
-#endif
-
-    LOG_TRACE("Exiting ...");
-cleanup:
-
-    closeLog();
-    return iRet;
-}
-// ------------------------------------------------------------------------------

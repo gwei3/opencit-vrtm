@@ -118,7 +118,7 @@ bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     int                 iError= 0;
     int                 l;
 
-    LOG_TRACE("");
+    LOG_TRACE("Open Server");
 //    fprintf(g_logFile, "open server FILE: %s\n", szunixPath);
     unlink(szunixPath);
     if((fd=socket(AF_UNIX, SOCK_STREAM, 0))==(-1))
@@ -151,7 +151,7 @@ bool openclient(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     int     slen= strlen(szunixPath)+sizeof(psrv->sa_family)+1;
     int     iError= 0;
 
-    LOG_TRACE("");
+    LOG_TRACE("Open Client");
 //    fprintf(g_logFile, "open client FILE: %s\n", szunixPath);
     if((fd=socket(AF_UNIX, SOCK_STREAM, 0))==(-1))
         return false;
@@ -175,18 +175,19 @@ bool openclient(int* pfd, const char* szunixPath, struct sockaddr* psrv)
 
 bool tcChannel::OpenBuf(u32 type, int fd, const char* file, u32 flags)
 {
+
+    LOG_TRACE("Inside OpenBuf");
 	bool status = false;
 	
     m_uType= type;
     m_fd= -1;
-    LOG_TRACE("");
 #ifdef TCSERVICE
 //v:
 	pthread_mutex_init(&gm, NULL);
 	pthread_cond_init(&gc, NULL);
 	//sem_init(&sem_req, 0, 1);
 	//sem_init(&sem_resp, 0, 1);
-	
+    LOG_TRACE("Starting separate thread to start vRTM socket");	
 	pthread_attr_init(&g_attr);
 	pthread_create(&dom_listener_thread, &g_attr, dom_listener_main, (void*)NULL);
 	pthread_join(dom_listener_thread,NULL);
@@ -205,29 +206,14 @@ bool tcChannel::OpenBuf(u32 type, int fd, const char* file, u32 flags)
 	return status;
 }
 
-// ------------------------------------------------------------------------------
-#define PRINTF(buf, len) for(int ix=0; ix < len; ix++) printf("%02x", (buf)[ix]); printf("\n");
-
-
-//
-// this is temporary to be replaced by TLS-PSK
-//
-typedef struct _session {
-	int fd;
-	struct in_addr	addr;
-	int dom_id; //this is not the real dom_id
-	//byte ekey[32];
-	//byte ikey[32];
-} tcSession;
-
 int g_mx_sess = 32;
 int g_sessId = 1;
-tcSession ctx[32];
+//tcSession ctx[32];
 sem_t   g_sem_sess;
 
 int generate_req_id() {
 	int t_req_id;
-	LOG_TRACE("");
+	LOG_TRACE("Generating request ID");
 	pthread_mutex_lock(&req_id_mutex);
 	req_id = (req_id + 1)%INT32_MAX;
 	t_req_id = req_id;
@@ -243,7 +229,7 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 	int payload_size = 0;
 	LOG_DEBUG("Size of Data Received from client : %d and data : %s", data_size, buf);
 	if(data_size < tcBuffer_size) {
-		LOG_ERROR("In start_request_processing() : data received is not valid");
+		LOG_ERROR("Data received is not valid.");
 		return -1;
 	}
 	tcBuffer* recv_tc_buff = (tcBuffer *)buf;
@@ -251,7 +237,7 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 	payload_size = recv_tc_buff->m_reqSize;
 	LOG_DEBUG("API Request No. : %u and Payload size %d", uReq, payload_size );
 	if( payload_size > PARAMSIZE ) {
-		LOG_ERROR( "size of Payload received is more than buffer size");
+		LOG_ERROR( "Size of Payload received is more than buffer size");
 		return -1;
 	}
 	outparams = (char *) calloc(1,sizeof(byte)*PARAMSIZE);
@@ -263,6 +249,7 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 		LOG_ERROR("Can't send the response, data is more than available buffer");
 		return -1;
 	}
+    LOG_TRACE("Prepare response payload");
 	memset(buf,0,PADDEDREQ);
 	tcBuffer* send_tc_buff = (tcBuffer *) buf;
 	send_tc_buff->m_reqID = uReq;
@@ -279,12 +266,13 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 	memcpy(&buf[tcBuffer_size], outparams, outparams_size);
 	free(outparams);
 	int data_send_size = -1;
+    LOG_TRACE("Sending response");
 	data_send_size = ch_write(fd, buf, res_buf_size);
 	if ( data_send_size < 0 ) {
-		LOG_TRACE("Error in writing response");
+		LOG_TRACE("Error in writing response to socket");
 		return -1;
 	}
-	LOG_TRACE("Response written ...");
+	LOG_TRACE("Response sent");
 	return 0;
 }
 
@@ -299,39 +287,40 @@ void* handle_session(void* p) {
 	int domid = -1;
 	//int fd1 = ps->fd;
 	int fd1 = *(int *)p;
-	LOG_DEBUG("Entered handle_session() with fd1 as %d",fd1);
+	LOG_TRACE("Entered handle_session() with fd as %d",fd1);
 	//fprintf(g_logFile, "handle_session(): Client connection from domid %d\n", domid);
 	
 	//generate new request Id
 	domid = generate_req_id();
-	LOG_ERROR("request id of request is : %d", domid);
+	LOG_DEBUG("Request id for request is : %d", domid);
 	
 	sz_data = sz_buf;
 	err = 0;
 	memset(buf, 0, sz_buf);
-	LOG_INFO("XXXX dom_listener reading ");
+	LOG_TRACE("Reading data from socket");
 
 	//read command from the client
 	err = ch_read(fd1, buf, sz_buf);
-	LOG_TRACE("Done reading from client...");
+	LOG_TRACE("Done reading from socket");
 	if (err < 0){
-		LOG_ERROR( "inter-domain channel read failed ... closing thread");
+		LOG_ERROR("Error in reading data from socket. Closing thread");
 		goto fail;
 	}
 	sz_data = err;
+    LOG_TRACE("Process request"); 
 	if(process_request(fd1, domid, buf, sz_data) < 0 ) {
-		LOG_ERROR("Error in processing the request");
+		LOG_ERROR("Error in processing the request. Closing thread.");
 		goto fail;
 	}
 
 fail:
 		
 #ifdef TEST
-	LOG_TRACE("closing fd1 = %d",fd1);
+	LOG_TRACE("Closing fd = %d",fd1);
 #endif
-	LOG_TRACE("closing connection for fd : %d",fd1);
+	LOG_TRACE("Closing connection for fd : %d",fd1);
 	close(fd1);
-	LOG_TRACE("exiting thread");
+	LOG_TRACE("Exiting thread");
 	return 0;
 }
 
@@ -354,7 +343,7 @@ void* dom_listener_main ( void* p)
     LOG_TRACE("Entered dom_listener_main()");
     pthread_attr_init(&attr);
     sem_init(&g_sem_sess, 0, 1);
-	
+    LOG_TRACE("Create socket for vRTM core");	
     fd= socket(AF_INET, SOCK_STREAM, 0);
 
     if(fd<0) {
@@ -362,7 +351,7 @@ void* dom_listener_main ( void* p)
         g_ifc_status = IFC_ERR;
         return false;
     }
-
+    LOG_TRACE("Bind vRTM core socket");
     memset((void*) &server_addr, 0, sizeof(struct sockaddr_in));
     server_addr.sin_family= AF_INET;
     server_addr.sin_addr.s_addr= htonl(INADDR_ANY);     // 127.0.0.1
@@ -376,7 +365,7 @@ void* dom_listener_main ( void* p)
 
     iError= bind(fd,(const struct sockaddr *) &server_addr, slen);
     if(iError<0) {
-        LOG_ERROR("dom_listener_main():Can't bind socket %s", strerror(errno));
+        LOG_ERROR("Can't bind socket %s", strerror(errno));
         g_ifc_status = IFC_ERR;
         return false;
     }
@@ -391,13 +380,14 @@ void* dom_listener_main ( void* p)
    
     int sigRv = sigaction(SIGCHLD, &sigAct, NULL);
     if (sigRv < 0) {
-        LOG_ERROR( "dom_listener_main():Failed to set signal disposition for SIGCHLD");
+        LOG_INFO( "Failed to set signal disposition for SIGCHLD");
     } else {
-        LOG_INFO( "dom_listener_main():Set SIGCHLD to avoid zombies");
+        LOG_INFO( "Set SIGCHLD to avoid zombies");
     }
 
 	g_ifc_status = IFC_UP;
-
+    
+    LOG_INFO("Socket ready to accept requests");
     while(!g_quit)
     {
         newfd= accept(fd, (struct sockaddr*) &client_addr, (socklen_t*)&clen);
@@ -412,15 +402,16 @@ void* dom_listener_main ( void* p)
 		}
 
         if(newfd<0) {
-            LOG_WARN( "dom_listener_main():Can't accept socket %s", strerror(errno));
+            LOG_WARN( "Can't accept socket %s", strerror(errno));
             continue;
         }
 		
-		LOG_WARN( "dom_listener_main():Client connection from %s ", inet_ntoa(client_addr.sin_addr));
+		LOG_INFO( "Client connection from %s ", inet_ntoa(client_addr.sin_addr));
 		if (g_quit)
 			continue;
 		thread_fd = (int *)malloc(sizeof(int));
 		*thread_fd=newfd;
+        LOG_DEBUG("Creating separate thread to handle session");
 		pthread_create(&tid, &attr, handle_session, (void*)thread_fd);
 
     }
@@ -428,13 +419,13 @@ void* dom_listener_main ( void* p)
     return NULL;
 }
 
-
-
 bool start_rp_interface(const char* name)
 {
+    LOG_DEBUG("Starting vRTM on socket");
     if(!g_reqChannel.OpenBuf(TCDEVICEDRIVER, 0, name ,0)) {
-        LOG_ERROR("%s: OpenBuf returned false");
+        LOG_ERROR("OpenBuf returned false");
         return false;
     }
+    LOG_DEBUG("Socket for vRTM is started");
     return true;
 }
