@@ -32,7 +32,7 @@ O1CFLAGS=    -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D __FLUSHIO__ $(O1RELEASE_
 CC=         g++
 LINK=       g++
 
-sobjs=     $(OBJ)/channelcoding.o $(OBJ)/pyifc.o $(OBJ)/tcpchan.o $(OBJ)/logging.o $(OBJ)/base64.o $(OBJ)/log_vrtmchannel.o
+sobjs=     $(OBJ)/channelcoding.o $(OBJ)/parser.o $(OBJ)/tcpchan.o $(OBJ)/logging.o $(OBJ)/base64.o $(OBJ)/log_vrtmchannel.o
 
 
 all: $(LIB)/libvrtmchannel-g.so 
@@ -49,8 +49,8 @@ $(OBJ)/channelcoding.o: $(TM)/channelcoding.cpp $(TM)/channelcoding.h
 $(OBJ)/base64.o: $(SC)/base64.cpp $(SC)/base64.h
 	$(CC) $(CFLAGS) -I$(OPENSSL) -I$(LOG4CPP) -c -o $(OBJ)/base64.o $(SC)/base64.cpp
 
-$(OBJ)/pyifc.o: $(TM)/pyifc.cpp
-	$(CC) $(CFLAGS) -I$(PY) -I$(SC) -I$(LXML) -I$(LOG4CPP) -c -o $(OBJ)/pyifc.o $(TM)/pyifc.cpp -lxml2
+$(OBJ)/parser.o: $(TM)/parser.cpp
+	$(CC) $(CFLAGS) -I$(PY) -I$(SC) -I$(LXML) -I$(LOG4CPP) -c -o $(OBJ)/parser.o $(TM)/parser.cpp -lxml2
 	
 $(OBJ)/tcpchan.o: $(TM)/tcpchan.cpp $(TM)/tcpchan.h
 	$(CC) $(CFLAGS) -I$(S) -I$(SC) -I$(TM) -I$(LOG4CPP) -c -o $(OBJ)/tcpchan.o $(TM)/tcpchan.cpp

@@ -8,7 +8,7 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 #include <libxml/xmlstring.h>
-#include "pyifc.h"
+#include "parser.h"
 #include "base64.h"
 #include "logging.h"
 

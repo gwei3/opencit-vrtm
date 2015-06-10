@@ -1,6 +1,3 @@
-#ifndef _PYIFC__
-#define _PYIFC__
-
 #ifndef byte
 typedef unsigned char byte;
 #endif
@@ -10,6 +7,3 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 
 int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf);
 int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf);
-
-
-#endif

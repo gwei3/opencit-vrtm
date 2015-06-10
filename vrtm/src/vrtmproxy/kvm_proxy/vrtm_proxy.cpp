@@ -22,7 +22,7 @@ RP-proxy will call qemu with VM launch options after the VM image measurement is
 #include <unistd.h>
 #include "tcpchan.h"
 #include "channelcoding.h"
-#include "pyifc.h"
+#include "parser.h"
 #include "vrtm_api_code.h"
 #include "logging.h"
 #include "log_vrtmchannel.h"
