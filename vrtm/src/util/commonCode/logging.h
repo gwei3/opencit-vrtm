@@ -65,7 +65,7 @@
 
 extern log4cpp::Category* rootLogger;
 
-bool	initLog(const char* log_properties_file);
+bool	initLog(const char* log_properties_file, const char* instance_name);
 void 	set_logger(log4cpp::Category& root);
 
 void	closeLog();

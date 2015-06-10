@@ -47,7 +47,7 @@
 //#include "jlmcrypto.h"
 
 #define    g_config_file "../configuration/vRTM.cfg"
-#define	   log_properties_file "../configuration/vRTMlog.properties"
+#define	   log_properties_file "../configuration/vrtm_log.properties"
 
 char    g_python_scripts[256] = "../scripts";
 //char    g_config_file[256]      = "vRTM.cfg";
@@ -184,7 +184,7 @@ int main(int an, char** av)
     //const char * 	log_properties_file = "../../config/vRTMlog.properties";
 //------------------------------------------------------------------
     // Start the instance of logger, currently using log4cpp
-    if( initLog(log_properties_file) ){
+    if( initLog(log_properties_file, "vrtm") ){
     	return 1;
     }
     //set same logger instance in rp_channel

@@ -39,7 +39,7 @@ VM’s UUID to clean up the VM’s record in RPCore.
 #define RPCORESERVICE_PORT  6005
 #define MAX_MSG_SIZE        4096
 
-#define log_properties_file "../configuration/vrtm_listenerlog.properties"
+#define log_properties_file "../configuration/vrtm_log.properties"
 
 #define VIR_DEBUG(fmt) printf("%s:%d: " fmt "\n", __func__, __LINE__)
 #define STREQ(a,b) (strcmp(a,b) == 0)
@@ -500,7 +500,7 @@ int main() {
     sigAct.sa_handler = SIG_DFL;
     sigAct.sa_flags = SA_NOCLDWAIT;
 //    const char * log_properties_file = "../../config/rp_listenerlog.properties";
-    if( initLog(log_properties_file) ){
+    if( initLog(log_properties_file, "listener") ){
 		return 1;
 	}
 

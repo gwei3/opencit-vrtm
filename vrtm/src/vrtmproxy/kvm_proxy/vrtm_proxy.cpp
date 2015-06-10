@@ -233,7 +233,7 @@ int main(int argc, char** argv) {
     int     vm_pid;
     //const char* log_properties_file = "/opt/dcg_security-vrtm-cleanup-2.0/rpcore/config/rp_proxylog.properties";
     // instantiate the logger
-    if( initLog(log_properties_file) ){
+    if( initLog(log_properties_file, "proxy") ){
        	return 1;
     }
     // set same logger instance in rp_channel

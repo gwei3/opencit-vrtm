@@ -48,12 +48,12 @@
 
 log4cpp::Category* rootLogger;
 
-bool initLog(const char* log_properties_file) {
+bool initLog(const char* log_properties_file, const char* instance_name) {
 	std::string log_props_file = std::string(log_properties_file);
 	bool init_log_failed = false;
 	try {
 		log4cpp::PropertyConfigurator::configure(log_props_file);
-		log4cpp::Category& root = log4cpp::Category::getRoot();
+		log4cpp::Category& root = log4cpp::Category::getInstance(std::string(instance_name));
 		rootLogger = &root;
 	}
 	catch( log4cpp::ConfigureFailure& config_failure) {
@@ -64,7 +64,6 @@ bool initLog(const char* log_properties_file) {
 	}
 	return init_log_failed;
 }
-
 void closeLog() {
 	log4cpp::Category::shutdown();
 }
