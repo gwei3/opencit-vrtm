@@ -61,27 +61,6 @@ function makeDirStructure()
 	cp -r "$SRC_ROOT_DIR/vrtm" "$SRC_ROOT_DIR/rpclient" "$SRC_ROOT_DIR/blueprints" "$SRC_ROOT_DIR/install" "$BUILD_DIR"
 }
 
-function buildVerifier()
-{
-    cd $TBOOT_REPO/imvm/src
-    make -f verifier-g.mak clean >> $BUILD_DIR/outfile 2>&1
-    if [ $? -ne 0 ]; then
-        echo "Verifier clean failed...Please see outfile for more details"
-        exit -1
-	else
-		echo "Verifier clean successful"
-    fi
-	make -f verifier-g.mak >> "$BUILD_DIR/outfile" 2>&1
-    if [ $? -ne 0 ]; then
-        echo "Verifier build failed...Please see outfile for more details"
-        exit -1
-    else
-        echo "Verifier build successful"
-    fi
-	cp ../bin/verifier "$BUILD_DIR/vrtm/bin/debug/."
-	cd "$BUILD_DIR"
-}
-
 # check wether log4cpp is installed on machine or not
 function is_log4cpp_installed() {
 	if [ -d /usr/include/log4cpp ]
@@ -354,9 +333,8 @@ function main()
 	echo "Building VRTMCore binaries... "
         buildvrtmcore
 	cd "$BUILD_DIR"
-	#echo "Building Verifier binaries..."
-	#buildVerifier
-	echo "Building VRTMListener binaries..."
+	
+    echo "Building VRTMListener binaries..."
 	buildvrtmlistener
 
 	grep -i ' error' "$BUILD_DIR/outfile"
