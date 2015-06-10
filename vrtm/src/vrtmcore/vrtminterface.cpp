@@ -250,12 +250,12 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 		LOG_ERROR("Can't send the response, data is more than available buffer");
 		return -1;
 	}
-    LOG_TRACE("Prepare response payload");
+        LOG_TRACE("Prepare response payload");
 	memset(buf,0,PADDEDREQ);
 	tcBuffer* send_tc_buff = (tcBuffer *) buf;
 	send_tc_buff->m_reqID = uReq;
 	send_tc_buff->m_reqSize = outparams_size;
-	if(outparams == NULL && outparams_size == 0 ) {
+	if( outparams_size == 0 ) {
 		send_tc_buff->m_ustatus = -1;
 	}
 	else {
@@ -267,7 +267,7 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 	memcpy(&buf[tcBuffer_size], outparams, outparams_size);
 	free(outparams);
 	int data_send_size = -1;
-    LOG_TRACE("Sending response");
+        LOG_TRACE("Sending response");
 	data_send_size = ch_write(fd, buf, res_buf_size);
 	if ( data_send_size < 0 ) {
 		LOG_TRACE("Error in writing response to socket");

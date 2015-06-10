@@ -57,6 +57,15 @@ typedef u64 TCSERVICE_RESULT;
 #define TCSERVICE_RESULT_REQTOOLARGE            9
 #define TCSERVICE_RESULT_FAILED                10
 
+#define RG_HASH_SIZE		32
+#define UUID_SIZE		48
+#define IMAGE_ID_SIZE  		256
+#define CUSTOMER_ID_SIZE 	256
+#define MANIFEST_HASH_SIZE	65
+#define MANIFEST_SIGNATURE_SIZE 512
+#define LAUNCH_POLICY_SIZE	15
+#define MANIFEST_DIR_SIZE	1024
+
 #include "jlmUtility.h"
 
 extern int g_max_uuid;
@@ -69,23 +78,23 @@ public:
     int                 m_size_vm_customer_id;
     int                 m_size_vm_manifest_hash;
     int                 m_size_vm_manifest_signature;
-    int 				m_size_vm_launch_policy;
-    int 				m_size_vm_manifest_dir;
-    byte                m_rgHash[32];
-    char 				m_uuid[48];
-    char				m_vdi_uuid[48];
+    int                 m_size_vm_launch_policy;
+    int                 m_size_vm_manifest_dir;
+    byte                m_rgHash[RG_HASH_SIZE];
+    char                m_uuid[UUID_SIZE];
+    char                m_vdi_uuid[UUID_SIZE];
     char*               m_szexeFile;
     int                 m_nArgs;
     char**              m_Args;
 
     void                print();
-    char                m_vm_image_id[256];
-    char                m_vm_customer_id[256];
-    char                m_vm_manifest_hash[65];
-    char                m_vm_manifest_signature[512];
-    char				m_vm_launch_policy[15];
-    bool				m_vm_verfication_status;
-    char                m_vm_manifest_dir[1024];
+    char                m_vm_image_id[IMAGE_ID_SIZE];
+    char                m_vm_customer_id[CUSTOMER_ID_SIZE];
+    char                m_vm_manifest_hash[MANIFEST_HASH_SIZE];
+    char                m_vm_manifest_signature[MANIFEST_SIGNATURE_SIZE];
+    char                m_vm_launch_policy[LAUNCH_POLICY_SIZE];
+    bool                m_vm_verfication_status;
+    char                m_vm_manifest_dir[MANIFEST_DIR_SIZE];
 
     serviceprocEnt() : m_rgHash{'\0'}, m_uuid{'\0'}, m_vdi_uuid{'\0'}, m_vm_image_id{'\0'}, m_vm_customer_id{'\0'},
     		m_vm_manifest_hash{'\0'}, m_vm_manifest_signature{'\0'}, m_vm_launch_policy{'\0'}, m_vm_manifest_dir{'\0'} {

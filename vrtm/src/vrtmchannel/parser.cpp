@@ -164,10 +164,13 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 					arg_count++;
 				}
 				else {
-					LOG_DEBUG("Error in Decodign the node content");
+					LOG_DEBUG("Error in Decoding the node content");
 					free(param);
 					for( i = 0 ;i < arg_count ; i++ ) {
-						free(pargs[i]);
+                                                if(pargs[i]) {
+						    free(pargs[i]);
+                                                    pargs[i] = NULL;
+                                                }
 					}
 					xmlFreeDoc (doc);
 					xmlCleanupParser();

@@ -867,14 +867,13 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
     char*               szappexecfile= NULL;
     int                 an = 0;
     char*               av[32];
-	char*				str_rp_id = NULL;
-	int 				fr_var;
+    char*				str_rp_id = NULL;
+    int 				fr_var;
+    bool ret_val = false;
 
 	//outparams[PARAMSIZE] = {0};
 	//outparams = (byte *) calloc(1,sizeof(byte)*PARAMSIZE);
-#ifdef TEST
     LOG_TRACE("Entering serviceRequest");
-#endif
 
     *outparamsize = PARAMSIZE;
 
@@ -886,37 +885,35 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         if(!decodeVM2RP_STARTAPP(&szappexecfile, &an, 
                     (char**) av, inparams)) {
         	LOG_ERROR( "failed to decode the input XML");
-            outparams = NULL;
+            //outparams = NULL;
             *outparamsize = 0;
-            return false;
+            ret_val=false;
+            goto cleanup;
         }
-        *outparamsize= PARAMSIZE;
+        //*outparamsize= PARAMSIZE;
         if(g_myService.StartApp(procid,szappexecfile,an,av,outparamsize,outparams)) {
         	LOG_ERROR("serviceRequest: StartHostedProgram failed %s", szappexecfile);
-        	outparams = NULL;
+        	//outparams = NULL;
         	*outparamsize = 0;
         	free(szappexecfile);
-        	for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
-        		free(av[fr_var]);
-        	}
-        	return false;
+        	ret_val = false;
+                goto cleanup;
         }
         LOG_INFO("Start App successful");
         free(szappexecfile);
-        return true;
-
+        ret_val = true;
+        break;
 
       case VM2RP_SETUUID:
  
-#ifdef TCTEST1
         LOG_TRACE( "serviceRequest, RP2VM_SETUUID, decoding");
-#endif
         an= 20;
         if(!decodeVM2RP_SETUUID(&str_rp_id, &an, (char**) av, inparams)) {
         	LOG_ERROR( "failed to decode the input XML");
-            outparams = NULL;
+            //outparams = NULL;
             *outparamsize = 0;
-            return false;
+            ret_val = false;
+            goto cleanup;
         }
         *outparamsize= PARAMSIZE;
         
@@ -925,30 +922,25 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 			if(g_myService.UpdateAppID(av[0], av[1], av[2], outparamsize, outparams)
 					!=TCSERVICE_RESULT_SUCCESS) {
 				LOG_ERROR( "serviceRequest: setuuid failed %s", str_rp_id);
-				free(str_rp_id);
-				for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
-					free(av[fr_var]);
-				}
-				outparams = NULL;
+				//outparams = NULL;
 				*outparamsize = 0;
-				return false;
+                                ret_val = false;
+                                goto cleanup;
 			}
 			
 		}
 		LOG_INFO("UUID %s is registered with vRTM ID %s successful", av[1], av[0]);
-		free(str_rp_id);
-		for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
-			free(av[fr_var]);
-		}
-        return true;
+        ret_val = true;
+        break;
         
       case VM2RP_TERMINATEAPP:
         LOG_TRACE( "decoding the input XML");
         if(!decodeVM2RP_TERMINATEAPP(outparamsize, outparams, inparams)) {
             LOG_ERROR( "failed to decode the input XML");
-            outparams = NULL;
+            //outparams = NULL;
             *outparamsize = 0;
-            return false;
+            ret_val = false;
+            goto cleanup;
         }
         LOG_DEBUG("Data after decoding : %s ", outparams);
         memcpy(inparams, outparams, *outparamsize);
@@ -958,15 +950,17 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         if(g_myService.TerminateApp(inparamsize, inparams, outparamsize, outparams)
                 !=TCSERVICE_RESULT_SUCCESS) {
             LOG_ERROR("failed to deregister VM of given vRTM ID : %s", inparams);
-            outparams = NULL;
+            //outparams = NULL;
             *outparamsize = 0;
-            return false;
+            ret_val = false;
+            goto cleanup;
         }
         
         //outparam will be success or failure
         
         LOG_INFO( "Deregister VM with vRTM ID %s succussfully", inparams);
-        return true;
+        ret_val = true;
+        break;
 
 			/***********new API ******************/
         case VM2RP_GETRPID:
@@ -975,9 +969,10 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         	if(!decodeRP2VM_GETRPID(outparamsize,outparams,inparams))
         	{
         		LOG_ERROR( "failed to decode the input XML");
-        		outparams = NULL;
+        		//outparams = NULL;
         		*outparamsize = 0;
-        		return false;
+                        ret_val = false;
+                        goto cleanup;
         	}
             LOG_DEBUG("outparams after decoding: %s",outparams);
         	char uuid[50];
@@ -988,9 +983,10 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         	if(g_myService.GetRpId(uuid,(byte *)rpid,&rpidsize))
         	{
         		LOG_ERROR( "Failed to get vRTM ID for given UUID");
-        		outparams = NULL;
+        		//outparams = NULL;
         		*outparamsize = 0;
-				return false;
+			ret_val = false;
+                        goto cleanup;
         	}
             LOG_DEBUG("vRTM ID : %s",rpid);
 
@@ -1000,12 +996,14 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
             LOG_DEBUG("after encode : %s",outparams);
         	if(*outparamsize<0) {
 				LOG_ERROR( "Failed to send the vRTM ID ,Encoded data too small");
-				outparams = NULL;
+				//outparams = NULL;
 				*outparamsize = 0;
-				return false;
+				ret_val = false;
+                                goto cleanup;
         	}
             LOG_INFO("Successfully sent vRTM ID for given UUID");
-            return true;
+            ret_val = true;
+            break;
         }
         case VM2RP_GETVMMETA:
         {
@@ -1013,54 +1011,28 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 			if(!decodeRP2VM_GETVMMETA(outparamsize,outparams,inparams))
 			{
 				LOG_ERROR( "failed to decode the input XML");
-				outparams = NULL;
+				//outparams = NULL;
 				*outparamsize = 0;
-				return false;
+				ret_val = false;
+                                goto cleanup;
 			}
 			//call to getVMMETA
 			LOG_DEBUG("Decoded data : %s", outparams);
-			byte *vm_rpcustomerId;
-			byte *vm_rpimageId;
-			byte *vm_rpmanifestHash;
-			byte *vm_rpmanifestSignature;
-			vm_rpcustomerId = (byte *)malloc(sizeof(byte)*256);
-			if(vm_rpcustomerId == NULL) {
-					LOG_ERROR( "Failed to send VM meta data, memory cann't be allocated for customerId");
-					outparams = NULL;
-					*outparamsize = 0;
-					return false;
-			}
+			byte vm_rpcustomerId[CUSTOMER_ID_SIZE];
+			byte vm_rpimageId[IMAGE_ID_SIZE];
+			byte vm_rpmanifestHash[MANIFEST_HASH_SIZE];
+			byte vm_rpmanifestSignature[MANIFEST_SIGNATURE_SIZE];
 
-			vm_rpimageId = (byte *) malloc(sizeof(byte)*256);
-			if(vm_rpimageId == NULL) {
-					LOG_ERROR( "Failed to send VM meta data, memory cann't be allocated for imageId");
-					outparams = NULL;
-					*outparamsize = 0;
-					return false;
-			}
-			vm_rpmanifestSignature = (byte *) malloc(sizeof(byte) *512);
-			if(vm_rpmanifestSignature == NULL) {
-					LOG_ERROR( "Failed to send VM meta data, memory cann't be allocated for manifestSignature");
-					outparams = NULL;
-					*outparamsize = 0;
-					return false;
-			}
-			vm_rpmanifestHash = (byte *) malloc(sizeof(byte) * 256);
-			if( vm_rpmanifestHash== NULL) {
-					LOG_ERROR("Failed to send VM meta data, memory cann't be allocated for vm_rpmanifestHash");
-					outparams = NULL;
-					*outparamsize = 0;
-					return false;
-			}
 			int vm_rpimageIdsize, vm_rpcustomerIdsize,vm_rpmanifestHashsize,vm_rpmanifestSignaturesize;
 			int in_procid = atoi((char *)outparams);
 			if(g_myService.GetVmMeta(in_procid,vm_rpimageId, &vm_rpimageIdsize,vm_rpcustomerId, &vm_rpcustomerIdsize,
 					vm_rpmanifestHash, &vm_rpmanifestHashsize,vm_rpmanifestSignature, &vm_rpmanifestSignaturesize))
 			{
 				LOG_ERROR( "Failed to send VM meta data, vRTM ID does not exist");
-				outparams = NULL;
+				//outparams = NULL;
 				*outparamsize = 0;
-				return false;
+                                ret_val = false;
+                                goto cleanup;
 			}
 			//create a map of data vmmeta data
 			LOG_DEBUG("vmimage id : %s",vm_rpimageId);
@@ -1079,16 +1051,14 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 			LOG_DEBUG("after encode : %s\n",outparams);
 			if(*outparamsize<0) {
 				LOG_ERROR("Failed to Send VM Metadata, Encoded data to small");
-				outparams = NULL;
+				//outparams = NULL;
 				*outparamsize = 0;
-				return false;
-			}
+                                ret_val = false;
+                                goto cleanup;
+ 			}
 			LOG_INFO("VM Meta data Successfully sent");
-			free(vm_rpimageId);
-			free(vm_rpcustomerId);
-			free(vm_rpmanifestHash);
-			free(vm_rpmanifestSignature);
-				return true;
+			ret_val = true;
+			break;
         }
 
         case VM2RP_ISVERIFIED:
@@ -1097,13 +1067,14 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
                 if(!decodeRP2VM_ISVERIFIED(outparamsize,outparams,inparams))
 				{
                 		LOG_ERROR( "failed to decode the input XML");
-						outparams = NULL;
+						//outparams = NULL;
 						*outparamsize = 0;
-						return false;
+						ret_val = false;
+						goto cleanup;
 				}
                 LOG_DEBUG("outparams after decode : %s",outparams);
 
-				char uuid[50];
+				char uuid[UUID_SIZE];
 				char verificationstat[8];
 				int  verificationstatsize=8;
 				memcpy(uuid,outparams, *outparamsize+1);
@@ -1111,9 +1082,10 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 				if(g_myService.IsVerified(uuid,&verification_status))
 				{
 						LOG_ERROR("Failed to send verification status, uuid does not exist");
-						outparams = NULL;
+						//outparams = NULL;
 						*outparamsize = 0;
-						return false;
+						ret_val = false;
+						goto cleanup;
 				}
 				sprintf(verificationstat,"%d",verification_status);
 				verificationstatsize = strlen((char *)verificationstat);
@@ -1122,12 +1094,14 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 				*outparamsize = encodeRP2VM_ISVERIFIED(verificationstatsize, (byte *)verificationstat, *outparamsize, outparams);
 				if(*outparamsize<0) {
 						LOG_ERROR("Failed to Send Verification status, Encoded data to small");
-						outparams = NULL;
+						//outparams = NULL;
 						*outparamsize = 0;
-						return false;
+						ret_val = false;
+						goto cleanup;
 				}
 				LOG_INFO("successfully sent verification status of given UUID");
-				return true;
+				ret_val = true;
+				break;
         }
 
 	case VM2RP_GETVMREPORT:
@@ -1136,26 +1110,21 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
             if(!decodeRP2VM_GETVMREPORT(&str_rp_id, &an, (char**) av, inparams))
 			{
             	LOG_ERROR( "failed to decode the input XML");
-				outparams = NULL;
+				//outparams = NULL;
 				*outparamsize = 0;
-				return false;
+				ret_val = false;
+				goto cleanup;
 			}
-            free(str_rp_id); // not used, free'd
         	LOG_DEBUG( "outparams after decode : %s %s ", av[0], av[1]);
 
-			char * vm_manifest_dir = (char *) malloc(sizeof(char) * 1024);
+			char vm_manifest_dir[1024];
 			if(g_myService.GenerateSAMLAndGetDir(av[0],av[1], vm_manifest_dir))
 			{
 					LOG_ERROR( "Failed to GET VMREPORT given uuid does not exist");
-					outparams = NULL;
+					//outparams = NULL;
 					*outparamsize = 0;
-					for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
-						free(av[fr_var]);
-					}
-					return false;
-			}
-			for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
-				free(av[fr_var]);
+					ret_val = false;
+					goto cleanup;
 			}
 
 			int vm_manifest_dir_size = strlen(vm_manifest_dir);
@@ -1164,18 +1133,32 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 			*outparamsize = encodeRP2VM_GETVMREPORT(vm_manifest_dir_size, (byte *)vm_manifest_dir, *outparamsize, outparams);
 			if(outparamsize<0) {
 				LOG_ERROR("Failed to Send VM Report and manifest Dir, Encoded data to small");
-				outparams = NULL;
+				//outparams = NULL;
 				*outparamsize = 0;
-				return false;
+				ret_val = false;
+				goto cleanup;
 			}
-			free(vm_manifest_dir);
 			LOG_INFO("Successfully send the VM Report and manifest Directory ");
-			return true;
+			ret_val = true;
+			break;
         }
 
         default:
-        	outparams = NULL;
+        	//outparams = NULL;
         	*outparamsize = 0;
-        return false;
+                ret_val = false;
+		break;
     }
+    cleanup:
+        for( fr_var = 0 ; fr_var < an ; fr_var++ ) {
+            if(av[fr_var]){
+                free(av[fr_var]);
+                av[fr_var]=NULL;
+            }
+        }
+        if(str_rp_id) {
+            free(str_rp_id);
+            str_rp_id = NULL;
+        }
+        return ret_val;
 }
