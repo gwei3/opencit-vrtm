@@ -927,16 +927,14 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         break;
         
         case VM2RP_TERMINATEAPP:
+            *outparamsize = 0;
             LOG_TRACE("decoding the input XML for terminate app");
             if(!decodeVM2RP_TERMINATEAPP(&method_name, &an, (char**) av, inparams)) {
                 LOG_ERROR( "Failed to decode the input XML for terminate app");
-                //outparams = NULL;
-                *outparamsize = 0;
                 ret_val = false;
                 goto cleanup;
             }
 	    LOG_DEBUG("Data after decoding : %s ", av[0]);
-            *outparamsize = 0;
 	    if(av[0]) {
 		if(g_myService.TerminateApp(av[0], outparamsize, outparams)
 				   !=TCSERVICE_RESULT_SUCCESS) {
@@ -953,36 +951,28 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 			/***********new API ******************/
         case VM2RP_GETRPID:
         {
-        	*outparamsize = PARAMSIZE;
-        	if(!decodeRP2VM_GETRPID(outparamsize,outparams,inparams))
+        	*outparamsize = 0;
+        	if(!decodeRP2VM_GETRPID(&method_name, &an, (char**) av, inparams) || an == 0)
         	{
         		LOG_ERROR( "failed to decode the input XML");
-        		//outparams = NULL;
-        		*outparamsize = 0;
                         ret_val = false;
                         goto cleanup;
         	}
-            LOG_DEBUG("outparams after decoding: %s",outparams);
-        	char uuid[50];
-        	char rpid[16];
+            LOG_DEBUG("Input parameter after decoding. UUID: %s",av[0]);
+        	char rpid[16] = {0};
         	int rpidsize=16;
-        	memcpy(uuid, outparams,*outparamsize+1);
-        	//call getRPID(outparams,&inparams)
-        	if(g_myService.GetRpId(uuid,(byte *)rpid,&rpidsize))
+        	if(g_myService.GetRpId(av[0],(byte *)rpid,&rpidsize)!=TCSERVICE_RESULT_SUCCESS)
         	{
-        		LOG_ERROR( "Failed to get vRTM ID for given UUID");
-        		//outparams = NULL;
-        		*outparamsize = 0;
+        		LOG_ERROR( "Failed to get vRTM ID for given UUID %s", av[0]);
 			ret_val = false;
                         goto cleanup;
         	}
-            LOG_DEBUG("vRTM ID : %s",rpid);
+            LOG_DEBUG("Found vRTM ID %s for UUID %s",rpid, av[0]);
 
         	//then encode the result
-        	*outparamsize = PARAMSIZE;
         	*outparamsize = encodeRP2VM_GETRPID(rpidsize,(byte *)rpid,*outparamsize,outparams);
             LOG_DEBUG("after encode : %s",outparams);
-        	if(*outparamsize<0) {
+        	if(*outparamsize < 0) {
 				LOG_ERROR( "Failed to send the vRTM ID ,Encoded data too small");
 				//outparams = NULL;
 				*outparamsize = 0;

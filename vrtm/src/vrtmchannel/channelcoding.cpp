@@ -185,10 +185,10 @@ bool  decodeRP2VM_TERMINATEAPP(int* psize, byte* data, const byte* buf)
 
 
 /***********************encoding and decoding functions for GETRPID and GETVMMETA****************/
-bool  decodeRP2VM_GETRPID(int *psize, byte* data, const byte* buf)
+bool  decodeRP2VM_GETRPID(char** method_name, int* pnargs, char** args, const byte* buf)
 {
-	LOG_TRACE("Decode Get RPID request");
-    int status = xmlrpc_to_cbuf(RPC2BUF,psize,data,buf);
+    LOG_TRACE("Decode Get RPID request");
+    int status = xmlrpc_to_args (method_name, pnargs, args, buf);
     return (status > 0);
 }
 

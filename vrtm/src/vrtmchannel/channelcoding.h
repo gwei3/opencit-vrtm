@@ -60,7 +60,7 @@ bool  decodeVM2RP_SETUUID(char** psz, int* pnargs, char** args, const byte* buf)
 int  encodeRP2VM_SETUUID(int result, byte* buf);
 bool  decodeRP2VM_SETUUID(int* presult, const byte* buf);
 // get rpid
-bool  decodeRP2VM_GETRPID(int *psize, byte* data, const byte* buf);
+bool  decodeRP2VM_GETRPID(char** method_name, int* pnargs, char** args, const byte* buf);
 int encodeRP2VM_GETRPID(int size,byte *data, int bufsize, byte *buf);
 // get vm meta
 bool decodeRP2VM_GETVMMETA(int * psize, byte *data, const byte * buf);
