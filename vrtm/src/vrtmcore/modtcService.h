@@ -148,8 +148,7 @@ public:
     ~tcServiceInterface();
 
     TCSERVICE_RESULT    initService(const char* execfile, int an, char** av);
-    TCSERVICE_RESULT    StartApp( int procid, const char *file,
-                            int an, char** av,
+    TCSERVICE_RESULT    StartApp( int procid, int an, char** av,
                             int* poutsize, byte* out);
 	void 				        printErrorMessagge(int error);
     TCSERVICE_RESULT    UpdateAppID(char* rp_id, char* uuid, char* vdi_uuid, int* psizeOut, byte* rgOut);

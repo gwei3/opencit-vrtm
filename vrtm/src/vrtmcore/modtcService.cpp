@@ -598,8 +598,7 @@ char* tagEntry (char* line){
 }
 
 
-TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
-									int an, char** av, int* poutsize, byte* out)
+TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int* poutsize, byte* out)
 {
     int     size= SHA256DIGESTBYTESIZE;
     byte    rgHash[SHA256DIGESTBYTESIZE];
@@ -864,10 +863,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, const char* file,
 
 bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int *outparamsize, byte* outparams)
 {
-    char*               szappexecfile= NULL;
     int                 an = 0;
     char*               av[32];
-    char*				str_rp_id = NULL;
+    char*               method_name;
     int 				fr_var;
     bool ret_val = false;
 
@@ -882,7 +880,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 
       case VM2RP_STARTAPP:
         an= 20;
-        if(!decodeVM2RP_STARTAPP(&szappexecfile, &an, 
+        if(!decodeVM2RP_STARTAPP(&method_name, &an, 
                     (char**) av, inparams)) {
         	LOG_ERROR( "failed to decode the input XML");
             //outparams = NULL;
@@ -891,16 +889,14 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
             goto cleanup;
         }
         //*outparamsize= PARAMSIZE;
-        if(g_myService.StartApp(procid,szappexecfile,an,av,outparamsize,outparams)) {
-        	LOG_ERROR("serviceRequest: StartHostedProgram failed %s", szappexecfile);
+        if(g_myService.StartApp(procid,an,av,outparamsize,outparams)) {
+        	LOG_ERROR("serviceRequest: StartHostedProgram failed %s", method_name);
         	//outparams = NULL;
         	*outparamsize = 0;
-        	free(szappexecfile);
         	ret_val = false;
                 goto cleanup;
         }
         LOG_INFO("Start App successful");
-        free(szappexecfile);
         ret_val = true;
         break;
 
@@ -908,7 +904,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
  
         LOG_TRACE( "serviceRequest, RP2VM_SETUUID, decoding");
         an= 20;
-        if(!decodeVM2RP_SETUUID(&str_rp_id, &an, (char**) av, inparams)) {
+        if(!decodeVM2RP_SETUUID(&method_name, &an, (char**) av, inparams)) {
         	LOG_ERROR( "failed to decode the input XML");
             //outparams = NULL;
             *outparamsize = 0;
@@ -921,7 +917,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 		if (av[0] ){
 			if(g_myService.UpdateAppID(av[0], av[1], av[2], outparamsize, outparams)
 					!=TCSERVICE_RESULT_SUCCESS) {
-				LOG_ERROR( "serviceRequest: setuuid failed %s", str_rp_id);
+				LOG_ERROR( "serviceRequest: setuuid failed %s", method_name);
 				//outparams = NULL;
 				*outparamsize = 0;
                                 ret_val = false;
@@ -1107,7 +1103,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 	case VM2RP_GETVMREPORT:
         {
         	LOG_TRACE("in case GETVMREPORT");
-            if(!decodeRP2VM_GETVMREPORT(&str_rp_id, &an, (char**) av, inparams))
+            if(!decodeRP2VM_GETVMREPORT(&method_name, &an, (char**) av, inparams))
 			{
             	LOG_ERROR( "failed to decode the input XML");
 				//outparams = NULL;
@@ -1156,9 +1152,9 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
                 av[fr_var]=NULL;
             }
         }
-        if(str_rp_id) {
-            free(str_rp_id);
-            str_rp_id = NULL;
+        if(method_name) {
+            free(method_name);
+            method_name = NULL;
         }
         return ret_val;
 }
