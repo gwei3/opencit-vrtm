@@ -152,7 +152,7 @@ public:
                             int* poutsize, byte* out);
 	void 				        printErrorMessagge(int error);
     TCSERVICE_RESULT    UpdateAppID(char* rp_id, char* uuid, char* vdi_uuid, int* psizeOut, byte* rgOut);
-    TCSERVICE_RESULT    TerminateApp(int sizeIn, byte* rgIn, int* psizeOut, byte* rgOut);
+    TCSERVICE_RESULT    TerminateApp(char* uuid, int* psizeOut, byte* rgOut);
     TCSERVICE_RESULT	GetRpId(char *vm_uuid, byte *rp_idbuf, int* bufsize);
     TCSERVICE_RESULT 	GetVmMeta(int procId, byte *vm_imageIdbuf, int * vm_imageIdsize,
     						byte * vm_customerId, int * vm_customerIdsize, byte * vm_manifestHash, int * vm_manifestHashsize,

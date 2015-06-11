@@ -157,10 +157,11 @@ int  encodeVM2RP_TERMINATEAPP(int size, const byte* data, int bufsize, byte* buf
 }
 
 
-bool  decodeVM2RP_TERMINATEAPP(int* psize, byte* data, const byte* buf)
+bool  decodeVM2RP_TERMINATEAPP(char** method_name, int* pnargs,
+                                     char** args, const byte* buf)
 {
-	LOG_TRACE("Decode Terminate App request");
- 	int status = xmlrpc_to_cbuf (RPC2BUF, psize,  data, buf);
+    LOG_TRACE("Decode Terminate App request");
+    int status = xmlrpc_to_args (method_name, pnargs, args, buf);
     return (status > 0);
 }
 

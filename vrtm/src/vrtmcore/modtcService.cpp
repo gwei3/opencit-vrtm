@@ -514,17 +514,14 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 	return TCSERVICE_RESULT_SUCCESS;
 }
-TCSERVICE_RESULT tcServiceInterface::TerminateApp(int sizeIn, byte* rgIn, int* psizeOut, byte* out)
+TCSERVICE_RESULT tcServiceInterface::TerminateApp(char* uuid, int* psizeOut, byte* out)
 {
 	//remove entry from table.
     LOG_TRACE("Terminate VM");
-	char uuid[48] = {0};
-	if ((rgIn == NULL) || (psizeOut == NULL) || (out == NULL)){
+	if ((uuid == NULL) || (psizeOut == NULL) || (out == NULL)){
 		LOG_ERROR("Can't remove entry for given NULL UUID");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	memset(uuid, 0, g_max_uuid);
-    memcpy(uuid, rgIn, g_sz_uuid);
     g_myService.m_procTable.removeprocEntry(uuid);
     *psizeOut = sizeof(int);
     *((int*)out) = (int)1;
@@ -882,7 +879,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         an= 20;
         if(!decodeVM2RP_STARTAPP(&method_name, &an, 
                     (char**) av, inparams)) {
-        	LOG_ERROR( "failed to decode the input XML");
+        	LOG_ERROR( "Failed to decode the input XML for Start App");
             //outparams = NULL;
             *outparamsize = 0;
             ret_val=false;
@@ -890,7 +887,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         }
         //*outparamsize= PARAMSIZE;
         if(g_myService.StartApp(procid,an,av,outparamsize,outparams)) {
-        	LOG_ERROR("serviceRequest: StartHostedProgram failed %s", method_name);
+        	LOG_ERROR("Start App failed. Method name: %s", method_name);
         	//outparams = NULL;
         	*outparamsize = 0;
         	ret_val = false;
@@ -905,7 +902,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         LOG_TRACE( "serviceRequest, RP2VM_SETUUID, decoding");
         an= 20;
         if(!decodeVM2RP_SETUUID(&method_name, &an, (char**) av, inparams)) {
-        	LOG_ERROR( "failed to decode the input XML");
+        	LOG_ERROR( "Failed to decode the input XML for Set UUID");
             //outparams = NULL;
             *outparamsize = 0;
             ret_val = false;
@@ -917,7 +914,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 		if (av[0] ){
 			if(g_myService.UpdateAppID(av[0], av[1], av[2], outparamsize, outparams)
 					!=TCSERVICE_RESULT_SUCCESS) {
-				LOG_ERROR( "serviceRequest: setuuid failed %s", method_name);
+				LOG_ERROR( "Set UUID failed. Method name: %s", method_name);
 				//outparams = NULL;
 				*outparamsize = 0;
                                 ret_val = false;
@@ -930,31 +927,28 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         break;
         
       case VM2RP_TERMINATEAPP:
-        LOG_TRACE( "decoding the input XML");
-        if(!decodeVM2RP_TERMINATEAPP(outparamsize, outparams, inparams)) {
-            LOG_ERROR( "failed to decode the input XML");
+        LOG_TRACE( "decoding the input XML for terminate app");
+        if(!decodeVM2RP_TERMINATEAPP(&method_name, &an, (char**) av, inparams)) {
+            LOG_ERROR( "Failed to decode the input XML for terminate app");
             //outparams = NULL;
             *outparamsize = 0;
             ret_val = false;
             goto cleanup;
         }
-        LOG_DEBUG("Data after decoding : %s ", outparams);
-        memcpy(inparams, outparams, *outparamsize);
-        inparamsize = *outparamsize;
-        *outparamsize= PARAMSIZE;
-        memset(outparams, 0, *outparamsize);
-        if(g_myService.TerminateApp(inparamsize, inparams, outparamsize, outparams)
-                !=TCSERVICE_RESULT_SUCCESS) {
-            LOG_ERROR("failed to deregister VM of given vRTM ID : %s", inparams);
-            //outparams = NULL;
-            *outparamsize = 0;
-            ret_val = false;
-            goto cleanup;
+        LOG_DEBUG("Data after decoding : %s ", av[0]);
+        if(av[0]) {
+            if(g_myService.TerminateApp(av[0], outparamsize, outparams)
+                               !=TCSERVICE_RESULT_SUCCESS) {
+                LOG_ERROR("failed to deregister VM of given vRTM ID : %s", inparams);
+                *outparamsize = 0;
+                ret_val = false;
+                goto cleanup;
+            }
         }
         
         //outparam will be success or failure
         
-        LOG_INFO( "Deregister VM with vRTM ID %s succussfully", inparams);
+        LOG_INFO( "Deregister VM with vRTM ID %s succussfully", av[0]);
         ret_val = true;
         break;
 

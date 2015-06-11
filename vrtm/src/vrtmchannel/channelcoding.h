@@ -49,7 +49,7 @@ bool  decodeRP2VM_STARTAPP(int* pprocid, const byte* buf);
 
 //terminate app/vm
 int  encodeVM2RP_TERMINATEAPP(int size, const byte* data, int bufsize, byte* buf);
-bool decodeVM2RP_TERMINATEAPP(int* psize, byte* data, const byte* buf);
+bool decodeVM2RP_TERMINATEAPP(char** method_name, int* pnargs, char** args, const byte* buf);
 
 int  encodeRP2VM_TERMINATEAPP(int size, const byte* data, int bufsize, byte* buf);
 bool  decodeRP2VM_TERMINATEAPP(int* psize, byte* data, const byte* buf);
