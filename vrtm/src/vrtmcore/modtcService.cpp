@@ -132,7 +132,7 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
 
 
 //Step through linked list m_pMap and delete node matching procid
-void   serviceprocTable::removeprocEntry(int procid)
+bool serviceprocTable::removeprocEntry(int procid)
 {
 	LOG_DEBUG("vRTM id to be removed : %d", procid);
 	pthread_mutex_lock(&loc_proc_table);
@@ -140,26 +140,25 @@ void   serviceprocTable::removeprocEntry(int procid)
 	if( table_it == proc_table.end()) {
 		pthread_mutex_unlock(&loc_proc_table);
 		LOG_ERROR("Table entry can't be removed, given RPID : %d doesn't exist\n", procid);
-		return;
+		return false;
 	}
 	proc_table.erase(table_it);
 	pthread_mutex_unlock(&loc_proc_table);
 	LOG_INFO("Table entry removed successfully for vRTM ID : %d\n",procid);
-	return;
+	return true;
 }
 
 //Step through linked list m_pMap and delete node matching uuid
-void   serviceprocTable::removeprocEntry(char* uuid)
+bool serviceprocTable::removeprocEntry(char* uuid)
 {
 	LOG_DEBUG(" UUID to be removed from vrtm map : %s", uuid);
 	int proc_id = getprocIdfromuuid(uuid);
 	if ( proc_id == NULL ) {
 		LOG_ERROR("Entry removal failed from Table, UUID %s is not registered with vRTM", uuid);
-		return;
+		return false;
 	}
-	removeprocEntry(proc_id);
-    LOG_INFO("Entry removed from Table for UUID : %s\n", uuid);
-	return;
+	LOG_INFO("vRTM ID %d will be removed for UUID %s", proc_id, uuid);
+	return removeprocEntry(proc_id);
 }
 
 bool serviceprocTable::updateprocEntry(int procid, char* uuid, char *vdi_uuid)
@@ -518,14 +517,15 @@ TCSERVICE_RESULT tcServiceInterface::TerminateApp(char* uuid, int* psizeOut, byt
 {
 	//remove entry from table.
     LOG_TRACE("Terminate VM");
-	if ((uuid == NULL) || (psizeOut == NULL) || (out == NULL)){
-		LOG_ERROR("Can't remove entry for given NULL UUID");
-		return TCSERVICE_RESULT_FAILED;
-	}
-    g_myService.m_procTable.removeprocEntry(uuid);
+    if ((uuid == NULL) || (psizeOut == NULL) || (out == NULL)){
+        LOG_ERROR("Can't remove entry for given NULL UUID");
+        return TCSERVICE_RESULT_FAILED;
+    }
+    if(!g_myService.m_procTable.removeprocEntry(uuid))
+        return TCSERVICE_RESULT_FAILED;
     *psizeOut = sizeof(int);
     *((int*)out) = (int)1;
-	return TCSERVICE_RESULT_SUCCESS;
+    return TCSERVICE_RESULT_SUCCESS;
 }
 
 
@@ -862,7 +862,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 {
     int                 an = 0;
     char*               av[32];
-    char*               method_name;
+    char*               method_name = NULL;
     int 				fr_var;
     bool ret_val = false;
 
@@ -926,31 +926,29 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         ret_val = true;
         break;
         
-      case VM2RP_TERMINATEAPP:
-        LOG_TRACE( "decoding the input XML for terminate app");
-        if(!decodeVM2RP_TERMINATEAPP(&method_name, &an, (char**) av, inparams)) {
-            LOG_ERROR( "Failed to decode the input XML for terminate app");
-            //outparams = NULL;
-            *outparamsize = 0;
-            ret_val = false;
-            goto cleanup;
-        }
-        LOG_DEBUG("Data after decoding : %s ", av[0]);
-        if(av[0]) {
-            if(g_myService.TerminateApp(av[0], outparamsize, outparams)
-                               !=TCSERVICE_RESULT_SUCCESS) {
-                LOG_ERROR("failed to deregister VM of given vRTM ID : %s", inparams);
+        case VM2RP_TERMINATEAPP:
+            LOG_TRACE("decoding the input XML for terminate app");
+            if(!decodeVM2RP_TERMINATEAPP(&method_name, &an, (char**) av, inparams)) {
+                LOG_ERROR( "Failed to decode the input XML for terminate app");
+                //outparams = NULL;
                 *outparamsize = 0;
                 ret_val = false;
                 goto cleanup;
             }
-        }
-        
-        //outparam will be success or failure
-        
-        LOG_INFO( "Deregister VM with vRTM ID %s succussfully", av[0]);
-        ret_val = true;
-        break;
+	    LOG_DEBUG("Data after decoding : %s ", av[0]);
+            *outparamsize = 0;
+	    if(av[0]) {
+		if(g_myService.TerminateApp(av[0], outparamsize, outparams)
+				   !=TCSERVICE_RESULT_SUCCESS) {
+		    LOG_ERROR("failed to deregister VM of given vRTM ID : %s", inparams);
+		    *outparamsize = 0;
+		    ret_val = false;
+		    goto cleanup;
+		}
+	    }
+	    LOG_INFO( "Deregister VM with vRTM ID %s succussfully", av[0]);
+	    ret_val = true;
+	    break;
 
 			/***********new API ******************/
         case VM2RP_GETRPID:

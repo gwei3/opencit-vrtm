@@ -125,8 +125,8 @@ public:
     			int sizeHash, byte* hash);
     bool 				updateprocEntry(int procid, char* uuid, char* vdi_uuid);
     bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature,char* launch_policy,bool status, char * vm_manifest_dir);
-    void                removeprocEntry(int procid);
-    void                removeprocEntry(char* uuid);
+    bool                removeprocEntry(int procid);
+    bool                removeprocEntry(char* uuid);
     serviceprocEnt*     getEntfromprocId(int procid);
     int					getprocIdfromuuid(char* uuid);
     void                print();
