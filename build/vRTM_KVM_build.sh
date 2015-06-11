@@ -72,7 +72,7 @@ function is_log4cpp_installed() {
 		exit -1;
 	fi
 		
-	if [ -e /usr/lib/liblog4cpp.so ]
+	if [ -e /usr/lib/liblog4cpp.so -o -e /usr/lib64/liblog4cpp.so ]
 	then
 		echo "log4cpp libraries are present..."
 	else

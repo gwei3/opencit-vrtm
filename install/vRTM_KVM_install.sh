@@ -94,17 +94,10 @@ function installKVMPackages_rhel()
           yum install -y yum-utils
           yum-config-manager --enable rhel-6-server-optional-rpms
         fi
-        # Install the openstack repo
-	rpm -q rdo-release
-	if [ $? -ne 0 ] ; then
-	        yum install -y yum-plugin-priorities
-        	yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
-	fi
-
-        yum install -y libvirt libguestfs-tools-c
+        yum install -y libguestfs-tools-c
         #Libs required for compiling libvirt
-	yum install -y trousers tpm-tools cryptsetup 
-	yum install -y tar procps binutils openssh-server
+        yum install -y openssh-server
+	yum install -y tar procps binutils
 	selinuxenabled
 	if [ $? -eq 0 ] ; then
 		yum install -y policycoreutils-python
@@ -124,10 +117,8 @@ function installKVMPackages_suse()
 {
 	zypper addrepo -f obs://Cloud:OpenStack:Icehouse/openSUSE_13.1 Icehouse
 	zypper -n refresh
-        zypper -n in libvirt qemu-kvm
         zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp wget
         zypper -n in openssh dos2unix
-	zypper -n in tboot  
 }
 
 function installKVMPackages()
@@ -141,144 +132,6 @@ function installKVMPackages()
         fi
 }
 
-installLibvirtPackages_ubuntu()
-{
-	grep -c libvirtd /etc/group
-        if [ $? -eq 1 ] ; then
-                groupadd libvirtd
-        fi
-        id nova > /dev/null
-        if [ $? -eq 0 ] ; then
-                echo "Found nova user"
-                isNovaInLibvirtGroup=`id nova | grep -i -c libvirtd`
-                if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
-                        echo "nova user is present but not a part of libvirtd group"
-                        echo -n "Adding nova as a part of libvirtd group... "
-                        usermod -a -G libvirtd nova
-                        if [ $? -eq 0 ] ; then
-                                echo "success"
-                        else
-                                echo "failed"
-                        fi
-                fi      
-        fi
-}
-
-installLibvirtPackages_rhel()
-{
-	grep -c libvirtd /etc/group
-	if [ $? -eq 1 ] ; then
-		groupadd libvirtd
-	fi
-	id nova > /dev/null
-	if [ $? -eq 0 ] ; then
-		echo "Found nova user"
-		isNovaInLibvirtGroup=`id nova | grep -i -c libvirtd`
-		if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
-			echo "nova user is present but not a part of libvirtd group"
-			echo -n "Adding nova as a part of libvirtd group... "
-			usermod -a -G libvirtd nova
-			if [ $? -eq 0 ] ; then
-				echo "success"
-			else
-				echo "failed"
-			fi
-		fi
-	fi
-}
-
-installLibvirtPackages_suse()
-{
-        grep -c libvirtd /etc/group
-        if [ $? -eq 1 ] ; then
-                groupadd libvirtd
-        fi
-	id nova > /dev/null
-        if [ $? -eq 0 ] ; then
-                echo "Found nova user"
-                isNovaInLibvirtGroup=`id nova | grep -i -c libvirtd`
-                if [ "$isNovaInLibvirtGroup" -eq 0 ] ; then
-                        echo "nova user is present but not a part of libvirtd group"
-                        echo -n "Adding nova as a part of libvirtd group... "
-                        usermod -a -G libvirtd nova
-                        if [ $? -eq 0 ] ; then
-                                echo "success"
-                        else
-                                echo "failed"
-                        fi
-                fi
-        fi
-}
-
-installLibvirtPackages()
-{
-        if [ $FLAVOUR == "ubuntu" ] ; then
-		installLibvirtPackages_ubuntu
-        elif [  $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
-		installLibvirtPackages_rhel
-	elif [ $FLAVOUR == "suse" ] ; then
-		installLibvirtPackages_suse
-        fi
-	
-}
-
-
-function installLibvirt()
-{
-	# Openstack icehouse repo contains libvirt 1.2.2
-	# Adding the repository
-	
-	if [ $BUILD_LIBVIRT == "TRUE" ] ; then
-		if [ -e libvirt-1.2.2.tar.gz ] ; then
-			echo "Using the packaged libvirt found in dist"
-		else
-			echo "This dist package does not contain custom libvirt"
-			echo "Please create a dist package using --with-libvirt option"
-			echo "Aborting install process.."
-			exit
-		fi
-
-	    tar xvzf libvirt-1.2.2.tar.gz
-	    cd libvirt-1.2.2
-	    ./configure --prefix=/usr --localstatedir=/var --sysconfdir=/etc --with-xen=no --with-esx=no
-	    make -j 4
-	        if [ $? -ne 0 ]; then
-	                echo "ERROR : make failed for libvirtd "
-	                exit
-	        else
-	                echo "INFO : Libvirtd make PASSED"
-	        fi
-	    make install
-	        if [ $? -ne 0 ]; then
-	                echo "ERROR : make install failed for libvirtd "
-	                exit
-	        else
-	                echo "INFO : make install PASSED"
-	        fi
-	    echo "libvirt version is ....."
-	    libvirtd --version
-	    sleep 2
-	else	
-		installLibvirtPackages
-	fi
-	# Touch them only if they are commented	
-	sed -i 's/^#.*unix_sock_group.*/unix_sock_group="libvirtd"/g' /etc/libvirt/libvirtd.conf
-	sed -i 's/^#.*unix_sock_rw_perms.*/unix_sock_rw_perms="0770"/g' /etc/libvirt/libvirtd.conf
-	sed -i 's/^#.*unix_sock_ro_perms.*/unix_sock_ro_perms="0777"/g' /etc/libvirt/libvirtd.conf
-	sed -i 's/^#.*auth_unix_ro.*/auth_unix_ro="none"/g' /etc/libvirt/libvirtd.conf
-	sed -i 's/^#.*auth_unix_rw.*/auth_unix_rw="none"/g' /etc/libvirt/libvirtd.conf
-
-	if [ $FLAVOUR == "ubuntu" ]; then
-		# Disable the apparmor profile for libvirt for ubuntu
-		if [ -e /etc/apparmor.d/disable/usr.sbin.libvirtd ] ; then
-			echo "libvirt apparmor already disabled"
-		else
-			ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/
-			apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd 
-		fi
-	fi
-
-}
 function installvrtmProxyAndListner()
 {
 	echo "Installing vrtmProxy and Starting vrtmListener...."
@@ -314,6 +167,11 @@ function installvrtmProxyAndListner()
 	#chown nova:nova $LOG_DIR/vrtm_proxy.log
 	cp "$INSTALL_DIR/vrtm/lib/libvrtmchannel-g.so" /usr/local/lib
 	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
+		if [ $FLAVOUR == "rhel" ] ; then
+			SELINUX_TYPE="svirt_t"
+		else
+			SELINUX_TYPE="svirt_tcg_t"
+		fi
 		selinuxenabled
 		if [ $? -eq 0 ] ; then
 			echo "Updating the selinux policies for vRTM files"
@@ -332,11 +190,11 @@ function installvrtmProxyAndListner()
                                 
                                require {
                                type nova_var_lib_t;
-                               type svirt_t;
+                               type $SELINUX_TYPE;
                                class lnk_file read;
                                }
                                #============= svirt_t ==============
-                               allow svirt_t nova_var_lib_t:lnk_file read;
+                               allow $SELINUX_TYPE nova_var_lib_t:lnk_file read;
                           " > svirt_for_links.te
                           /usr/bin/checkmodule -M -m -o svirt_for_links.mod svirt_for_links.te
                           /usr/bin/semodule_package -o svirt_for_links.pp -m svirt_for_links.mod
@@ -598,9 +456,6 @@ function main_default()
 
 	echo "Untarring Resources ..."
         untarResources
-	
-        echo "Installing libvirt ..."
-        installLibvirt
 
 	echo "Validating installation ... "
 	validate
@@ -639,12 +494,10 @@ function help_display()
 	echo "Usage : ./vRTM_KVM_install.sh [Options]"
         echo "This script creates the installer tar for vrtmCore"
         echo "    default : Installs vrtmCore components"
-	echo "	  --with-libvirt : This searches and installs the libvirt version "
 	echo "			 packaged along with vRTM dist"
 	exit
 }
 
-MY_SCRIPT_NAME=$0
 
 if [ "$#" -gt 1 ] ; then
 	help_display
