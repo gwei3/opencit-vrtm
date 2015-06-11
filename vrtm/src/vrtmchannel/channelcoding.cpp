@@ -200,11 +200,11 @@ int encodeRP2VM_GETRPID(int size,byte *data, int bufsize, byte *buf)
 }
 
 
-bool decodeRP2VM_GETVMMETA(int * psize, byte *data, const byte * buf)
+bool decodeRP2VM_GETVMMETA(char** method_name, int* pnargs, char** args, const byte* buf)
 {
-	LOG_TRACE("Decode Get VM Metadata request");
-    int status = xmlrpc_to_cbuf(RPC2BUF,psize,data,buf);
-        return (status > 0);
+    LOG_TRACE("Decode Get VM Metadata request");
+    int status = xmlrpc_to_args (method_name, pnargs, args, buf);
+    return (status > 0);
 }
 
 int encodeRP2VM_GETVMMETA(int numofMetadata, byte * metadata[], int bufsize, byte *buf)
@@ -214,11 +214,11 @@ int encodeRP2VM_GETVMMETA(int numofMetadata, byte * metadata[], int bufsize, byt
 	return args_to_xmlrpc((char*)"get_vmmeta", numofMetadata, (char**)metadata, bufsize, buf);
 }
 
-bool decodeRP2VM_ISVERIFIED(int * psize, byte *data, const byte * buf)
+bool decodeRP2VM_ISVERIFIED(char** method_name, int* pnargs, char** args, const byte* buf)
 {
-	LOG_TRACE("Decode Is Verified request");
-      int status = xmlrpc_to_cbuf(RPC2BUF,psize,data,buf);
-        return (status > 0);
+    LOG_TRACE("Decode Is Verified request");
+    int status = xmlrpc_to_args (method_name, pnargs, args, buf);
+    return (status > 0);
 }
 
 int encodeRP2VM_ISVERIFIED(int size, byte *data, int bufsize, byte * buf)

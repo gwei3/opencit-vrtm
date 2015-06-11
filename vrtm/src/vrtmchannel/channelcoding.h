@@ -63,11 +63,11 @@ bool  decodeRP2VM_SETUUID(int* presult, const byte* buf);
 bool  decodeRP2VM_GETRPID(char** method_name, int* pnargs, char** args, const byte* buf);
 int encodeRP2VM_GETRPID(int size,byte *data, int bufsize, byte *buf);
 // get vm meta
-bool decodeRP2VM_GETVMMETA(int * psize, byte *data, const byte * buf);
+bool decodeRP2VM_GETVMMETA(char** method_name, int* pnargs, char** args, const byte* buf);
 int encodeRP2VM_GETVMMETA(int numofMetadata, byte * metadata[], int bufsize, byte *buf);
 
 int encodeRP2VM_ISVERIFIED(int size, byte *data, int bufsize, byte * buf);
-bool decodeRP2VM_ISVERIFIED(int * psize, byte *data, const byte * buf);
+bool decodeRP2VM_ISVERIFIED(char** method_name, int* pnargs, char** args, const byte* buf);
 
 int encodeRP2VM_GETVMREPORT(int size, byte *data, int bufsize, byte * buf);
 bool decodeRP2VM_GETVMREPORT(char** psz, int* pnargs, char** args, const byte* buf);
