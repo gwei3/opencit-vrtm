@@ -98,8 +98,27 @@ function buildvrtmlistener()
                 echo "VRTM-Proxy build failed...Please see outfile for more details"
                 exit -1
         else
-                echo "VRTMProxy build successful"
+                echo "VRTM-Proxy build successful"
         fi
+	cd "$BUILD_DIR"
+
+        cd vrtm/src/vrtmlistener/kvm_listener
+        make -f vrtm-listener.mak clean >> "$BUILD_DIR/outfile" 2>&1
+        if [ $? -ne 0 ]; then
+        	echo "VRTM-listener clean failed...Please see outfile for more details"
+	        exit -1
+	else
+        	echo "VRTM-listener clean successful"
+        fi
+
+        make -f vrtm-listener.mak >> "$BUILD_DIR/outfile" 2>&1
+        if [ $? -ne 0 ]; then
+                echo "VRTM-listener build failed...Please see outfile for more details"
+                exit -1
+        else
+                echo "VRTM-listener build successful"
+        fi
+
 	
         cd "$BUILD_DIR"
 }
