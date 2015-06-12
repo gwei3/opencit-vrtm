@@ -12,16 +12,13 @@ LIB=        $(RPROOT)/lib
 INC=        $(RPROOT)/inc
 
 UTIL=       ../util
-SC=         ../util/commonCode
-SCC=        ../util/jlmcrypto
-SBM=        ../util/jlmbignum
+SC=         ../util
 CH=         ../vrtmchannel
 TM=	    	../vrtmcore
-DM=			../measurer
 LOG4CPP=	/usr/include/log4cpp/
 
 #DEBUG_CFLAGS     := -Wall  -Wno-format -g -DDEBUG
-RELEASE_CFLAGS   := -Wall  -Wno-unknown-pragmas -Wno-format -O3
+#RELEASE_CFLAGS   := -Wall  -Wno-unknown-pragmas -Wno-format -O3
 O1RELEASE_CFLAGS   := -Wall  -Wno-unknown-pragmas -Wno-format -O1
 LDFLAGS          := ${RELEASE_LDFLAGS}
 CFLAGS=     -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D TEST1 -D TCSERVICE -D __FLUSHIO__ $(DEBUG_CFLAGS) -DNEWANDREORGANIZED -D TPMTEST -DTEST_SEG -DCSR_REQ
@@ -55,7 +52,7 @@ $(OBJ)/vrtmcoremain.o: $(TM)/vrtmcoremain.cpp
 	@echo $(debug)
 	$(CC) $(CFLAGS) -I$(UTIL) -I$(SC) -I$(LOG4CPP) -I$(CH) -c -o $(OBJ)/vrtmcoremain.o $(TM)/vrtmcoremain.cpp
 
-$(OBJ)/vrtminterface.o: $(TM)/vrtminterface.cpp $(UTIL)/tcIO.h
+$(OBJ)/vrtminterface.o: $(TM)/vrtminterface.cpp 
 	$(CC) $(CFLAGS)  -I$(CH) -I$(UTIL)   -I$(SC) -I$(LOG4CPP) -c -o $(OBJ)/vrtminterface.o $(TM)/vrtminterface.cpp
 
 

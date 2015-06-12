@@ -19,14 +19,9 @@
 // to the location of the License.
 
 
-#include "jlmTypes.h"
 #include "logging.h"
-#include "tcIO.h"
 #include "modtcService.h"
-#include "algs.h"
 #include "channelcoding.h"
-#include "linuxHostsupport.h"
-
 #include <stdlib.h>
 #include <sys/wait.h> /* for wait */
 #include <stdio.h>
@@ -66,9 +61,6 @@ byte                    g_servicehash[32]= {
                         };
 
 uint32_t	g_rpdomid = 1000;
-//char 		g_mtwproxy_ip[64] = "127.0.0.1";
-//int 		g_mtwproxy_on = 0;
-//int 		g_mtwproxy_port = 16006;
 #define NUMPROCENTS 200
 #define LAUNCH_ALLOWED		"launch allowed"	 
 #define LAUNCH_NOT_ALLOWED	"launch not allowed"
@@ -826,6 +818,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         iSize++;
     }
     LOG_TRACE("Adding proc table entry for measured VM");
+    
     if(!g_myService.m_procTable.addprocEntry(child, kernel_file, 0, (char**) NULL, size, rgHash)) {
     	LOG_ERROR( "StartApp: cant add to vRTM Map\n");
         return TCSERVICE_RESULT_FAILED;

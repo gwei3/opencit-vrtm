@@ -13,7 +13,7 @@ INC		= $(RPROOT)/inc
 TM      = ../../vrtmchannel
 RPCORE  = ../../vrtmcore/
 LOG4CPP=	/usr/include/log4cpp/
-SC=         ../../util/commonCode
+SC=         ../../util
 
 
 #DEBUG_CFLAGS	:= -Wall  -Wno-format -g -DDEBUG -fpermissive

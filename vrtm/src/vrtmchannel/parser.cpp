@@ -12,11 +12,6 @@
 #include "base64.h"
 #include "logging.h"
 
-#ifndef NULL
-#define NULL ((void *)0)
-#endif
-
-
 int cbuf_to_xmlrpc(const char* func, const char* method, int size, const byte* data, int bufsize, byte* buf) {
 
 	xmlDocPtr doc;

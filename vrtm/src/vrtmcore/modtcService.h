@@ -26,8 +26,8 @@
 #define __TCSERVICE_H__
 
 
-#include "jlmTypes.h"
-#include "tcIO.h"
+//#include "jlmTypes.h"
+//#include "tcIO.h"
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -39,7 +39,7 @@
 #include <pthread.h>
 #include <map>
 
-typedef u64 TCSERVICE_RESULT;
+typedef unsigned TCSERVICE_RESULT;
 
 
 #define MAXREQRESSIZE                         512
@@ -66,7 +66,11 @@ typedef u64 TCSERVICE_RESULT;
 #define LAUNCH_POLICY_SIZE	15
 #define MANIFEST_DIR_SIZE	1024
 
-#include "jlmUtility.h"
+//#include "jlmUtility.h"
+#ifndef byte
+typedef unsigned char byte;
+#endif
+
 
 extern int g_max_uuid;
 extern int g_sz_uuid;
@@ -110,7 +114,7 @@ public:
 };
 
 
-typedef aNode<serviceprocEnt>  serviceprocMap;
+// typedef aNode<serviceprocEnt>  serviceprocMap;
 typedef std::map<int, serviceprocEnt> proc_table_map;
 
 class serviceprocTable {
@@ -161,18 +165,7 @@ public:
     TCSERVICE_RESULT	GenerateSAMLAndGetDir(char *vm_uuid, char * nonce, char * vm_manifest_dir);
 };
 
-typedef struct requestData {
-	int                 procid;
-	int                 origprocid;
-	u32                 uReq;
-    int                 inparamsize;
-    byte                *inparams;
-}requestData;
-
-void* async_service_request(void * reqData);
-requestData* create_request_data(int procid, int origprocid, u32 uReq, int inparamsize, byte *inparams);
-void free_request_data(requestData *reqData);
-int create_domain(int argc, char **argv);
+bool serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int *outparamsize, byte* outparams);
 #endif
 
 

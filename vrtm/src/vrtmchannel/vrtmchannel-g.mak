@@ -12,11 +12,7 @@ LIB=        $(RPROOT)/lib
 INC=        $(RPROOT)/inc
 
 S=          ../util
-SC=         ../util/commonCode
-SBM=        ../util/jlmbignum
-#TS=         ../fileProxy/Code/TPMDirect
 TM=	    	../vrtmchannel
-#TPM=        ../fileProxy/Code/TPMDirect
 PY=	    	/usr/include/python2.7
 PYTHON=		python2.7
 LXML=		/usr/include/libxml2/
@@ -37,23 +33,23 @@ sobjs=     $(OBJ)/channelcoding.o $(OBJ)/parser.o $(OBJ)/tcpchan.o $(OBJ)/loggin
 
 all: $(LIB)/libvrtmchannel-g.so 
 
-$(OBJ)/logging.o: $(SC)/logging.cpp $(SC)/logging.h 
-	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -c -o $(OBJ)/logging.o $(SC)/logging.cpp
+$(OBJ)/logging.o: $(S)/logging.cpp $(S)/logging.h 
+	$(CC) $(CFLAGS) -I$(S) -I$(LOG4CPP) -c -o $(OBJ)/logging.o $(S)/logging.cpp
 
 $(OBJ)/log_vrtmchannel.o: $(TM)/log_vrtmchannel.cpp $(TM)/log_vrtmchannel.h 
-	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -c -o $(OBJ)/log_vrtmchannel.o $(TM)/log_vrtmchannel.cpp
+	$(CC) $(CFLAGS) -I$(LOG4CPP) -I$(S) -c -o $(OBJ)/log_vrtmchannel.o $(TM)/log_vrtmchannel.cpp
 	
 $(OBJ)/channelcoding.o: $(TM)/channelcoding.cpp $(TM)/channelcoding.h
-	gcc $(CFLAGS) -I$(TM) -I$(SC) -I$(S) -I$(LOG4CPP) -c -o $(OBJ)/channelcoding.o $(TM)/channelcoding.cpp
+	gcc $(CFLAGS) -I$(TM) -I$(S) -I$(LOG4CPP) -c -o $(OBJ)/channelcoding.o $(TM)/channelcoding.cpp
 
-$(OBJ)/base64.o: $(SC)/base64.cpp $(SC)/base64.h
-	$(CC) $(CFLAGS) -I$(OPENSSL) -I$(LOG4CPP) -c -o $(OBJ)/base64.o $(SC)/base64.cpp
+$(OBJ)/base64.o: $(S)/base64.cpp $(S)/base64.h
+	$(CC) $(CFLAGS) -I$(OPENSSL) -I$(LOG4CPP) -c -o $(OBJ)/base64.o $(S)/base64.cpp
 
 $(OBJ)/parser.o: $(TM)/parser.cpp
-	$(CC) $(CFLAGS) -I$(PY) -I$(SC) -I$(LXML) -I$(LOG4CPP) -c -o $(OBJ)/parser.o $(TM)/parser.cpp -lxml2
+	$(CC) $(CFLAGS) -I$(PY) -I$(S) -I$(LXML) -I$(LOG4CPP) -c -o $(OBJ)/parser.o $(TM)/parser.cpp -lxml2
 	
 $(OBJ)/tcpchan.o: $(TM)/tcpchan.cpp $(TM)/tcpchan.h
-	$(CC) $(CFLAGS) -I$(S) -I$(SC) -I$(TM) -I$(LOG4CPP) -c -o $(OBJ)/tcpchan.o $(TM)/tcpchan.cpp
+	$(CC) $(CFLAGS) -I$(S) -I$(TM) -I$(LOG4CPP) -c -o $(OBJ)/tcpchan.o $(TM)/tcpchan.cpp
 
 $(LIB)/libvrtmchannel-g.so: $(sobjs)
 	@echo "Building libvrtmchannel-g.so ..."

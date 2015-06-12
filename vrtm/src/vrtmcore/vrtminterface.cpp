@@ -20,9 +20,7 @@
 // -------------------------------------------------------------------
 
 #define __STDC_LIMIT_MACROS
-#include "jlmTypes.h"
 #include "logging.h"
-#include "tcIO.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -55,9 +53,10 @@
 #include "tcconfig.h"
 
 #include "tcpchan.h"
-
+#include "modtcService.h"
+#include "vrtminterface.h"
 /*************************************************************************************************************/
-tcChannel   g_reqChannel;
+//tcChannel   g_reqChannel;
 //#if 1
 
 extern char g_rpcore_ip [64];
@@ -144,7 +143,7 @@ bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     return true;
 }
 
-
+/*
 bool openclient(int* pfd, const char* szunixPath, struct sockaddr* psrv)
 {
     int     fd;
@@ -170,42 +169,8 @@ bool openclient(int* pfd, const char* szunixPath, struct sockaddr* psrv)
 
     *pfd= fd;
     return true;
-}
+}*/
 #endif
-
-
-bool tcChannel::OpenBuf(u32 type, int fd, const char* file, u32 flags)
-{
-
-    LOG_TRACE("Inside OpenBuf");
-	bool status = false;
-	
-    m_uType= type;
-    m_fd= -1;
-#ifdef TCSERVICE
-//v:
-	pthread_mutex_init(&gm, NULL);
-	pthread_cond_init(&gc, NULL);
-	//sem_init(&sem_req, 0, 1);
-	//sem_init(&sem_resp, 0, 1);
-    LOG_TRACE("Starting separate thread to start vRTM socket");	
-	pthread_attr_init(&g_attr);
-	pthread_create(&dom_listener_thread, &g_attr, dom_listener_main, (void*)NULL);
-	pthread_join(dom_listener_thread,NULL);
-//v:
-#endif
-
-	m_fd = 0;
-	
-	while (g_ifc_status  == IFC_UNKNOWN ) {
-		sleep(1);
-	}
-	
-	if (g_ifc_status == IFC_UP )
-		status = true;
-		
-	return status;
-}
 
 int g_mx_sess = 32;
 int g_sessId = 1;
@@ -343,7 +308,7 @@ void* dom_listener_main ( void* p)
 
     LOG_TRACE("Entered dom_listener_main()");
     pthread_attr_init(&attr);
-    sem_init(&g_sem_sess, 0, 1);
+    //sem_init(&g_sem_sess, 0, 1);
     LOG_TRACE("Create socket for vRTM core");	
     fd= socket(AF_INET, SOCK_STREAM, 0);
 
@@ -420,13 +385,24 @@ void* dom_listener_main ( void* p)
     return NULL;
 }
 
-bool start_rp_interface(const char* name)
+bool start_vrtm_interface(const char* name)
 {
     LOG_DEBUG("Starting vRTM on socket");
-    if(!g_reqChannel.OpenBuf(TCDEVICEDRIVER, 0, name ,0)) {
-        LOG_ERROR("OpenBuf returned false");
-        return false;
-    }
+    bool status = false;
+        pthread_mutex_init(&gm, NULL);
+        pthread_cond_init(&gc, NULL);
+    LOG_TRACE("Starting separate thread to start vRTM socket");
+        pthread_attr_init(&g_attr);
+        pthread_create(&dom_listener_thread, &g_attr, dom_listener_main, (void*)NULL);
+        pthread_join(dom_listener_thread,NULL);
+
+        while (g_ifc_status  == IFC_UNKNOWN ) {
+                sleep(1);
+        }
+
+        if (g_ifc_status == IFC_UP )
+                status = true;
+
     LOG_DEBUG("Socket for vRTM is started");
-    return true;
+        return status;
 }

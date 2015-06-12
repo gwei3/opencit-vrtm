@@ -43,10 +43,8 @@ int ch_read(int fd, void* buf, int bufsize){
     } while (bytesRead < sz_header);
 
 
-#ifdef TEST
-    LOG_INFO("From RPCore pReq is reqid = %d, reqsize=%d, status=%d\n",
+    LOG_TRACE("From RPCore pReq is reqid = %d, reqsize=%d, status=%d\n",
 				pReq->m_reqID, pReq->m_reqSize, pReq->m_ustatus);
-#endif
 				
    if (pReq->m_reqSize == 0) {
 		return bytesRead;
@@ -107,17 +105,12 @@ int ch_open(char* serverip, int port) {
     int  slen= sizeof(struct sockaddr_in);
     
 	if ( serverip == NULL ) {
-		serverip = getenv("RPCORE_IPADDR");
 		if (! serverip)
 			serverip = "127.0.0.1";
 	}
 	
 	if (port == 0 ) {
-		char* sport = getenv("RPCORE_PORT");
-		if (! sport)
-			port = 16005;
-		else	
-			port = atoi(sport);
+		port = 16005;
 	}
 	
       // open socket

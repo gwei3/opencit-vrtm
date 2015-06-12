@@ -1,6 +1,4 @@
-#ifndef byte
-typedef unsigned char byte;
-#endif
+#include "vrtmCommon.h"
 
 int cbuf_to_xmlrpc(const char* func, const char *method, int size, const byte* data, int bufsize, byte* buf);
 int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte* buf);

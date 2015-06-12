@@ -40,17 +40,14 @@
 #include <map>
 #include <string>
 
-#include "tcIO.h"
 #include "logging.h"
 #include "log_vrtmchannel.h"
 #include "tcconfig.h"
-//#include "jlmcrypto.h"
+#include "vrtminterface.h"
 
 #define    g_config_file "../configuration/vRTM.cfg"
 #define	   log_properties_file "../configuration/vrtm_log.properties"
 
-char    g_python_scripts[256] = "../scripts";
-//char    g_config_file[256]      = "vRTM.cfg";
 char    g_rpcore_ip [64]        = "127.0.0.1";
 int     g_rpcore_port 		= 16005;
 int     g_max_thread_limit 	= 64;
@@ -142,7 +139,6 @@ int read_config()
 
 int singleInstanceRpcoreservice()
 {
-    //const char *pidPath="/var/run/rpcoreservice.pid";
     const char *lockFile="/tmp/rpcoreservice__DT_XX99";
     
     struct flock rpcsFlock;
@@ -154,35 +150,25 @@ int singleInstanceRpcoreservice()
 
     if( ( g_fdLock = open(lockFile, O_WRONLY | O_CREAT, 0666)) == -1) 
     {
-#ifdef TEST
     	LOG_ERROR("Can't open rpcoreservice lock file \n");
-#endif
         return -1;
      }
      
      chmod(lockFile, 0666); // Just in case umask is not set properly.
      
      if ( fcntl(g_fdLock, F_SETLK, &rpcsFlock) == -1) {
-
-#ifdef TEST
     	LOG_ERROR( "Already locked - rpcoreservice lock file \n");
-#endif
 		return -2;
      }
 
     return 1;
-
 }
-//test function declarations
-void test_host_init();
 
 int main(int an, char** av)
 {
     int            	iRet= 0;
     int 			instanceValid = 0;
-    //const char*		configfile = "../../config/vRTM.cfg";
-    //const char * 	log_properties_file = "../../config/vRTMlog.properties";
-//------------------------------------------------------------------
+    
     // Start the instance of logger, currently using log4cpp
     if( initLog(log_properties_file, "vrtm") ){
     	return 1;
@@ -200,18 +186,6 @@ int main(int an, char** av)
     	LOG_ERROR( "Process (vRTM core service) could not open lock file\n");
 		return 1;
     }
-//------------------------------------------------------------------
-	/*
-	 * Start rpinterface
-	 */
-
-	//init linux service 
-   
-    LOG_TRACE("Starting vRTM interface");
-	if(!start_rp_interface(NULL)) {
-		LOG_ERROR("Can't initialize vRTM interface");
-		goto cleanup;
-	}
 
     LOG_TRACE("Load config file %s", g_config_file);
 	if ( LoadConfig(g_config_file) < 0 ) {
@@ -225,9 +199,14 @@ int main(int an, char** av)
 		LOG_ERROR("tcService main : cant't find required values in config file");
 		goto cleanup;
 	}
-	
+
+    LOG_TRACE("Starting vRTM interface");
+	if(!start_vrtm_interface(NULL)) {
+		LOG_ERROR("Can't initialize vRTM interface");
+		goto cleanup;
+	}
+
 	return iRet;
-//------------------------------------------------------------------
 
 cleanup:
 	  closeLog();
