@@ -40,6 +40,7 @@ function mount_disk_guestmount()
 		echo "your linux flavour)"
 	fi
 	## Proceed mounting with guestmount
+	export LIBGUESTFS_BACKEND=direct
 	time $guestMountBinary -a $imagePath -i $mountPath
 	retcode=$?
 	if [ $retcode -eq 0 ] ; then
