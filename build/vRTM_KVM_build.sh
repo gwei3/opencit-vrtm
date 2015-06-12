@@ -48,7 +48,7 @@ function getFlavour()
 
 function makeDirStructure()
 {
-	if [ -d "$SRC_ROOT_DIR/vrtm" -a -d "$SRC_ROOT_DIR/rpclient" -a -d "$SRC_ROOT_DIR/blueprints" -a -d "$SRC_ROOT_DIR/install" ]  #-a -d "$TBOOT_REPO/imvm" ] 
+	if [ -d "$SRC_ROOT_DIR/vrtm" -a -d "$SRC_ROOT_DIR/install" ]  #-a -d "$TBOOT_REPO/imvm" ] 
 	then
 		echo "All resources found"
 	else
@@ -58,7 +58,7 @@ function makeDirStructure()
 		exit -1
 	fi
 	mkdir -p "$BUILD_DIR"
-	cp -r "$SRC_ROOT_DIR/vrtm" "$SRC_ROOT_DIR/rpclient" "$SRC_ROOT_DIR/blueprints" "$SRC_ROOT_DIR/install" "$BUILD_DIR"
+	cp -r "$SRC_ROOT_DIR/vrtm" "$SRC_ROOT_DIR/install" "$BUILD_DIR"
 }
 
 # check wether log4cpp is installed on machine or not
