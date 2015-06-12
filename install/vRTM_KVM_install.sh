@@ -354,6 +354,11 @@ function installRPProxyAndListner()
 	chmod 754 "$DIST_LOCATION/rppy_ifc.py"
 	cp "$INSTALL_DIR/rpcore/lib/librpchannel-g.so" /usr/lib
 	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
+		if [ $FLAVOUR == "rhel" ] ; then
+			SELINUX_TYPE="svirt_t"
+		else
+			SELINUX_TYPE="svirt_tcg_t"
+		fi
 		selinuxenabled
 		if [ $? -eq 0 ] ; then
 			echo "Updating the selinux policies for vRTM files"
@@ -368,11 +373,11 @@ function installRPProxyAndListner()
                                 
                                require {
                                type nova_var_lib_t;
-                               type svirt_t;
+                               type $SELINUX_TYPE;
                                class lnk_file read;
                                }
                                #============= svirt_t ==============
-                               allow svirt_t nova_var_lib_t:lnk_file read;
+                               allow $SELINUX_TYPE nova_var_lib_t:lnk_file read;
                           " > svirt_for_links.te
                           /usr/bin/checkmodule -M -m -o svirt_for_links.mod svirt_for_links.te
                           /usr/bin/semodule_package -o svirt_for_links.pp -m svirt_for_links.mod
