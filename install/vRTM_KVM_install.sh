@@ -82,7 +82,8 @@ function untarResources()
                 echo "ERROR : Untarring of $RES_DIR/*.tar.gz unsuccessful"
                 exit
         fi
-	chmod 755 "$INSTALL_DIR/vrtm"
+	chmod 755 "$INSTALL_DIR/vrtm" "$INSTALL_DIR/vrtm/bin" "$INSTALL_DIR/vrtm/configuration" "$INSTALL_DIR/vrtm/lib" "$INSTALL_DIR/vrtm/scripts"
+	chmod 755 "$INSTALL_DIR"/vrtm/lib/*
 	rm -rf KVM_install.tar.gz
 }
 
@@ -166,6 +167,17 @@ function installvrtmProxyAndListner()
 	echo "Updating ldconfig for vRTM library"
 	echo "$INSTALL_DIR/vrtm/lib" > /etc/ld.so.conf.d/vrtm.conf
 	ldconfig
+
+        if [ $FLAVOUR == "ubuntu" ]; then
+                # Disable the apparmor profile for libvirt for ubuntu
+                if [ -e /etc/apparmor.d/disable/usr.sbin.libvirtd ] ; then
+                        echo "libvirt apparmor already disabled"
+                else
+                        ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/
+                        apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd 
+                fi
+        fi
+
 	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
 		if [ $FLAVOUR == "rhel" ] ; then
 			SELINUX_TYPE="svirt_t"
@@ -314,7 +326,7 @@ function createvRTMStartScript()
             	 echo \"WARN : monit dir was not existing, is monit installed with trust agent installed ?\"
 	             mkdir -p /etc/monit/conf.d
     	     fi
-			 cp \"$INSTALL_DIR/vrtm/scripts/vrtmlistener.monit\" /etc/monit/conf.d/.
+			 cp \"$INSTALL_DIR/vrtm/configuration/monit/vrtmlistener.monit\" /etc/monit/conf.d/.
 		  	 service monit restart > /dev/null 2>&1 &
 		 fi
 	}
