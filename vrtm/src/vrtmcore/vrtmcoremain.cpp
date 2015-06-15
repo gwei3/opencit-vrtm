@@ -90,8 +90,10 @@ int LoadConfig(const char * configFile)
 	{
 		line = (char *) calloc(1,sizeof(char) * 512);
 		fgets(line,line_size,fp);
-		if(feof(fp))
+		if(feof(fp)) {
+			free(line);
 			break;
+		}
         LOG_TRACE("Line read from config file: %s", line);
 		key=strtok(line,"=");
 		value=strtok(NULL,"=");

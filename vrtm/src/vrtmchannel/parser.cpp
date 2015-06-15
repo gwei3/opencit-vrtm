@@ -44,7 +44,7 @@ int cbuf_to_xmlrpc(const char* func, const char* method, int size, const byte* d
 	}
 
 	xmlFreeDoc(doc);
-	xmlCleanupParser();
+	//xmlCleanupParser();
 	return bufsize;
 }
 
@@ -71,7 +71,7 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 		else {
 			LOG_DEBUG("Error! in encoding the parameter");
 			xmlFreeDoc(doc);
-			xmlCleanupParser();
+			//xmlCleanupParser();
 			return -1;
 		}
 		//xmlNewChild(param_value, NULL, BAD_CAST "string", BAD_CAST args[i]);
@@ -82,7 +82,7 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 	memcpy(buf,xmlbuf, bufsize + 1);
 	free(xmlbuf);
 	xmlFreeDoc(doc);
-	xmlCleanupParser();
+	//xmlCleanupParser();
 	return bufsize;
 }
 
@@ -124,7 +124,7 @@ int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf) {
 	}
 	free(method);
 	xmlFreeDoc(doc);
-	xmlCleanupParser();
+	//xmlCleanupParser();
 	return xmldata_size;
 }
 
@@ -137,7 +137,6 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 	LOG_DEBUG("XML to be parsed : %s", buf);
 	doc = xmlParseMemory((char*)buf, strlen((char*)buf));
 	root = xmlDocGetRootElement(doc);
-
 	for(cur_node = root->children; cur_node != NULL; cur_node = cur_node->next) {
 		if (cur_node->type == XML_ELEMENT_NODE  && 
 				!xmlStrcmp(cur_node->name, (const xmlChar *) "methodName")) {
@@ -155,7 +154,7 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 					LOG_DEBUG("Decoded Node content : %s", decoded_data);
 					pargs[arg_count] = strdup( decoded_data);
 					free(decoded_data);
-					free(param);
+					xmlFree((xmlChar *)param);
 					arg_count++;
 				}
 				else {
@@ -167,15 +166,17 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
                                                     pargs[i] = NULL;
                                                 }
 					}
+					xmlFree((xmlChar *)param);
 					xmlFreeDoc (doc);
-					xmlCleanupParser();
+					//xmlCleanupParser();
 					return status;
 				}
 			}                
 		}
 	}
 	xmlFreeDoc (doc);
-	xmlCleanupParser();
+	//xmlCleanupParser();
+xmlMemoryDump();
 	*psz = method;
 	*pnargs = arg_count;
 	status = *pnargs;

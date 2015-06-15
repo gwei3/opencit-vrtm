@@ -134,6 +134,10 @@ bool serviceprocTable::removeprocEntry(int procid)
 		LOG_ERROR("Table entry can't be removed, given RPID : %d doesn't exist\n", procid);
 		return false;
 	}
+	if(table_it->second.m_szexeFile) {
+		free(table_it->second.m_szexeFile);
+		table_it->second.m_szexeFile = NULL;
+	}
 	proc_table.erase(table_it);
 	pthread_mutex_unlock(&loc_proc_table);
 	LOG_INFO("Table entry removed successfully for vRTM ID : %d\n",procid);
