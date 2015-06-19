@@ -189,7 +189,7 @@ function installvrtmProxyAndListner()
 			echo "Updating the selinux policies for vRTM files"
 			 semanage fcontext -a -t virt_log_t $LOG_DIR
 			 restorecon -v $LOG_DIR
-			 semanage fcontext -a -t virt_log_t /opt/vrtm/configuration/vrtm_proxylog.properties
+			 semanage fcontext -a -t virt_etc_t /opt/vrtm/configuration/vrtm_proxylog.properties
 		         restorecon -v /opt/vrtm/configuration/vrtm_proxylog.properties
 			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
 			 restorecon -v "$QEMU_INSTALL_LOCATION"
