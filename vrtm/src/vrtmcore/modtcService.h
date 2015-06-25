@@ -100,10 +100,10 @@ public:
     bool                m_vm_verfication_status;
     char                m_vm_manifest_dir[MANIFEST_DIR_SIZE];
 
-    serviceprocEnt() : m_rgHash{'\0'}, m_uuid{'\0'}, m_vdi_uuid{'\0'}, m_vm_image_id{'\0'}, m_vm_customer_id{'\0'},
-    		m_vm_manifest_hash{'\0'}, m_vm_manifest_signature{'\0'}, m_vm_launch_policy{'\0'}, m_vm_manifest_dir{'\0'} {
-
-    	m_procid = m_sizeHash = m_size_vm_image_id = m_size_vm_customer_id = m_size_vm_manifest_hash =
+    serviceprocEnt() : m_rgHash(), m_uuid(), m_vdi_uuid(), m_vm_image_id(), m_vm_customer_id(),
+    		m_vm_manifest_hash(), m_vm_manifest_signature(), m_vm_launch_policy(), m_vm_manifest_dir() {
+    	
+	m_procid = m_sizeHash = m_size_vm_image_id = m_size_vm_customer_id = m_size_vm_manifest_hash =
     			m_size_vm_manifest_signature = m_size_vm_launch_policy = m_size_vm_manifest_dir = m_nArgs = 0;
 
     	m_Args = NULL;
