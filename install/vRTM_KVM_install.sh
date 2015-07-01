@@ -142,8 +142,8 @@ function installvrtmProxyAndListner()
 		echo "exec $QEMU_INSTALL_LOCATION -enable-kvm \"\$@\""  >> $KVM_BINARY
 		chmod +x $KVM_BINARY
 	fi
-	is_already_replaced=`strings "$QEMU_INSTALL_LOCATION" | grep -c -i "rpcore"`
-	if [ $is_already_replaced -gt 0 ]
+
+	if [ -e /usr/bin/qemu-system-x86_64_orig ]
 	then	
 		echo "vrtm-Proxy binary is already updated, might be old and will be replaced" 
 	else
