@@ -51,6 +51,7 @@
 char    g_rpcore_ip [64]        = "127.0.0.1";
 int     g_rpcore_port 		= 16005;
 int     g_max_thread_limit 	= 64;
+char 	g_trust_report_dir[512]  = "/var/lib/nova/trustreports/";
 
 std:: map<std::string, std::string> config_map;
 
@@ -111,7 +112,7 @@ int LoadConfig(const char * configFile)
 int read_config()
 {
 	int count=0;
-	std::string rpcore_ip, rpcore_port, max_thread_limit;
+	std::string rpcore_ip, rpcore_port, max_thread_limit, trust_report_dir;
 	LOG_TRACE("Setting vRTM configuration");
 	rpcore_ip = config_map["rpcore_ip"];
 	if(rpcore_ip == ""){
@@ -131,11 +132,20 @@ int read_config()
 		LOG_WARN("Thread Limit for vRTM is not found in vRTM.cfg. Using default limit %s", max_thread_limit.c_str());
 	}
 	count++;
+	trust_report_dir = config_map["trust_report_dir"];
+	if (trust_report_dir == "") {
+		trust_report_dir = "/var/lib/nova/trust_report_dir/";
+		LOG_WARN("Trust Report directory is not found in vRTM.cfg. Using default location %s", trust_report_dir.c_str());
+	}
+	count++;
 	strcpy(g_rpcore_ip,rpcore_ip.c_str());
 	//sprintf(g_rpcore_port,"%d", rpcore_port);
 	//sprintf(g_max_thread_limit,"%d",max_thread_limit);
 	g_rpcore_port = atoi(rpcore_port.c_str());
 	g_max_thread_limit = atoi(max_thread_limit.c_str());
+	strcpy(g_trust_report_dir, trust_report_dir.c_str());
+	strcat(g_trust_report_dir, "/");
+	mkdir(g_trust_report_dir, 0766);
 	return count;
 }
 

@@ -44,8 +44,8 @@ typedef unsigned char byte;
 int encodeVM2RP_STARTAPP(const char* file, int nargs, char** args, int bufsize, byte* buf);
 bool decodeVM2RP_STARTAPP(char** psz, int* pnargs, char**, const byte* buf);
 
-int   encodeRP2VM_STARTAPP(int procid, int sizebuf, byte* buf);
-bool  decodeRP2VM_STARTAPP(int* pprocid, const byte* buf);
+int   encodeRP2VM_STARTAPP(byte* response, int responsesize, int bufsize, byte* buf);
+bool  decodeRP2VM_STARTAPP(int* data_size, byte * data, const byte* buf);
 
 //terminate app/vm
 int  encodeVM2RP_TERMINATEAPP(int size, const byte* data, int bufsize, byte* buf);
@@ -55,10 +55,10 @@ int  encodeRP2VM_TERMINATEAPP(int size, const byte* data, int bufsize, byte* buf
 bool  decodeRP2VM_TERMINATEAPP(int* psize, byte* data, const byte* buf);
 
 
-int encodeVM2RP_SETUUID(const char* rpid, const char* uuid, const char* vdi_id, int bufsize, byte* buf);
-bool  decodeVM2RP_SETUUID(char** psz, int* pnargs, char** args, const byte* buf);
-int  encodeRP2VM_SETUUID(int result, byte* buf);
-bool  decodeRP2VM_SETUUID(int* presult, const byte* buf);
+int encodeVM2RP_SETVM_STATUS(const char* uuid, int vm_status, int bufsize, byte* buf);
+bool  decodeVM2RP_SETVM_STATUS(char** psz, int* pnargs, char** args, const byte* buf);
+int  encodeRP2VM_SETVM_STATUS(byte* response, int responsesize, int bufsize, byte* buf);
+bool  decodeRP2VM_SETVM_STATUS(int* data_size, byte * data, const byte* buf);
 // get rpid
 bool  decodeRP2VM_GETRPID(char** method_name, int* pnargs, char** args, const byte* buf);
 int encodeRP2VM_GETRPID(int size,byte *data, int bufsize, byte *buf);

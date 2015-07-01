@@ -57,6 +57,11 @@ typedef unsigned TCSERVICE_RESULT;
 #define TCSERVICE_RESULT_REQTOOLARGE            9
 #define TCSERVICE_RESULT_FAILED                10
 
+#define VM_STATUS_CANCELLED						0
+#define VM_STATUS_STARTED						1
+#define VM_STATUS_STOPPED						2
+#define VM_STATUS_DELETED						3
+
 #define RG_HASH_SIZE		32
 #define UUID_SIZE		48
 #define IMAGE_ID_SIZE  		256
@@ -99,6 +104,7 @@ public:
     char                m_vm_launch_policy[LAUNCH_POLICY_SIZE];
     bool                m_vm_verfication_status;
     char                m_vm_manifest_dir[MANIFEST_DIR_SIZE];
+    int					m_vm_status;
 
     serviceprocEnt() : m_rgHash(), m_uuid(), m_vdi_uuid(), m_vm_image_id(), m_vm_customer_id(),
     		m_vm_manifest_hash(), m_vm_manifest_signature(), m_vm_launch_policy(), m_vm_manifest_dir() {
@@ -109,7 +115,7 @@ public:
     	m_Args = NULL;
     	m_szexeFile = NULL;
     	m_vm_verfication_status = false;
-
+    	m_vm_status = VM_STATUS_STOPPED;
     }
 };
 
@@ -156,6 +162,7 @@ public:
                             int* poutsize, byte* out);
 	void 				        printErrorMessagge(int error);
     TCSERVICE_RESULT    UpdateAppID(char* rp_id, char* uuid, char* vdi_uuid, int* psizeOut, byte* rgOut);
+    TCSERVICE_RESULT    UpdateAppStatus(char *uuid, int status);
     TCSERVICE_RESULT    TerminateApp(char* uuid, int* psizeOut, byte* rgOut);
     TCSERVICE_RESULT	GetRpId(char *vm_uuid, byte *rp_idbuf, int* bufsize);
     TCSERVICE_RESULT 	GetVmMeta(int procId, byte *vm_imageIdbuf, int * vm_imageIdsize,

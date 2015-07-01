@@ -115,6 +115,8 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
     //proc_ent.m_procid = procid;
     proc_ent.m_szexeFile = strdup(file);
     proc_ent.m_sizeHash = sizeHash;
+    proc_ent.m_vm_status = VM_STATUS_STOPPED;
+    strcpy(proc_ent.m_uuid, av[0]);
     memcpy(proc_ent.m_rgHash,hash,sizeHash);
     proc_table.insert(std::pair<int, serviceprocEnt>(procid, proc_ent));
     pthread_mutex_unlock(&loc_proc_table);
@@ -202,6 +204,9 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 	strcpy(table_it->second.m_vm_launch_policy, launch_policy);
 	table_it->second.m_size_vm_launch_policy = strlen(table_it->second.m_vm_launch_policy);
 	table_it->second.m_vm_verfication_status = verification_status;
+	if (!verification_status) {
+		table_it->second.m_vm_status = VM_STATUS_CANCELLED;
+	}
 	pthread_mutex_unlock(&loc_proc_table);
 	LOG_INFO("Data updated against vRTM ID : %d in the Table\n", procid);
     return true;
@@ -391,7 +396,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	}
 	serviceprocEnt * pEnt = m_procTable.getEntfromprocId(proc_id);
 	LOG_INFO("Match found for given UUID \n");
-	sprintf(vm_manifest_dir, "/var/lib/nova/instances/%s/", vm_uuid);
+	sprintf(vm_manifest_dir, "%s%s/", g_trust_report_dir,vm_uuid);
 	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
 	////OLD CODE HERE
 	char xmlstr[8192] = { 0 };
@@ -552,6 +557,16 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
 	return TCSERVICE_RESULT_SUCCESS;
 }
 
+TCSERVICE_RESULT tcServiceInterface::UpdateAppStatus(char *uuid, int status) {
+	int procid = g_myService.m_procTable.getprocIdfromuuid(uuid);
+	if (procid == NULL) {
+		return TCSERVICE_RESULT_FAILED;
+	}
+	serviceprocEnt *procEnt = g_myService.m_procTable.getEntfromprocId(procid);
+	procEnt->m_vm_status = status;
+	return TCSERVICE_RESULT_SUCCESS;
+}
+
 /*This function returns the value of an XML tag.
 Input parameter: Line read from the XML file
 Output: Value in the tag
@@ -611,6 +626,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char*   vm_manifest_signature;
     char    vm_manifest_dir[2048] ={0};
     bool 	verification_status = false;
+    char	vm_uuid[UUID_SIZE];
     LOG_TRACE("Start VM App");
     if(an>30) {
     	LOG_ERROR("Number of arguments passed are more than limit 30");
@@ -647,9 +663,32 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
         		LOG_DEBUG( "Manifest list path %s\n", nohash_manifest_file);
         		strcpy(vm_manifest_dir, nohash_manifest_file);
-        		sprintf(formatted_manifest_file, "%s%s", nohash_manifest_file, "/fmanifest.xml");
+        		//Extract UUID of VM
+        		char *uuid_ptr = strrchr(vm_manifest_dir, '/');
+        		strcpy(vm_uuid, uuid_ptr + 1);
+        		LOG_TRACE("Extracted UUID : %s", vm_uuid);
+
         		sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
-        		LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
+        		//Create Trust Report directory and copy relevant files
+				char trust_report_dir[1024];
+				strcpy(trust_report_dir, g_trust_report_dir);
+				strcat(trust_report_dir, vm_uuid);
+				strcat(trust_report_dir, "/");
+				mkdir(trust_report_dir, 0766);
+				char cmd[2048];
+				sprintf(cmd,"cp -p %s %s/",manifest_file, trust_report_dir );
+				system(cmd);
+				memset(cmd,0, 2048);
+				sprintf(cmd, "cp -p %s %s/", nohash_manifest_file, trust_report_dir);
+				system(cmd);
+        		strcpy(vm_manifest_dir, trust_report_dir);
+        		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
+				sprintf(manifest_file,"%s%s", trust_report_dir, "/trustpolicy.xml");
+				LOG_DEBUG("Manifest path %s ", manifest_file);
+				sprintf(nohash_manifest_file, "%s%s", trust_report_dir, "/manifestlist.xml");
+				LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
+				sprintf(formatted_manifest_file, "%s%s", trust_report_dir, "/fmanifest.xml");
+				LOG_DEBUG("Formatted manifest file %s", formatted_manifest_file);
         		strncpy(cumulativehash_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
         		sprintf(cumulativehash_file, "%s%s", cumulativehash_file, "/measurement.sha256");
         		LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
@@ -794,21 +833,14 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         }
 		else if ((strcmp(launchPolicy, "Audit") == 0)) {
 			LOG_INFO("IMVM Verification Failed, but continuing with VM launch as MeasureOnly launch policy is used");
+			verification_status = false;
 			flag=1;
 		}
 		else {
 			LOG_ERROR("IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used");
+			verification_status = false;
 			flag=0;
 		}
-
-        if (flag == 0) {
-        	LOG_INFO("IMVM Verification Failed");
-            free(vm_image_id);
-			free(vm_customer_id);
-			free(vm_manifest_hash);
-			free(vm_manifest_signature);
-            return TCSERVICE_RESULT_FAILED;
-        }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -822,10 +854,19 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         iSize++;
     }
     LOG_TRACE("Adding proc table entry for measured VM");
-    
-    if(!g_myService.m_procTable.addprocEntry(child, kernel_file, 0, (char**) NULL, size, rgHash)) {
-    	LOG_ERROR( "StartApp: cant add to vRTM Map\n");
-        return TCSERVICE_RESULT_FAILED;
+    int temp_proc_id = g_myService.m_procTable.getprocIdfromuuid(vm_uuid);
+    int vm_data_size = 0;
+    char* vm_data[1];
+    vm_data[0] = vm_uuid;
+    vm_data_size++;
+    if ( temp_proc_id == NULL) {
+		if(!g_myService.m_procTable.addprocEntry(child, kernel_file, vm_data_size, vm_data, size, rgHash)) {
+			LOG_ERROR( "StartApp: cant add to vRTM Map\n");
+			return TCSERVICE_RESULT_FAILED;
+		}
+    }
+    else {
+    	child = temp_proc_id;
     }
     LOG_TRACE("Updating proc table entry");
    if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir)) {
@@ -868,7 +909,8 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
     LOG_TRACE("Entering serviceRequest");
 
     *outparamsize = PARAMSIZE;
-
+    char response[64];
+    int response_size = sizeof(int);
 	LOG_DEBUG("Input Parameters before switch case : %s",inparams);
     switch(uReq) {
 
@@ -881,7 +923,6 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
             ret_val=false;
             goto cleanup;
         }
-        //*outparamsize= PARAMSIZE;
         if(g_myService.StartApp(procid,an,av,outparamsize,outparams)) {
         	LOG_ERROR("Start App failed. Method name: %s", method_name);
         	//outparams = NULL;
@@ -889,14 +930,30 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         	ret_val = false;
                 goto cleanup;
         }
+        else {
+        	//response = *((int *)outparams);
+        	//memcpy(response, outparams, response_size);
+        	sprintf(response, "%d", *((int *)outparams));
+        	response_size = strlen(response);
+
+        	*outparamsize = PARAMSIZE;
+        	memset(outparams, 0, *outparamsize);
+        }
+        *outparamsize = encodeRP2VM_STARTAPP((byte *)response, response_size, *outparamsize, outparams);
+        LOG_DEBUG("Encoded resonse : %s", outparams);
+        if (*outparamsize < 0 ) {
+        	*outparamsize = 0;
+			ret_val = false;
+			goto cleanup;
+        }
         LOG_INFO("Start App successful");
         ret_val = true;
         break;
 
-      case VM2RP_SETUUID:
+      case VM2RP_SETVM_STATUS:
  
-        LOG_TRACE( "serviceRequest, RP2VM_SETUUID, decoding");
-        if(!decodeVM2RP_SETUUID(&method_name, &an, (char**) av, inparams)) {
+        LOG_TRACE( "serviceRequest, RP2VM_SETVM_STATUS, decoding");
+        if(!decodeVM2RP_SETVM_STATUS(&method_name, &an, (char**) av, inparams)) {
         	LOG_ERROR( "Failed to decode the input XML for Set UUID");
             //outparams = NULL;
             *outparamsize = 0;
@@ -905,23 +962,35 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         }
         *outparamsize= PARAMSIZE;
         
-        LOG_DEBUG("In SET_UUID : params after decoding : %s , %s, %s",av[0], av[1], av[2]);
-		if (av[0] ){
-			if(g_myService.UpdateAppID(av[0], av[1], av[2], outparamsize, outparams)
-					!=TCSERVICE_RESULT_SUCCESS) {
-				LOG_ERROR( "Set UUID failed. Method name: %s", method_name);
-				//outparams = NULL;
-				*outparamsize = 0;
-                                ret_val = false;
-                                goto cleanup;
-			}
-			
+        LOG_DEBUG("In SET_UUID : params after decoding : %s , %s",av[0], av[1]);
+        response_size = sizeof(int);
+		if(g_myService.UpdateAppStatus(av[0], atoi(av[1]))
+				!=TCSERVICE_RESULT_SUCCESS) {
+			LOG_ERROR( "Updating status of VM for UUID : %s failed", av[0]);
+			//response = -1;
+			//*((int *)response) = -1;
+			sprintf(response,"%d", -1);
 		}
-		LOG_INFO("UUID %s is registered with vRTM ID %s successful", av[1], av[0]);
+		else {
+			//response = 0;
+			//*((int *) response) = 0;
+			sprintf(response,"%d", 0);
+		}
+		response_size = strlen(response);
+		LOG_DEBUG("Response : %s response size : %d", response, response_size);
+		*outparamsize = encodeRP2VM_SETVM_STATUS((byte *)response, response_size, *outparamsize, outparams);
+		LOG_INFO("Encoded Response : %s", outparams);
+		if(*outparamsize < 0 ) {
+			LOG_ERROR("Failed to send response. Encoded data too small.");
+			*outparamsize = 0;
+			ret_val = false;
+			goto cleanup;
+		}
+		LOG_INFO("VM Status is updated in vRTM table for UUID %s to %s successfully", av[0], av[1]);
         ret_val = true;
         break;
         
-        case VM2RP_TERMINATEAPP:
+        /*case VM2RP_TERMINATEAPP:
             *outparamsize = 0;
             LOG_TRACE("decoding the input XML for terminate app");
             if(!decodeVM2RP_TERMINATEAPP(&method_name, &an, (char**) av, inparams)) {
@@ -938,7 +1007,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 		    ret_val = false;
 		    goto cleanup;
 		}
-	    }
+	    }*/
 	    LOG_INFO( "Deregister VM with vRTM ID %s succussfully", av[0]);
 	    ret_val = true;
 	    break;

@@ -12,8 +12,8 @@
 #define RP2VM_TERMINATEAPP     			18
 
 
-#define VM2RP_SETUUID               	25
-#define RP2VM_SETUUID         			26
+#define VM2RP_SETVM_STATUS               	25
+#define RP2VM_SETVM_STATUS         			26
 //new api macros
 #define RP2VM_GETRPID			35
 #define VM2RP_GETRPID			36

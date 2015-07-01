@@ -82,43 +82,43 @@ bool  decodeVM2RP_STARTAPP(char** psz, int* pnargs,
     return (status > 0);
 }
 
-// NOT IN USE
-int  encodeRP2VM_STARTAPP(int procid, byte* buf)
+int  encodeRP2VM_STARTAPP(byte* response, int responsesize, int bufsize, byte* buf)
 {
 	LOG_INFO("");
     if(buf==NULL)
         return false;
-    *((int*) buf)= procid;
-    return true;
+    //*((int*) buf)= procid;
+    return cbuf_to_xmlrpc("encode_call", "StartApp", responsesize, response, bufsize, buf);
+
 }
 
-// NOT IN USE
-bool  decodeRP2VM_STARTAPP(int* pprocid, const byte* buf)
+bool  decodeRP2VM_STARTAPP( int* data_size, byte * data, const byte* buf)
 {
-	LOG_INFO("");
+	LOG_TRACE("");
     if(buf==NULL)
         return false;
-    *pprocid= *((int*) buf);
-    return true;
+    //*pprocid= *((int*) buf);
+    int status = xmlrpc_to_cbuf("", data_size, data, buf );
+    return (status > 0);
 }
 
 
-int encodeVM2RP_SETUUID(const char* rpid, const char* uuid, const char* vdi_id, 
-                                   int bufsize, byte* buf)
+int encodeVM2RP_SETVM_STATUS(const char* uuid, int vm_status, int bufsize, byte* buf)
 {
    LOG_TRACE("Encode Set UUID request");
-   const char* args[3];
+   const char* args[2];
    memset(buf, 0, bufsize);
-   LOG_DEBUG("rpid : %s uuid : %s vdiuud %s", rpid, uuid, vdi_id);
-   args[0] = rpid;
-   args[1] = uuid;
-   args[2] = vdi_id;
+   LOG_DEBUG("uuid : %s vm_status : %d", uuid, vm_status);
+   args[0] = uuid;
+   char status[64];
+   sprintf(status, "%d", vm_status);
+   args[1] = status;
    LOG_TRACE("");
-   return args_to_xmlrpc((char*)"set_vm_uuid", 3, (char**)args, bufsize, buf);
+   return args_to_xmlrpc((char*)"set_vm_uuid", 2, (char**)args, bufsize, buf);
 }
 
 
-bool  decodeVM2RP_SETUUID(char** psz, int* pnargs, 
+bool  decodeVM2RP_SETVM_STATUS(char** psz, int* pnargs, 
                                      char** args, const byte* buf)
 {
     LOG_TRACE("Decode Set UUID request");
@@ -127,24 +127,23 @@ bool  decodeVM2RP_SETUUID(char** psz, int* pnargs,
 }
 
 // NOT IN USE
-int  encodeRP2VM_SETUUID(int result, byte* buf)
+int  encodeRP2VM_SETVM_STATUS(byte* response, int responsesize, int bufsize, byte* buf)
 {
 	LOG_TRACE("");
     if(buf==NULL)
         return false;
-    *((int*) buf)= result;
-    return true;
+    //*((int*) buf)= result;
+    return cbuf_to_xmlrpc("encode_call", "update_vm_status", responsesize, response, bufsize, buf );
 }
 
-
-// NOT IN USE
-bool  decodeRP2VM_SETUUID(int* presult, const byte* buf)
+bool  decodeRP2VM_SETVM_STATUS(int* data_size, byte * data, const byte* buf)
 {
 	LOG_TRACE("");
     if(buf==NULL)
         return false;
-    *presult = *((int*) buf);
-    return true;
+    //*presult = *((int*) buf);
+    int status = xmlrpc_to_cbuf("", data_size, data, buf );
+    return (status > 0);
 }
 
 
