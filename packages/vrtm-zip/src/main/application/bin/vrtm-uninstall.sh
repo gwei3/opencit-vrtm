@@ -46,7 +46,8 @@ if [ "$VRTM_LAYOUT" == "linux" ]; then
 elif [ "$VRTM_LAYOUT" == "home" ]; then
   export VRTM_CONFIGURATION=${VRTM_CONFIGURATION:-$VRTM_HOME/configuration}
   export VRTM_REPOSITORY=${VRTM_REPOSITORY:-$VRTM_HOME/repository}
-  export VRTM_LOGS=${VRTM_LOGS:-$VRTM_HOME/logs}
+  export VRTM_LOGS=${VRTM_LOGS:-/var/log/vrtm}
+#  export VRTM_LOGS=${VRTM_LOGS:-$VRTM_HOME/logs}
 fi
 export VRTM_BIN=$VRTM_HOME/bin
 export VRTM_JAVA=$VRTM_HOME/java
@@ -70,7 +71,7 @@ existing_vrtm="$(which vrtm 2>/dev/null)"
 if [ -n "$existing_vrtm" ]; then
   $existing_vrtm stop
 fi
-existing_rplistener="$(which rplistener 2>/dev/null)"
+existing_rplistener="$(which vrtmlistener 2>/dev/null)"
 if [ -n "$existing_rplistener" ]; then
   $existing_rplistener stop
 fi
@@ -86,17 +87,39 @@ fi
 if [ "$(whoami)" == "root" ]; then
   # remove startup scripts
   remove_startup_script vrtm
-  remove_startup_script rplistener
+  remove_startup_script vrtmlistener
 
   # remove PATH symlinks
   rm -rf /usr/local/bin/vrtm
-  rm -rf /usr/local/bin/rplistener
+  rm -rf /usr/local/bin/vrtmlistener
 
   ## delete user
   #export VRTM_USERNAME=${VRTM_USERNAME:-vrtm}
   #if getent passwd $VRTM_USERNAME >/dev/null 2>&1; then
   #  userdel $VRTM_USERNAME
   #fi
+fi
+
+if [ "$(whoami)" == "root" ]; then
+  # Replace vRTM proxy binary with original qemu-system-x86_64 binary
+  if [ -e "/usr/bin/qemu-system-x86_64_orig" ]; then
+    if [ -e "/usr/bin/qemu-system-x86_64" ]; then
+      cp --preserve=all /usr/bin/qemu-system-x86_64_orig /usr/bin/qemu-system-x86_64
+    fi
+
+    if [ -e "/usr/libexec/qemu-kvm" ]; then
+      cp --preserve=all /usr/bin/qemu-system-x86_64_orig /usr/libexec/qemu-kvm
+    fi
+  fi
+
+  # Remove library path
+  if [ -e "/etc/ld.so.conf.d/vrtm.conf" ]; then
+    rm -rf /etc/ld.so.conf.d/vrtm.conf
+  fi
+fi
+
+if [ -e $VRTM_LOGS ]; then
+  rm -rf $VRTM_LOGS
 fi
 
 echo_success "VRTM uninstall complete"

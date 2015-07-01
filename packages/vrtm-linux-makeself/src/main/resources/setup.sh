@@ -73,7 +73,8 @@ if [ "$VRTM_LAYOUT" == "linux" ]; then
 elif [ "$VRTM_LAYOUT" == "home" ]; then
   export VRTM_CONFIGURATION=${VRTM_CONFIGURATION:-$VRTM_HOME/configuration}
   export VRTM_REPOSITORY=${VRTM_REPOSITORY:-$VRTM_HOME/repository}
-  export VRTM_LOGS=${VRTM_LOGS:-$VRTM_HOME/logs}
+  export VRTM_LOGS=${VRTM_LOGS:-/var/log/vrtm}
+#  export VRTM_LOGS=${VRTM_LOGS:-$VRTM_HOME/logs}
 fi
 export VRTM_BIN=$VRTM_HOME/bin
 export VRTM_JAVA=$VRTM_HOME/java
