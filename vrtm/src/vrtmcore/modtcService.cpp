@@ -388,7 +388,18 @@ TCSERVICE_RESULT tcServiceInterface::IsVerified(char *vm_uuid, int* verification
 // Need to get nonce also as input
 TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *nonce, char* vm_manifest_dir)
 {
-	LOG_DEBUG("Generating SAML Report for UUID: %s and getting manifest Directory against nonce : %s", vm_uuid, nonce);
+    
+	char xmlstr[8192]={0};
+	char tpm_signkey_passwd[100]={0};
+	char tempfile[200]={0};
+	char filepath[200]={0};
+	char command0[400]={0};
+	char manifest_dir[400]={0};
+	FILE * fp = NULL;
+	FILE * fp1 = NULL;
+	
+    LOG_DEBUG("Generating SAML Report for UUID: %s and getting manifest Directory against nonce : %s", vm_uuid, nonce);
+	
 	int proc_id = m_procTable.getprocIdfromuuid(vm_uuid);
 	if (proc_id == NULL) {
 		LOG_ERROR("UUID : %s is not registered with vRTM\n", vm_uuid);
@@ -396,123 +407,115 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	}
 	serviceprocEnt * pEnt = m_procTable.getEntfromprocId(proc_id);
 	LOG_INFO("Match found for given UUID \n");
-	sprintf(vm_manifest_dir, "%s%s/", g_trust_report_dir,vm_uuid);
+	sprintf(vm_manifest_dir, "%s%s/", g_trust_report_dir,vm_uuid); 
 	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
-	////OLD CODE HERE
-	char xmlstr[8192] = { 0 };
-	sprintf(xmlstr,
-			"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",
-			nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash);
-	char tempfile1[200];
+	
+		
+	strcpy(manifest_dir,vm_manifest_dir);
+
+	// Generate Signed  XML  in same vm_manifest_dir
+	//sprintf(manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
+	sprintf(filepath,"%ssigned_report.xml",manifest_dir);					
+
+
+	fp1 = fopen(filepath,"w");
+	sprintf(xmlstr,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+	fprintf(fp1,"%s",xmlstr);
+    LOG_DEBUG("XML content : %s", xmlstr);
+
+	sprintf(xmlstr,"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>",nonce, vm_uuid,"SHA256", "tGIvFS86gQIFnpD/nMvjiCGb5cc=");
+	fprintf(fp1,"%s",xmlstr);
+	fclose(fp1);
+    LOG_DEBUG("XML content : %s", xmlstr);
+
+	// Calculate the Digest Value       
+
+
+	sprintf(xmlstr,"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
+	sprintf(tempfile,"%sus_xml.xml",manifest_dir);
+	fp = fopen(tempfile,"w");
+	fprintf(fp,"%s",xmlstr);
+	fclose(fp);
+
+	sprintf(command0,"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n >> %ssigned_report.xml", manifest_dir,manifest_dir);
+	LOG_DEBUG("command generated to calculate hash: %s", command0);
+	system(command0);
+						
+
+	fp1 = fopen(filepath,"a");
+	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo><SignatureValue>");
+	fprintf(fp1,"%s",xmlstr);
+    LOG_DEBUG("XML content : %s", xmlstr);
+						
+						
+	// Calculate the Signature Value
+
+
+	sprintf(tempfile,"%sus_can.xml",manifest_dir);
+	fp = fopen(tempfile,"w");
+	sprintf(xmlstr,"<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod><DigestValue>");
+
+	fprintf(fp,"%s",xmlstr); 
+	fclose(fp1);
+	fclose(fp);
+							  
+	sprintf(command0,"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
+	system(command0);
+				 
+	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo>");
+	fp = fopen(tempfile,"a");
+	fprintf(fp,"%s",xmlstr);
+	fclose(fp);
+
+
+
+	// Store the TPM signing key password          
+	sprintf(command0,"cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2 | xargs echo -n > %ssign_key_passwd", manifest_dir);
+	LOG_DEBUG("TPM signing key password :%s \n", command0);
+	system(command0); 
+					   
+	sprintf(tempfile,"%ssign_key_passwd",manifest_dir);
+	fp = fopen(tempfile,"r"); 
+	fscanf(fp, "%s", tpm_signkey_passwd);
+	fclose(fp);                
+
+
+				 
+	// Sign the XML
+	sprintf(command0,"xmlstarlet c14n %sus_can.xml | openssl dgst -sha1 -binary -out %shash.input",manifest_dir,manifest_dir);
+	system(command0);
+
+	sprintf(command0,"/opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
+	LOG_DEBUG("Signing Command : %s", command0);
+	system(command0);
+
+	sprintf(command0,"openssl enc -base64 -in %shash.sig |xargs echo -n >> %ssigned_report.xml",manifest_dir,manifest_dir); 
+	system(command0);
+
+					   
+
+	fp1 = fopen(filepath,"a");
+	sprintf(xmlstr,"</SignatureValue><KeyInfo><X509Data><X509Certificate>");
 	LOG_DEBUG("XML content : %s", xmlstr);
-	sprintf(tempfile1, "%sus_xml.xml", vm_manifest_dir);
-	FILE * fp = fopen(tempfile1, "w");
+	fprintf(fp1,"%s",xmlstr);
+	fclose(fp1);
+					
 
-	fprintf(fp, "%s", xmlstr);
-	fclose(fp);
-	char command1[500] = { 0 };
-	sprintf(command1, "openssl dgst -sha1 -binary -out %shash.input %s",
-			vm_manifest_dir, tempfile1);
-	LOG_DEBUG("command generated to calculate hash: %s", command1);
-	system(command1);
-	//two JB's commands tht use hash.in and store signature in hash.out
-	system(
-			"export SIGNING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2)");
-	char command2[500] = { 0 };
-	sprintf(command2,
-			"/opt/trustagent/bin/tpm_signdata -i %shash.input -k "
-			"/opt/trustagent/configuration/signingkey.blob -o %shash.sig 495b2740ddbca3fdbc2c9f61066b4683608c565f -x",
-			vm_manifest_dir, vm_manifest_dir);
-	char command3[800] = { 0 };
-	sprintf(command3,
-			"export SIGNING_KEY_PASSWORD=$(cat /opt/trustagent/configuration/trustagent.properties | "
-			"grep signing.key.secret | cut -d = -f 2); "
-			"/opt/trustagent/bin/tpm_signdata -i %shash.input -k "
-			"/opt/trustagent/configuration/signingkey.blob -o %shash.sig -q SIGNING_KEY_PASSWORD -t -x",
-			vm_manifest_dir, vm_manifest_dir);
+				 
+	// Append the X.509 certificate
+	sprintf(command0,"openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
+	LOG_DEBUG("Command to generate certificate : %s", command0);
+	system(command0);
+					
+					   
 
-	LOG_DEBUG("COMMAND2 :%s \n", command2);
-	LOG_DEBUG("COMMAND3 :%s \n", command3);
-
-	system(command3);
-
-	char convertHashInputToBase64[500] = { 0 };
-	sprintf(convertHashInputToBase64,
-			"openssl base64 -in %shash.input -out %shash.input.b64",
-			vm_manifest_dir, vm_manifest_dir);
-	LOG_DEBUG("Command to convert Hash to base64 : %s", convertHashInputToBase64);
-	system(convertHashInputToBase64);
-
-	char convertHashSigToBase64[500] = { 0 };
-	sprintf(convertHashSigToBase64,
-			"openssl base64 -A -in %shash.sig -out %shash.sig.b64",
-			vm_manifest_dir, vm_manifest_dir);
-	LOG_DEBUG("Command to convert signature to base64 : %s", convertHashSigToBase64);
-	system(convertHashSigToBase64);
-
-	char tempfile2[200];
-	sprintf(tempfile2, "%shash.sig.b64", vm_manifest_dir);
-	fp = fopen(tempfile2, "r");
-	char* signature = (char *) malloc(1000 * sizeof(char));
-	fscanf(fp, "%s", signature);
-	fclose(fp);
-
-	char tempfile3[200];
-	sprintf(tempfile3, "%shash.input.b64", vm_manifest_dir);
-	fp = fopen(tempfile3, "r");
-	char* digval = (char *) malloc(1000 * sizeof(char));
-	fscanf(fp, "%s", digval);
-	fclose(fp);
-	char *path = "/opt/trustagent/configuration/signingkey.pem";
-	char command[500];
-
-	sprintf(command,
-			"openssl x509 -in %s -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' > %sfile",
-			path, vm_manifest_dir);
-	LOG_DEBUG("Command to generate certificate : %s", command);
-	system(command);
-	memset(command, '\0', strlen(command));
-	sprintf(command,
-			"grep -vwE \"(-----BEGIN CERTIFICATE-----|-----END CERTIFICATE-----)\" %sfile  > %sfile2",
-			vm_manifest_dir, vm_manifest_dir);
-	LOG_DEBUG("Command to extract certificate Content : %s", command);
-	system(command);
-	char *file_contents;
-	long input_file_size;
-	char tempfile4[200];
-	sprintf(tempfile4, "%sfile2", vm_manifest_dir);
-	FILE *input_file = fopen(tempfile4, "r");
-	fseek(input_file, 0, SEEK_END);
-	input_file_size = ftell(input_file);
-	rewind(input_file);
-
-	file_contents = (char*) malloc((input_file_size + 1) * (sizeof(char)));
-	fread(file_contents, sizeof(char), input_file_size, input_file);
-	fclose(input_file);
-	file_contents[input_file_size] = 0;
-	// printf("\nCertificate is : %s \n",file_contents);
-
-/////OLD CODE HERE
-
-	sprintf(xmlstr,
-			"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\">\n<SignedInfo>\n<CanonicalizationMethod Algorithm=\"http://www.w3.org/TR/2001/REC-xml-c14n-20010315#WithComments\"/>\n<SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/>\n<Reference URI=\"#HostTrustAssertion\">\n<Transforms>\n<Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/>\n</Transforms>\n<DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/>\n<DigestValue>%s</DigestValue>\n</Reference>\n</SignedInfo>\n<SignatureValue>%s</SignatureValue>\n<KeyInfo>\n<X509Data>\n<X509Certificate>%s</X509Certificate>\n</X509Data>\n</KeyInfo>\n</Signature></VMQuote>",
-			nonce, vm_uuid, "SHA256", pEnt->m_vm_manifest_hash, digval,
-			signature, file_contents);
-	free(file_contents);
-	free(signature);
-	free(digval);
-	//system("rm -rf file file2");
-	char filepath[1000] = { 0 };
-//	sprintf(vm_manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
-	sprintf(filepath, "%ssigned_report.xml", vm_manifest_dir);
-	fp = fopen(filepath, "w");
-    //This log comment cause crash
-    //LOG_INFO("\n\nSingned xml report : %s\n", xmlstr);
-	fprintf(fp, "%s", xmlstr);
-	fclose(fp);
-	//system ("rm us_xml.xml hash.sig hash.input");
-
+	fp1 = fopen(filepath,"a");
+	sprintf(xmlstr,"</X509Certificate></X509Data></KeyInfo></Signature></VMQuote>");
+	fprintf(fp1,"%s",xmlstr);
+	fclose(fp1);
+					
 	return TCSERVICE_RESULT_SUCCESS;
+				        
 }
 TCSERVICE_RESULT tcServiceInterface::TerminateApp(char* uuid, int* psizeOut, byte* out)
 {
