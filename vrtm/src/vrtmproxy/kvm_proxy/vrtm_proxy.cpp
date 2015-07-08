@@ -148,6 +148,7 @@ again:
             pReq->m_ustatus, &rgBuf[sizeof(tcBuffer)]);
     if ( !decodeRP2VM_STARTAPP(&response_size, response, (byte *)&rgBuf[sizeof(tcBuffer)] ) ) {
     	LOG_ERROR("Failed to decode the response");
+    	goto fail;
     }
     if(pReq->m_ustatus == 0 ) {
     	if (atoi( (char *)response) > 0)

@@ -52,6 +52,10 @@ char    g_rpcore_ip [64]        = "127.0.0.1";
 int     g_rpcore_port 		= 16005;
 int     g_max_thread_limit 	= 64;
 char 	g_trust_report_dir[512]  = "/var/lib/nova/trustreports/";
+long 	g_entry_cleanup_interval = 30;
+long 	g_delete_vm_max_age = 3600;
+long 	g_cancelled_vm_max_age = 86400;
+long	g_stopped_vm_max_age = 864000;
 
 std:: map<std::string, std::string> config_map;
 
@@ -96,6 +100,11 @@ int LoadConfig(const char * configFile)
 			break;
 		}
         LOG_TRACE("Line read from config file: %s", line);
+        if( line[0] == '#' ) {
+        	LOG_DEBUG("Comment in configuration file : %s", &line[1]);
+        	free(line);
+        	continue;
+        }
 		key=strtok(line,"=");
 		value=strtok(NULL,"=");
 		std::string map_key (key);
@@ -113,6 +122,8 @@ int read_config()
 {
 	int count=0;
 	std::string rpcore_ip, rpcore_port, max_thread_limit, trust_report_dir;
+	std::string entry_cleanup_interval, delete_vm_max_age, cancelled_vm_max_age, stopped_vm_max_age;
+
 	LOG_TRACE("Setting vRTM configuration");
 	rpcore_ip = config_map["rpcore_ip"];
 	if(rpcore_ip == ""){
@@ -138,13 +149,43 @@ int read_config()
 		LOG_WARN("Trust Report directory is not found in vRTM.cfg. Using default location %s", trust_report_dir.c_str());
 	}
 	count++;
+	entry_cleanup_interval = config_map["entry_cleanup_interval"];
+	if (entry_cleanup_interval == "") {
+		LOG_WARN("VM Entry cleanup interval not found in vRTM.cfg. Using default value : %d", g_entry_cleanup_interval);
+	}
+	count++;
+	delete_vm_max_age = config_map["delete_vm_max_age"];
+	if (delete_vm_max_age == "") {
+		LOG_WARN("Deleted VM cleanup interval not found in vRTM.cfg. Using default value : %d", g_delete_vm_max_age);
+	}
+	count++;
+	cancelled_vm_max_age = config_map["cancelled_vm_max_age"];
+	if (cancelled_vm_max_age == "") {
+		LOG_WARN("Cancelled VM cleanup interval not found in vRTM.cfg. Using default value : %d", g_cancelled_vm_max_age);
+	}
+	count++;
+	stopped_vm_max_age = config_map["stopped_vm_max_age"];
+	if (stopped_vm_max_age == "") {
+		LOG_WARN("Stopped VM cleanup interval not found in vRTM.cfg. Using default value : %d", g_stopped_vm_max_age);
+	}
+	count++;
 	strcpy(g_rpcore_ip,rpcore_ip.c_str());
-	//sprintf(g_rpcore_port,"%d", rpcore_port);
-	//sprintf(g_max_thread_limit,"%d",max_thread_limit);
+	LOG_DEBUG("vRTM IP : %s", g_rpcore_ip);
 	g_rpcore_port = atoi(rpcore_port.c_str());
+	LOG_DEBUG("vRTM listening port : %d", g_rpcore_port);
 	g_max_thread_limit = atoi(max_thread_limit.c_str());
+	LOG_DEBUG("vRTM Max concurrent request processing limit : %d", g_max_thread_limit);
 	strcpy(g_trust_report_dir, trust_report_dir.c_str());
 	strcat(g_trust_report_dir, "/");
+	LOG_DEBUG("vRTM trust report directory : %s", g_trust_report_dir);
+	g_entry_cleanup_interval = atoi(entry_cleanup_interval.c_str());
+	LOG_DEBUG("VM Entry cleanup interval : %d", g_entry_cleanup_interval);
+	g_delete_vm_max_age = atoi(delete_vm_max_age.c_str());
+	LOG_DEBUG("Deleted VM cleanup interval : %d", g_delete_vm_max_age);
+	g_cancelled_vm_max_age = atoi(cancelled_vm_max_age.c_str());
+	LOG_DEBUG("Cancelled VM cleanup interval : %d", g_cancelled_vm_max_age);
+	g_stopped_vm_max_age = atoi(stopped_vm_max_age.c_str());
+	LOG_DEBUG("Stopped VM cleanup interval : %d", g_stopped_vm_max_age);
 	mkdir(g_trust_report_dir, 0766);
 	return count;
 }

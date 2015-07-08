@@ -105,6 +105,7 @@ public:
     bool                m_vm_verfication_status;
     char                m_vm_manifest_dir[MANIFEST_DIR_SIZE];
     int					m_vm_status;
+    time_t				m_status_upadation_time;
 
     serviceprocEnt() : m_rgHash(), m_uuid(), m_vdi_uuid(), m_vm_image_id(), m_vm_customer_id(),
     		m_vm_manifest_hash(), m_vm_manifest_signature(), m_vm_launch_policy(), m_vm_manifest_dir() {
@@ -116,6 +117,7 @@ public:
     	m_szexeFile = NULL;
     	m_vm_verfication_status = false;
     	m_vm_status = VM_STATUS_STOPPED;
+    	m_status_upadation_time = time(NULL);
     }
 };
 
@@ -139,6 +141,7 @@ public:
     bool                removeprocEntry(char* uuid);
     serviceprocEnt*     getEntfromprocId(int procid);
     int					getprocIdfromuuid(char* uuid);
+    int					getproctablesize();
     void                print();
 
 };
@@ -170,6 +173,7 @@ public:
     						byte * vm_manifestSignature, int * vm_manifestSignaturesize);
     TCSERVICE_RESULT	IsVerified(char *vm_uuid, int* verification_status);
     TCSERVICE_RESULT	GenerateSAMLAndGetDir(char *vm_uuid, char * nonce, char * vm_manifest_dir);
+    TCSERVICE_RESULT 	CleanVrtmTable(unsigned long entry_max_age,int vm_status, int* deleted_entries);
 };
 
 bool serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int *outparamsize, byte* outparams);

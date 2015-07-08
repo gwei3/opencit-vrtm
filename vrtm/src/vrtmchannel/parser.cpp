@@ -93,7 +93,16 @@ int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf) {
 	char *method, *param;
 	int xmldata_size = -1;
 	LOG_DEBUG("XML to be parsed : %s", buf);
+	if (strlen((char *)buf) == 0) {
+		xmldata_size = *psize = 0;
+		return xmldata_size;
+	}
 	doc = xmlParseMemory((char *)buf, strlen((char *)buf));
+	if(doc == NULL) {
+		xmldata_size = *psize = 0;
+		return xmldata_size;
+	}
+
 	root = xmlDocGetRootElement(doc);
 	char *decoded_data;
 	for(cur_node = root->children ; cur_node != NULL ; cur_node = cur_node->next) {
@@ -135,7 +144,24 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 	char *method, *param, *decoded_data;
 	int i=0, arg_count = 0, status = -1;
 	LOG_DEBUG("XML to be parsed : %s", buf);
+	if (strlen((char *)buf) == 0) {
+		method = (char *)calloc(1,sizeof(char));
+		method[0] = '\0';
+		*psz = method;
+		*pnargs = arg_count;
+		status = *pnargs;
+		return status;
+	}
 	doc = xmlParseMemory((char*)buf, strlen((char*)buf));
+	if(doc == NULL) {
+		method = (char *)calloc(1,sizeof(char));
+		method[0] = '\0';
+		*psz = method;
+		*pnargs = arg_count;
+		status = *pnargs;
+		return status;
+	}
+
 	root = xmlDocGetRootElement(doc);
 	for(cur_node = root->children; cur_node != NULL; cur_node = cur_node->next) {
 		if (cur_node->type == XML_ELEMENT_NODE  && 

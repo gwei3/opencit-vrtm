@@ -65,6 +65,10 @@ uint32_t	g_rpdomid = 1000;
 #define LAUNCH_ALLOWED		"launch allowed"	 
 #define LAUNCH_NOT_ALLOWED	"launch not allowed"
 #define KEYWORD_UNTRUSTED	"untrusted"
+
+
+int cleanupService();
+void* clean_vrtm_table(void *p);
 // ---------------------------------------------------------------------------
 
 bool uidfrompid(int pid, int* puid)
@@ -121,6 +125,9 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
     proc_table.insert(std::pair<int, serviceprocEnt>(procid, proc_ent));
     pthread_mutex_unlock(&loc_proc_table);
     LOG_INFO("Entry added for vRTM id %d\n",procid);
+    if( getproctablesize() == 1) {
+    	cleanupService();
+    }
     return true;
 }
 
@@ -140,6 +147,9 @@ bool serviceprocTable::removeprocEntry(int procid)
 		free(table_it->second.m_szexeFile);
 		table_it->second.m_szexeFile = NULL;
 	}
+	char file_to_del[1024] = {'\0'};
+	sprintf(file_to_del, "rm -rf %s", table_it->second.m_vm_manifest_dir);
+	system(file_to_del);
 	proc_table.erase(table_it);
 	pthread_mutex_unlock(&loc_proc_table);
 	LOG_INFO("Table entry removed successfully for vRTM ID : %d\n",procid);
@@ -204,7 +214,8 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 	strcpy(table_it->second.m_vm_launch_policy, launch_policy);
 	table_it->second.m_size_vm_launch_policy = strlen(table_it->second.m_vm_launch_policy);
 	table_it->second.m_vm_verfication_status = verification_status;
-	if (!verification_status) {
+	if (verification_status == false && (strcmp(launch_policy, "Enforce") == 0)) {
+		LOG_DEBUG("Updated the VM status to : %d ", VM_STATUS_CANCELLED);
 		table_it->second.m_vm_status = VM_STATUS_CANCELLED;
 	}
 	pthread_mutex_unlock(&loc_proc_table);
@@ -241,6 +252,13 @@ int serviceprocTable::getprocIdfromuuid(char* uuid) {
 	return NULL;
 }
 
+int	serviceprocTable::getproctablesize(){
+	int size;
+	pthread_mutex_lock(&loc_proc_table);
+	size = proc_table.size();
+	pthread_mutex_unlock(&loc_proc_table);
+	return size;
+}
 
 void serviceprocTable::print()
 {
@@ -252,7 +270,6 @@ void serviceprocTable::print()
     pthread_mutex_unlock(&loc_proc_table);
     return;
 }
-
 
 // -------------------------------------------------------------------
 void tcServiceInterface::printErrorMessagge(int error) {
@@ -515,7 +532,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	fclose(fp1);
 					
 	return TCSERVICE_RESULT_SUCCESS;
-				        
 }
 TCSERVICE_RESULT tcServiceInterface::TerminateApp(char* uuid, int* psizeOut, byte* out)
 {
@@ -566,7 +582,38 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppStatus(char *uuid, int status) {
 		return TCSERVICE_RESULT_FAILED;
 	}
 	serviceprocEnt *procEnt = g_myService.m_procTable.getEntfromprocId(procid);
+	if (procEnt->m_vm_status == VM_STATUS_CANCELLED) {
+		LOG_INFO("Not updating VM status since VM is in cancelled status");
+		return TCSERVICE_RESULT_SUCCESS;
+	}
 	procEnt->m_vm_status = status;
+	LOG_DEBUG("Current VM status : %d", procEnt->m_vm_status);
+	procEnt->m_status_upadation_time = time(NULL);
+	struct tm cur_time = *localtime(&(procEnt->m_status_upadation_time));
+	LOG_DEBUG("Status updation time = %d : %d : %d : %d : %d : %d", cur_time.tm_year, cur_time.tm_mon,
+			cur_time.tm_mday, cur_time.tm_hour, cur_time.tm_min, cur_time.tm_sec);
+	return TCSERVICE_RESULT_SUCCESS;
+}
+
+
+TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(unsigned long entry_max_age, int vm_status, int* deleted_entries) {
+	*deleted_entries = 0;
+	std::vector<int> keys_to_del;
+	pthread_mutex_lock(&m_procTable.loc_proc_table);
+	for( proc_table_map::iterator table_it = m_procTable.proc_table.begin(); table_it != m_procTable.proc_table.end(); table_it++ ){
+		LOG_DEBUG("Comparing Current entry VM status : %d against vm status : %d ", table_it->second.m_vm_status, vm_status);
+		if(table_it->second.m_vm_status == vm_status ) {
+			int entry_age = difftime(time(NULL), table_it->second.m_status_upadation_time);
+			if( entry_age >= entry_max_age) {
+				keys_to_del.push_back(table_it->first);
+			}
+		}
+	}
+	pthread_mutex_unlock(&m_procTable.loc_proc_table);
+	for(std::vector<int>::iterator iter = keys_to_del.begin() ; iter != keys_to_del.end(); iter++) {
+			if (m_procTable.removeprocEntry(*iter))
+				(*deleted_entries)++;
+	}
 	return TCSERVICE_RESULT_SUCCESS;
 }
 
@@ -630,6 +677,8 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char    vm_manifest_dir[2048] ={0};
     bool 	verification_status = false;
     char	vm_uuid[UUID_SIZE];
+    int 	start_app_status = 0;
+    char 	command[512]={0};
     LOG_TRACE("Start VM App");
     if(an>30) {
     	LOG_ERROR("Number of arguments passed are more than limit 30");
@@ -743,7 +792,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         	if (strcmp(launchPolicy, "Audit") != 0 && strcmp(launchPolicy, "Enforce") !=0) {
         		fclose(fp);
         		LOG_INFO("Launch policy is neither Audit nor Enforce so vm verification is not not carried out");
-        		return TCSERVICE_RESULT_SUCCESS;
+        		//return TCSERVICE_RESULT_SUCCESS;
+        		char remove_file[1024] = {'\0'};
+				sprintf(remove_file,"rm -rf %s", vm_manifest_dir);
+				system(remove_file);
+        		start_app_status = 0;
+        		goto return_response;
         	}
         }
 
@@ -755,7 +809,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
             vm_manifest_hash = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
 			if(vm_manifest_hash == NULL) {
 				LOG_ERROR("StartApp : Error in allocating memory for vm_manifest_hash");
-				return TCSERVICE_RESULT_FAILED;
+				//return TCSERVICE_RESULT_FAILED;
+				start_app_status = 1;
+				goto return_response;
 			}
 			strcpy(vm_manifest_hash,NodeValue);
         }
@@ -768,7 +824,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
             vm_image_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
             if(vm_image_id == NULL) {
             	LOG_ERROR("StartApp : Error in allocating memory for vm_image_id");
-                return TCSERVICE_RESULT_FAILED;
+                //return TCSERVICE_RESULT_FAILED;
+            	start_app_status = 1;
+            	goto return_response;
            }
            strcpy(vm_image_id,NodeValue);
         }
@@ -781,7 +839,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         	vm_customer_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
 			if(vm_customer_id == NULL) {
 				LOG_DEBUG(" StartApp : Error in allocating memory for vm_customer_id");
-				return TCSERVICE_RESULT_FAILED;
+				//return TCSERVICE_RESULT_FAILED;
+				start_app_status = 1;
+				goto return_response;
 			}
 				strcpy(vm_customer_id,NodeValue);
           }
@@ -791,7 +851,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				vm_manifest_signature = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
 				if(vm_manifest_signature == NULL) {
 					LOG_ERROR("StartApp : Error in allocating memory for vm_manifest_hash");
-					return TCSERVICE_RESULT_FAILED;
+					//return TCSERVICE_RESULT_FAILED;
+					start_app_status = 1;
+					goto return_response;
 				}
 			   strcpy(vm_manifest_signature,NodeValue);
 			  }
@@ -800,7 +862,6 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         line = NULL;
         fclose(fp);
 // Only call verfier when measurement is required
-        char command[512]={0};
         // append rpid to /tmp/imvm-result_"rpid".out
         sprintf(command,"./verifier %s %s IMVM  > /tmp/imvm-result_%d.out 2>&1", nohash_manifest_file, disk_file,child);
         LOG_DEBUG("Command to execute verifier binary : %s", command);
@@ -814,11 +875,13 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			free(vm_customer_id);
 			free(vm_manifest_hash);
 			free(vm_manifest_signature);
-        	return TCSERVICE_RESULT_FAILED; // measurement failed  (verifier failed to measure)
+        	//return TCSERVICE_RESULT_FAILED; // measurement failed  (verifier failed to measure)
+			start_app_status = 1;
+			goto return_response;
 		}
 
         char imageHash[65];
-        int flag=0;
+        //int flag=0;
 
         if (fq != NULL) {
             char line[1000];
@@ -832,67 +895,89 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         if (strcmp(imageHash, goldenImageHash) ==0) {
         	LOG_INFO("IMVM Verification Successfull");
             verification_status = true;
-            flag=1;
+            //flag=1;
         }
 		else if ((strcmp(launchPolicy, "Audit") == 0)) {
 			LOG_INFO("IMVM Verification Failed, but continuing with VM launch as MeasureOnly launch policy is used");
 			verification_status = false;
-			flag=1;
+			//flag=1;
 		}
 		else {
 			LOG_ERROR("IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used");
 			verification_status = false;
-			flag=0;
+			//flag=0;
 		}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
     //The code below does the work of converting 64 byte hex (imageHash) to 32 byte binary (rgHash)
     //same as in rpchannel/channelcoding.cpp:ascii2bin(),
-    int c = 0;
-    int len = strlen(imageHash);
-    int iSize = 0;
-    for (c= 0; c < len; c = c+2) {
-        sscanf(&imageHash[c], "%02x", &rgHash[c/2]);
-        iSize++;
-    }
-    LOG_TRACE("Adding proc table entry for measured VM");
-    int temp_proc_id = g_myService.m_procTable.getprocIdfromuuid(vm_uuid);
-    int vm_data_size = 0;
-    char* vm_data[1];
-    vm_data[0] = vm_uuid;
-    vm_data_size++;
-    if ( temp_proc_id == NULL) {
-		if(!g_myService.m_procTable.addprocEntry(child, kernel_file, vm_data_size, vm_data, size, rgHash)) {
-			LOG_ERROR( "StartApp: cant add to vRTM Map\n");
-			return TCSERVICE_RESULT_FAILED;
+    {
+		int c = 0;
+		int len = strlen(imageHash);
+		int iSize = 0;
+		for (c= 0; c < len; c = c+2) {
+			sscanf(&imageHash[c], "%02x", &rgHash[c/2]);
+			iSize++;
 		}
-    }
-    else {
-    	child = temp_proc_id;
+		LOG_TRACE("Adding proc table entry for measured VM");
+		int temp_proc_id = g_myService.m_procTable.getprocIdfromuuid(vm_uuid);
+		int vm_data_size = 0;
+		char* vm_data[1];
+		vm_data[0] = vm_uuid;
+		vm_data_size++;
+		if ( temp_proc_id == NULL) {
+			if(!g_myService.m_procTable.addprocEntry(child, kernel_file, vm_data_size, vm_data, size, rgHash)) {
+				LOG_ERROR( "StartApp: cant add to vRTM Map\n");
+				//return TCSERVICE_RESULT_FAILED;
+				start_app_status = 1;
+				goto return_response;
+			}
+		}
+		else {
+			child = temp_proc_id;
+		}
     }
     LOG_TRACE("Updating proc table entry");
    if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir)) {
 	   	LOG_ERROR("SartApp : can't update proc table entry\n");
-        return TCSERVICE_RESULT_FAILED;
+        //return TCSERVICE_RESULT_FAILED;
+	   	start_app_status = 1;
+	   	goto return_response;
     }
 
-    for ( i = 0; i < an; i++) {
-        if( av[i] ) {
-            free (av[i]);
-            av[i] = NULL;
-        }
-    }
     // free all allocated variable
     free(vm_image_id);
     free(vm_customer_id);
     free(vm_manifest_hash);
     free(vm_manifest_signature);
     
-    *poutsize = sizeof(int);
-    *((int*)out) = (int)child;
 
-    return TCSERVICE_RESULT_SUCCESS;
+    return_response :
+		for ( i = 0; i < an; i++) {
+			if( av[i] ) {
+				free (av[i]);
+				av[i] = NULL;
+			}
+		}
+    	if (start_app_status) {
+			char remove_file[1024] = {'\0'};
+			sprintf(remove_file,"rm -rf %s", vm_manifest_dir);
+			system(remove_file);
+			*poutsize = sizeof(int);
+			*((int*)out) = -1;
+    		return TCSERVICE_RESULT_FAILED;
+    	}
+    	else {
+			*poutsize = sizeof(int);
+    		if (verification_status == false && (strcmp(launchPolicy, "Enforce") == 0)) {
+    			*((int*)out) = -1;
+    		}
+    		else {
+    			*((int*)out) = child;
+    		}
+			return TCSERVICE_RESULT_SUCCESS;
+    	}
 }
 
 
@@ -1190,4 +1275,36 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
             method_name = NULL;
         }
         return ret_val;
+}
+
+void* clean_vrtm_table(void *){
+	LOG_TRACE("");
+	while(g_myService.m_procTable.getproctablesize()) {
+		int cleaned_entries;
+		sleep(g_entry_cleanup_interval);
+		g_myService.CleanVrtmTable(g_delete_vm_max_age, VM_STATUS_DELETED, &cleaned_entries);
+		LOG_INFO("Number of VM entries with deleted status removed from vRTM table : %d", cleaned_entries);
+		g_myService.CleanVrtmTable(g_cancelled_vm_max_age, VM_STATUS_CANCELLED, &cleaned_entries);
+		LOG_INFO("Number of VM entries with cancelled status removed from vRTM table : %d", cleaned_entries);
+		g_myService.CleanVrtmTable(g_stopped_vm_max_age, VM_STATUS_STOPPED, &cleaned_entries);
+		LOG_INFO("Number of VM entries with stopped status removed frin vRTM table : %d", cleaned_entries);
+	}
+	return NULL;
+}
+
+int cleanupService() {
+	pthread_t tid;
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	LOG_TRACE("");
+	if (!pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
+		pthread_create(&tid, &attr, clean_vrtm_table, (void *)NULL);
+		LOG_INFO("Successfully created the thread for entries cleanup");
+		return 0;
+	}
+	else {
+		LOG_ERROR("Can't set cleanup thread attribute to detatchstate");
+		LOG_ERROR("Failed to spawn the vRTM entry clean up thread");
+		return 1;
+	}
 }

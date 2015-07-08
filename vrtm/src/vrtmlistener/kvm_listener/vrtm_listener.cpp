@@ -297,7 +297,10 @@ again:
 
     LOG_DEBUG( "Response from vRTM. status: %d return: %s\n", pReq->m_ustatus, &rgBuf[sizeof(tcBuffer)]);
 
-    decodeRP2VM_SETVM_STATUS(&response_size, response, (byte *)&rgBuf[sizeof(tcBuffer)]);
+    if (decodeRP2VM_SETVM_STATUS(&response_size, response, (byte *)&rgBuf[sizeof(tcBuffer)]) == false) {
+    	LOG_ERROR("Fail to decode the response ");
+    	goto fail;
+    }
     LOG_DEBUG("Response : %d response size : %d", atoi((char *)response), response_size);
     if(pReq->m_ustatus == 0)
     	if ( atoi( (char *)response) == 0 )

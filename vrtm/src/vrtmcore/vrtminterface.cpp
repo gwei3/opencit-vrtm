@@ -33,6 +33,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <signal.h>
@@ -295,7 +296,8 @@ fail:
 void* dom_listener_main ( void* p)
 {
     int                 fd, newfd;
-    struct sockaddr_in  server_addr, client_addr;
+    struct addrinfo     hints, *vrtm_addr;
+    struct sockaddr_in  client_addr;
     int                 slen= sizeof(struct sockaddr_in);
     int                 clen= sizeof(struct sockaddr);
     int                 iError;
@@ -305,31 +307,43 @@ void* dom_listener_main ( void* p)
     int*		thread_fd;
     pthread_t tid;
     pthread_attr_t  attr;
+    char vrtm_port[6] = {'\0'};
 
     LOG_TRACE("Entered dom_listener_main()");
     pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     //sem_init(&g_sem_sess, 0, 1);
-    LOG_TRACE("Create socket for vRTM core");	
-    fd= socket(AF_INET, SOCK_STREAM, 0);
 
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_INET; // use IPv4 or IPv6, whichever
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE; // fill in my IP for me
+
+    sprintf(vrtm_port,"%d", g_rpcore_port);
+	getaddrinfo(g_rpcore_ip, vrtm_port, &hints, &vrtm_addr);
+	LOG_DEBUG("Socket type : %d, Socket address : %s, Protocol : %d ", vrtm_addr->ai_family, vrtm_addr->ai_addr->sa_data, vrtm_addr->ai_protocol);
+
+    LOG_TRACE("Create socket for vRTM core");	
+    //fd= socket(AF_INET, SOCK_STREAM, 0);
+    fd = socket(vrtm_addr->ai_family, vrtm_addr->ai_socktype, 0);
     if(fd<0) {
         LOG_ERROR("Can't open socket");
         g_ifc_status = IFC_ERR;
         return false;
     }
     LOG_TRACE("Bind vRTM core socket");
-    memset((void*) &server_addr, 0, sizeof(struct sockaddr_in));
+    /*memset((void*) &server_addr, 0, sizeof(struct sockaddr_in));
     server_addr.sin_family= AF_INET;
-    server_addr.sin_addr.s_addr= htonl(INADDR_ANY);     // 127.0.0.1
-	
+    server_addr.sin_addr.s_addr= htonl(INADDR_ANY);     // 127.0.0.1*/
 	//ip_env = getenv("RPCORE_IPADDR");
     //if (ip_env)
 	//	strncpy(g_rpcore_ip, ip_env, 64);
 
     //inet_aton(g_rpcore_ip, &server_addr.sin_addr);
-    server_addr.sin_port= htons(g_rpcore_port);
+    //server_addr.sin_port= htons(g_rpcore_port);
 
-    iError= bind(fd,(const struct sockaddr *) &server_addr, slen);
+    //iError= bind(fd,(const struct sockaddr *) &server_addr, slen);
+	iError= bind(fd,vrtm_addr->ai_addr, vrtm_addr->ai_addrlen);
     if(iError<0) {
         LOG_ERROR("Can't bind socket %s", strerror(errno));
         g_ifc_status = IFC_ERR;
