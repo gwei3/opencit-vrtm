@@ -142,6 +142,7 @@ public:
     serviceprocEnt*     getEntfromprocId(int procid);
     int					getprocIdfromuuid(char* uuid);
     int					getproctablesize();
+    int 				getcancelledvmcount();
     void                print();
 
 };

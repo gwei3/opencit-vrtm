@@ -125,9 +125,9 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
     proc_table.insert(std::pair<int, serviceprocEnt>(procid, proc_ent));
     pthread_mutex_unlock(&loc_proc_table);
     LOG_INFO("Entry added for vRTM id %d\n",procid);
-    if( getproctablesize() == 1) {
+    /*if( getproctablesize() == 1) {
     	cleanupService();
-    }
+    }*/
     return true;
 }
 
@@ -219,6 +219,9 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 		table_it->second.m_vm_status = VM_STATUS_CANCELLED;
 	}
 	pthread_mutex_unlock(&loc_proc_table);
+	if (g_myService.m_procTable.getcancelledvmcount() == 1) {
+		cleanupService();
+	}
 	LOG_INFO("Data updated against vRTM ID : %d in the Table\n", procid);
     return true;
 }
@@ -258,6 +261,19 @@ int	serviceprocTable::getproctablesize(){
 	size = proc_table.size();
 	pthread_mutex_unlock(&loc_proc_table);
 	return size;
+}
+
+int serviceprocTable::getcancelledvmcount() {
+	int count = 0;
+	pthread_mutex_lock(&loc_proc_table);
+	for( proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++) {
+		if (table_it->second.m_vm_status == VM_STATUS_CANCELLED) {
+			count++;
+		}
+	}
+	pthread_mutex_unlock(&loc_proc_table);
+	LOG_DEBUG("Number of VM with cancelled status : %d ", count);
+	return count;
 }
 
 void serviceprocTable::print()
@@ -424,6 +440,11 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	}
 	serviceprocEnt * pEnt = m_procTable.getEntfromprocId(proc_id);
 	LOG_INFO("Match found for given UUID \n");
+	if( pEnt->m_vm_status == VM_STATUS_STOPPED) {
+		LOG_INFO("Can't generate report. VM with UUID : %s is in stopped state.");
+		//TODO
+		return TCSERVICE_RESULT_FAILED;
+	}
 	sprintf(vm_manifest_dir, "%s%s/", g_trust_report_dir,vm_uuid); 
 	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
 	
@@ -577,6 +598,7 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
 }
 
 TCSERVICE_RESULT tcServiceInterface::UpdateAppStatus(char *uuid, int status) {
+	LOG_TRACE("VM UUID : %s , status to be updated : %d", uuid, status);
 	int procid = g_myService.m_procTable.getprocIdfromuuid(uuid);
 	if (procid == NULL) {
 		return TCSERVICE_RESULT_FAILED;
@@ -586,12 +608,20 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppStatus(char *uuid, int status) {
 		LOG_INFO("Not updating VM status since VM is in cancelled status");
 		return TCSERVICE_RESULT_SUCCESS;
 	}
+	if (status == VM_STATUS_DELETED) {
+		if (g_myService.m_procTable.removeprocEntry(uuid)) {
+			return TCSERVICE_RESULT_SUCCESS;
+		}
+		else
+			return TCSERVICE_RESULT_FAILED;
+	}
 	procEnt->m_vm_status = status;
-	LOG_DEBUG("Current VM status : %d", procEnt->m_vm_status);
+	LOG_INFO("Current VM status : %d", procEnt->m_vm_status);
 	procEnt->m_status_upadation_time = time(NULL);
 	struct tm cur_time = *localtime(&(procEnt->m_status_upadation_time));
 	LOG_DEBUG("Status updation time = %d : %d : %d : %d : %d : %d", cur_time.tm_year, cur_time.tm_mon,
 			cur_time.tm_mday, cur_time.tm_hour, cur_time.tm_min, cur_time.tm_sec);
+	LOG_INFO("Successfully updated the VM with UUID : %s status to %d", uuid, status);
 	return TCSERVICE_RESULT_SUCCESS;
 }
 
@@ -914,6 +944,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     //same as in rpchannel/channelcoding.cpp:ascii2bin(),
     {
 		int c = 0;
+		strcpy(vm_manifest_hash, imageHash);
 		int len = strlen(imageHash);
 		int iSize = 0;
 		for (c= 0; c < len; c = c+2) {
@@ -1279,15 +1310,11 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 
 void* clean_vrtm_table(void *){
 	LOG_TRACE("");
-	while(g_myService.m_procTable.getproctablesize()) {
+	while(g_myService.m_procTable.getcancelledvmcount()) {
 		int cleaned_entries;
 		sleep(g_entry_cleanup_interval);
-		g_myService.CleanVrtmTable(g_delete_vm_max_age, VM_STATUS_DELETED, &cleaned_entries);
-		LOG_INFO("Number of VM entries with deleted status removed from vRTM table : %d", cleaned_entries);
 		g_myService.CleanVrtmTable(g_cancelled_vm_max_age, VM_STATUS_CANCELLED, &cleaned_entries);
 		LOG_INFO("Number of VM entries with cancelled status removed from vRTM table : %d", cleaned_entries);
-		g_myService.CleanVrtmTable(g_stopped_vm_max_age, VM_STATUS_STOPPED, &cleaned_entries);
-		LOG_INFO("Number of VM entries with stopped status removed frin vRTM table : %d", cleaned_entries);
 	}
 	return NULL;
 }
