@@ -61,6 +61,9 @@ byte                    g_servicehash[32]= {
                         };
 
 uint32_t	g_rpdomid = 1000;
+static int g_cleanup_service_status = 0;
+
+
 #define NUMPROCENTS 200
 #define LAUNCH_ALLOWED		"launch allowed"	 
 #define LAUNCH_NOT_ALLOWED	"launch not allowed"
@@ -219,9 +222,7 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 		table_it->second.m_vm_status = VM_STATUS_CANCELLED;
 	}
 	pthread_mutex_unlock(&loc_proc_table);
-	if (g_myService.m_procTable.getcancelledvmcount() == 1) {
-		cleanupService();
-	}
+	cleanupService();
 	LOG_INFO("Data updated against vRTM ID : %d in the Table\n", procid);
     return true;
 }
@@ -1316,17 +1317,24 @@ void* clean_vrtm_table(void *){
 		g_myService.CleanVrtmTable(g_cancelled_vm_max_age, VM_STATUS_CANCELLED, &cleaned_entries);
 		LOG_INFO("Number of VM entries with cancelled status removed from vRTM table : %d", cleaned_entries);
 	}
+	g_cleanup_service_status = 0;
+	LOG_DEBUG("Cleanup thread exiting...");
 	return NULL;
 }
 
 int cleanupService() {
 	pthread_t tid;
 	pthread_attr_t attr;
-	pthread_attr_init(&attr);
 	LOG_TRACE("");
+	if (g_cleanup_service_status == 1) {
+		LOG_INFO("Clean-up Service already running");
+		return 0;
+	}
+	pthread_attr_init(&attr);
 	if (!pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
 		pthread_create(&tid, &attr, clean_vrtm_table, (void *)NULL);
 		LOG_INFO("Successfully created the thread for entries cleanup");
+		g_cleanup_service_status = 1;
 		return 0;
 	}
 	else {
