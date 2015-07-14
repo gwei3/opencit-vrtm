@@ -84,6 +84,8 @@ function untarResources()
         fi
 	chmod 755 "$INSTALL_DIR/vrtm" "$INSTALL_DIR/vrtm/bin" "$INSTALL_DIR/vrtm/configuration" "$INSTALL_DIR/vrtm/lib" "$INSTALL_DIR/vrtm/scripts"
 	chmod 755 "$INSTALL_DIR"/vrtm/lib/*
+	chmod 755 "$INSTALL_DIR"/vrtm/scripts/mount_vm_image.sh
+	chmod 766 "$INSTALL_DIR"/vrtm/configuration/vrtm_proxylog.properties
 	rm -rf KVM_install.tar.gz
 }
 
@@ -142,7 +144,6 @@ function installvrtmProxyAndListner()
 		echo "exec $QEMU_INSTALL_LOCATION -enable-kvm \"\$@\""  >> $KVM_BINARY
 		chmod +x $KVM_BINARY
 	fi
-
 	if [ -e /usr/bin/qemu-system-x86_64_orig ]
 	then	
 		echo "vrtm-Proxy binary is already updated, might be old and will be replaced" 
@@ -167,7 +168,6 @@ function installvrtmProxyAndListner()
 	echo "Updating ldconfig for vRTM library"
 	echo "$INSTALL_DIR/vrtm/lib" > /etc/ld.so.conf.d/vrtm.conf
 	ldconfig
-
         if [ $FLAVOUR == "ubuntu" ]; then
                 # Disable the apparmor profile for libvirt for ubuntu
                 if [ -e /etc/apparmor.d/disable/usr.sbin.libvirtd ] ; then
@@ -189,8 +189,8 @@ function installvrtmProxyAndListner()
 			echo "Updating the selinux policies for vRTM files"
 			 semanage fcontext -a -t virt_log_t $LOG_DIR
 			 restorecon -v $LOG_DIR
-			 semanage fcontext -a -t virt_etc_t /opt/vrtm/configuration/vrtm_proxylog.properties
-		         restorecon -v /opt/vrtm/configuration/vrtm_proxylog.properties
+			 semanage fcontext -a -t virt_etc_t $INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties
+		         restorecon -v $INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties
 			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
 			 restorecon -v "$QEMU_INSTALL_LOCATION"
 			 semanage fcontext -a -t qemu_exec_t $INSTALL_DIR/vrtm/lib/libvrtmchannel-g.so
@@ -456,6 +456,8 @@ function main_default()
   
   mkdir -p "$LOG_DIR" 
   chmod 777 "$LOG_DIR"
+  touch "$LOG_DIR"/vrtm_proxy.log
+  chmod 766 "$LOG_DIR"/vrtm_proxy.log
  
 	FLAVOUR=`getFlavour`
 	updateFlavourVariables
