@@ -710,6 +710,11 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char	vm_uuid[UUID_SIZE];
     int 	start_app_status = 0;
     char 	command[512]={0};
+	FILE*   fp=NULL;
+	char    extension[20]={0};
+	char    popen_command[250]={0};
+	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
+	char    measurement_file[2048]={0};
     LOG_TRACE("Start VM App");
     if(an>30) {
     	LOG_ERROR("Number of arguments passed are more than limit 30");
@@ -770,10 +775,18 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				LOG_DEBUG("Manifest path %s ", manifest_file);
 				sprintf(nohash_manifest_file, "%s%s", trust_report_dir, "/manifestlist.xml");
 				LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
+				
+				//Read the digest algorithm from manifestlist.xml
+				sprintf(popen_command,"%s%s",xml_command,nohash_manifest_file);
+				fp=popen(popen_command,"r");
+				fgets(extension, sizeof(extension)-1, fp);
+				sprintf(measurement_file,"%s.%s","/measurement",extension);
+				pclose(fp);
+				
 				sprintf(formatted_manifest_file, "%s%s", trust_report_dir, "/fmanifest.xml");
 				LOG_DEBUG("Formatted manifest file %s", formatted_manifest_file);
         		strncpy(cumulativehash_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
-        		sprintf(cumulativehash_file, "%s%s", cumulativehash_file, "/measurement.sha256");
+        		sprintf(cumulativehash_file, "%s%s", cumulativehash_file, measurement_file);
         		LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
         }
     }
