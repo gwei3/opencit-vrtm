@@ -169,12 +169,25 @@ function installvrtmProxyAndListner()
 	echo "$INSTALL_DIR/vrtm/lib" > /etc/ld.so.conf.d/vrtm.conf
 	ldconfig
         if [ $FLAVOUR == "ubuntu" ]; then
-                # Disable the apparmor profile for libvirt for ubuntu
-                if [ -e /etc/apparmor.d/disable/usr.sbin.libvirtd ] ; then
+		LIBVIRT_QEMU_FILE="/etc/apparmor.d/abstractions/libvirt-qemu"           
+                if [ -e $LIBVIRT_QEMU_FILE ] ; then
+		        vrtm_comment="#Intel CIT vrtm"
+                        grep "$vrtm_comment" $LIBVIRT_QEMU_FILE > /dev/null
+                        if [ $? -eq 1 ] ; then
+                            echo "$vrtm_comment" >> $LIBVIRT_QEMU_FILE
+                            echo "$INSTALL_DIR/vrtm/lib/libvrtmchannel-g.so r," >> $LIBVIRT_QEMU_FILE
+                            echo "$INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties r," >> $LIBVIRT_QEMU_FILE
+                            echo "$LOG_DIR/vrtm_proxy.log w," >> $LIBVIRT_QEMU_FILE
+                            echo "/usr/bin/qemu-system-x86_64_orig rmix," >> $LIBVIRT_QEMU_FILE
+                        fi
+                        echo "Appended libvirt apparmour policy"
+                elif [ -e /etc/apparmor.d/disable/usr.sbin.libvirtd ] ; then
                         echo "libvirt apparmor already disabled"
                 else
+                # Disable the apparmor profile for libvirt for ubuntu
                         ln -s /etc/apparmor.d/usr.sbin.libvirtd /etc/apparmor.d/disable/
                         apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd 
+			echo "Disabling apparmour policy for libvirtd"
                 fi
         fi
 
