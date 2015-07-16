@@ -710,7 +710,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char	vm_uuid[UUID_SIZE];
     int 	start_app_status = 0;
     char 	command[512]={0};
-	FILE*   fp=NULL;
+	FILE*   fp1=NULL;
 	char    extension[20]={0};
 	char    popen_command[250]={0};
 	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
@@ -778,10 +778,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				
 				//Read the digest algorithm from manifestlist.xml
 				sprintf(popen_command,"%s%s",xml_command,nohash_manifest_file);
-				fp=popen(popen_command,"r");
-				fgets(extension, sizeof(extension)-1, fp);
+				fp1=popen(popen_command,"r");
+				fgets(extension, sizeof(extension)-1, fp1);
 				sprintf(measurement_file,"%s.%s","/measurement",extension);
-				pclose(fp);
+				pclose(fp1);
 				
 				sprintf(formatted_manifest_file, "%s%s", trust_report_dir, "/fmanifest.xml");
 				LOG_DEBUG("Formatted manifest file %s", formatted_manifest_file);
