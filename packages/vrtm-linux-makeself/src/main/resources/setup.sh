@@ -23,6 +23,7 @@
 # and it is not saved or used by the app script
 export VRTM_HOME=${VRTM_HOME:-/opt/vrtm}
 VRTM_LAYOUT=${VRTM_LAYOUT:-home}
+VRTM_VERSION_FILE=vrtm.version
 
 # the env directory is not configurable; it is defined as VRTM_HOME/env and
 # the administrator may use a symlink if necessary to place it anywhere else
@@ -72,7 +73,8 @@ if [ "$VRTM_LAYOUT" == "linux" ]; then
 elif [ "$VRTM_LAYOUT" == "home" ]; then
   export VRTM_CONFIGURATION=${VRTM_CONFIGURATION:-$VRTM_HOME/configuration}
   export VRTM_REPOSITORY=${VRTM_REPOSITORY:-$VRTM_HOME/repository}
-  export VRTM_LOGS=${VRTM_LOGS:-$VRTM_HOME/logs}
+  export VRTM_LOGS=${VRTM_LOGS:-/var/log/vrtm}
+#  export VRTM_LOGS=${VRTM_LOGS:-$VRTM_HOME/logs}
 fi
 export VRTM_BIN=$VRTM_HOME/bin
 export VRTM_JAVA=$VRTM_HOME/java
@@ -146,11 +148,13 @@ chmod 700 $VRTM_HOME/bin/*.sh
 chmod 700 $VRTM_HOME/dist/*.sh
 
 (cd $VRTM_HOME/dist && ./vRTM_KVM_install.sh)
+cp $VRTM_HOME/dist/$VRTM_VERSION_FILE $VRTM_HOME/.
+
 rm -rf /$VRTM_HOME/dist
 
 #Register vRTM start script
 register_startup_script /usr/local/bin/vrtm vrtm
-register_startup_script /usr/local/bin/rp_listener rplistener
+register_startup_script /usr/local/bin/vrtmlistener vrtmlistener
 
 ### CURRENTLY DONE IN vRTM_KVM_install.sh
 ##verifier

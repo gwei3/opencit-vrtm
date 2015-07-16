@@ -1,4 +1,0 @@
-cp rpapi.cpp  ../rpcrypto
-cp rpapi.d.cpp  ../rpcrypto
-cp rpapilocal.h  ../rpcrypto
-cp rpapilocalext.h  ../rpcrypto

@@ -1,2 +1,0 @@
-testapp: testapp.cpp testapp.h ../../rpchannel/tcpchan.cpp ../../rpchannel/tcpchan.h ../../rptrust/rptrust.h
-		g++ -g -o testapp testapp.cpp -I ../../rpcore -I ../../rpchannel/ -I ../../rptrust -I ../../rpcore -L ../../../lib -lrpcrypto-g -lrpchannel-g -lrptrust-g 

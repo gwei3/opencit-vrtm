@@ -1,7 +1,0 @@
-
-Jul 17, 2013
--The nontpmkss makefiles are for Non-TPM version of keyNegoServer
--The nontpmrpcs makefiles are for Non-TPM version of tcService/rpcoreservice
--The differences are minimal so can be optimized later by creating a common lib for TPM and NON-TPM versions.[Not an issue as m/c are fast but can be done later]
-
-

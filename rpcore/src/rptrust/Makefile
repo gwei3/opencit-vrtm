@@ -1,1 +1,0 @@
-rptrust-g.mak

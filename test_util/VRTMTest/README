@@ -1,0 +1,128 @@
+This README explain How to test VRTM APIs using VRTMTest utility.
+
+DIRECTORY STRUCTURE
+-------------------
+  src/  : source file of VRTMTest APIs
+  test/ : test file for VRTM APIs
+  bin/  : Will be generated while compiling. Will contain compiled classes
+  dist/ : Will be generated when compiled using "ant build-jar". It will have test.jar containing all compiled classes
+  
+
+HOW TO COMPILE
+---------------  
+ - Go to VRTMTest/ directory
+ - Execute command "ant build-jar"
+ - Jar file will be generated in dist/test.jar
+
+HOW TO TEST APIS
+-----------------
+
+To test any API run following command using appropriate arguments for the API mentioned below:
+
+ "java -cp <VRTMTest_DIR>/dist/test.jar <API CLASS NAME> <ARG-1> <ARG-2> ... <ARG-N>"
+
+Following APIs could be tested using this utility.
+ 1) Start VM (StartApp) API
+    - API CLASS NAME -- com.intel.vrtm.client.test.StartAppTest
+	- ARG-1 -- VRTM IP Address
+	- ARG-2 -- VRTM port
+	- ARG-3 -- Kernel Path -- If no separate kernel then pass blank string like ""
+	- ARG-4 -- RAM disk Path -- If no separate RAM disk then pass blank string like ""
+	- ARG-5 -- VM Disk Path
+	- ARG-6 -- Trustpolicy.xml Path
+	NOTE: To test this API copy disk, trustpolicy.xml and manifestlist.xml in one directory and pass path of disk image and trustpolicy.xml. Make sure that name of trustpolicy.xml and manifestlist.xml are not modified
+	
+ 2) Map UUID with VRTM ID (SetUUID) API
+    - API CLASS NAME -- com.intel.vrtm.client.test.SetUUIDTest
+	- ARG-1 -- VRTM IP Address
+	- ARG-2 -- VRTM port
+	- ARG-3 -- vRTM ID
+	- ARG-4 -- UUID of the VM
+
+ 3) Get vRTM ID from UUID (GetVRTMID) API
+    - API CLASS NAME -- com.intel.vrtm.client.test.RPIDTest
+	- ARG-1 -- VRTM IP Address
+	- ARG-2 -- VRTM port
+	- ARG-3 -- UUID of the VM
+	
+ 4) Check VM verification status (IsVMVerified) API
+    - API CLASS NAME -- com.intel.vrtm.client.test.ISVMVerifiedTest
+	- ARG-1 -- VRTM IP Address
+	- ARG-2 -- VRTM port
+	- ARG-3 -- UUID of the VM
+
+ 5) Get VM Metadata (GetVMMETA) API
+    - API CLASS NAME -- com.intel.vrtm.client.test.VMMetaTest
+	- ARG-1 -- VRTM IP Address
+	- ARG-2 -- VRTM port
+	- ARG-3 -- vRTM ID
+
+ 6) Get VM Attestation Report API
+    - API CLASS NAME -- com.intel.vrtm.client.test.VMAttestationReport
+	- ARG-1 -- VRTM IP Address
+	- ARG-2 -- VRTM port
+	- ARG-3 -- UUID of the VM
+	NOTE: To execute this test replicate /var/lib/nova/instances/<UUID>/ directory structure as it tries to write files at this location
+
+ 
+Sample outputs
+---------------
+ 
+  1) To get rpcore rp_id for particular VM, run below test
+  Command:
+   		java -cp dist/test.jar com.intel.vrtm.client.test.RPIDTest 10.35.35.101 16005 d641753d-d2a8-4a50-8fe9-c9c4bfcbc5fc
+  Sample Output:
+         <?xml version='1.0'?>
+		 	<methodResponse>
+				<params>
+					<param>
+						<value><string>MTAwMA==</string></value>
+					</param>
+				</params>
+			</methodResponse>
+			
+	decode MTAwMA== to get actual RP id 	
+   
+  2) To get VM meta information, run below test  
+  Command:
+  	    java -cp com.intel.vrtm.client.test.VMMetaTest 10.35.35.101 16005 1000
+  Sample Output:
+  		 <?xml version='1.0'?>
+			<methodCall>
+				<methodName>get_vmmeta</methodName>
+				<params>
+					<param>
+						<value><int>4</int></value>
+					</param>
+					<param>
+						<value><string>xyz</string></value>
+					</param>
+					<param>
+						<value><string>abc</string></value>
+					</param>
+					<param>
+						<value><string>syz</string></value>
+					</param>
+					<param>
+						<value><string>ok</string></value>
+					</param>
+				</params>
+			</methodCall>
+  	  
+  3) To check whether VM is verified or not, run below test  
+  Command:  
+        java -cp dist/test.jar com.intel.vrtm.client.test.ISVMVerifiedTest 10.35.35.101 16005 d641753d-d2a8-4a50-8fe9-c9c4bfcbc5fc
+  Sample Output :
+  		 <?xml version='1.0'?>
+			 <methodResponse>
+				<params>
+					<param>
+						<value><string>MQ==</string></value>
+					</param>
+				</params>
+			 </methodResponse> 
+    Base64 decode MQ== to get result. 
+     
+     
+     
+     
