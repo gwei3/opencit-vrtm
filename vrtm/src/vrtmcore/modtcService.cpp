@@ -782,6 +782,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				fgets(extension, sizeof(extension)-1, fp1);
 				sprintf(measurement_file,"%s.%s","/measurement",extension);
 				pclose(fp1);
+				if(measurement_file[strlen(measurement_file) - 1] == '\n') 
+					measurement_file[strlen(measurement_file) - 1] = '\0';
+				LOG_DEBUG("Extension : %s",extension);
 				
 				sprintf(formatted_manifest_file, "%s%s", trust_report_dir, "/fmanifest.xml");
 				LOG_DEBUG("Formatted manifest file %s", formatted_manifest_file);
