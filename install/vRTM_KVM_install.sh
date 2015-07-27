@@ -469,9 +469,7 @@ function main_default()
   
   mkdir -p "$LOG_DIR" 
   chmod 777 "$LOG_DIR"
-  touch "$LOG_DIR"/vrtm_proxy.log
-  chmod 766 "$LOG_DIR"/vrtm_proxy.log
- 
+
 	FLAVOUR=`getFlavour`
 	updateFlavourVariables
         cd "$INSTALL_DIR"
@@ -497,7 +495,9 @@ function main_default()
 
 	echo "Installing vrtmProxy and vrtmListener..."
 	installvrtmProxyAndListner
-	
+	touch "$LOG_DIR"/vrtm_proxy.log
+        chmod 766 "$LOG_DIR"/vrtm_proxy.log
+ 
 	startNonTPMRpCore
 
     #verifier symlink
