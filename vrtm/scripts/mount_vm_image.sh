@@ -14,7 +14,7 @@ function unmount_vm_image() {
         mountPathCheck=$(mount | grep -o "$mountPath")
         if [ ! -z $mountPathCheck ]
         then
-                umount $mountPath 2>/dev/null
+                guestunmount $mountPath 2>/dev/null
 		retcode=$?
 		if [ $retcode -ne 0 ]
 		then
@@ -41,7 +41,7 @@ function mount_disk_guestmount()
 	fi
 	## Proceed mounting with guestmount
 	export LIBGUESTFS_BACKEND=direct
-	time $guestMountBinary -a $imagePath -i $mountPath
+	time $guestMountBinary -a $imagePath -i --ro $mountPath
 	retcode=$?
 	if [ $retcode -eq 0 ] ; then
 		echo "Mounted the disk image successfully"
