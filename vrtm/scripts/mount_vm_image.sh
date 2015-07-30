@@ -14,7 +14,7 @@ function unmount_vm_image() {
         mountPathCheck=$(mount | grep -o "$mountPath")
         if [ ! -z $mountPathCheck ]
         then
-                umount $mountPath 2>/dev/null
+                guestunmount $mountPath 2>/dev/null
 		retcode=$?
 		if [ $retcode -ne 0 ]
 		then
