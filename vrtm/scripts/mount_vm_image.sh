@@ -11,10 +11,18 @@ set -x
 
 function unmount_vm_image() {
         echo "################ Unmounting the mount path"
+	UNMOUNT_BINARY=""
+	which guestunmount
+	if [ `echo $?` -ne 0 ]
+	then
+		UNMOUNT_BINARY=umount
+	else
+		UNMOUNT_BINARY=guestunmount
+	fi
         mountPathCheck=$(mount | grep -o "$mountPath")
         if [ ! -z $mountPathCheck ]
         then
-                guestunmount $mountPath 2>/dev/null
+                $UNMOUNT_BINARY $mountPath 2>/dev/null
 		retcode=$?
 		if [ $retcode -ne 0 ]
 		then
