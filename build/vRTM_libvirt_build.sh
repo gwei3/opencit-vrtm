@@ -71,7 +71,7 @@ function installLibvirtRequiredPackages_ubuntu()
 
 function installLibvirtRequiredPackages_suse()
 {
-	zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI patch patchutils pbuilder quilt wget glib2-devel libjpeg8-devel libvdemgmt0-devel libvdeplug3-devel brlapi-devel libaio-devel libfdt1-devel texinfo libcap-devel libattr-devel libtspi1 libpixman-1-0-devel trousers-devel  ant
+	zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI patch patchutils pbuilder quilt wget glib2-devel libjpeg8-devel libvdemgmt0-devel libvdeplug3-devel brlapi-devel libaio-devel libfdt1-devel texinfo libcap-devel libattr-devel libtspi1 libpixman-1-0-devel ant
         zypper -n in libvirt libvirt-devel qemu-kvm 
         zypper -n in libyajl-devel libpciaccess-devel libnl3-devel device-mapper-devel
         zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp

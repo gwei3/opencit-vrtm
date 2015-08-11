@@ -185,10 +185,10 @@ function install_kvm_packages_rhel()
 
 	yum install -y libvirt-devel libvirt libvirt-python libxml2
 	#Libs required for compiling libvirt 
-	yum install -y gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel libxml2-devel trousers-devel openssl-devel
+	yum install -y gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel libxml2-devel openssl-devel
 	yum install -y python-devel
 	yum install -y openssh-server
-	yum install -y trousers trousers-devel libaio libaio-devel 
+	yum install -y libaio libaio-devel 
 	yum install -y tar dos2unix
 }
 
