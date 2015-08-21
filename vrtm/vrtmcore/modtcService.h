@@ -35,10 +35,15 @@
 #include <fcntl.h>
 #include <time.h>
 #include <string.h>
+#ifdef __linux__
 #include <unistd.h>
+#endif
 #include <pthread.h>
 #include <map>
-
+#include <vrtmCommon.h>
+#include <win_headers.h>
+#include <iostream>
+#include <fstream>
 typedef unsigned TCSERVICE_RESULT;
 
 

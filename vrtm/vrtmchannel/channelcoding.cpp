@@ -26,7 +26,9 @@
 #include <fcntl.h>
 #include <time.h>
 #include <string.h>
+#ifdef __linux__
 #include <unistd.h>
+#endif
 #include "channelcoding.h"
 #include "parser.h"
 #include "logging.h"

@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.31101.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vrtmcore", "vrtmcore\vrtmcore.vcxproj", "{B6D1784A-47F3-4BDA-92F3-81E50D5A48D1}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "util", "util\util.vcxproj", "{A9507BA0-5252-48D7-8CBC-4B958B560770}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "vrtmchannel", "vrtmchannel\vrtmchannel.vcxproj", "{4968DC3C-6EB2-40D7-87C2-6C853F2B71D6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B6D1784A-47F3-4BDA-92F3-81E50D5A48D1}.Debug|Win32.ActiveCfg = Debug|Win32
+		{B6D1784A-47F3-4BDA-92F3-81E50D5A48D1}.Debug|Win32.Build.0 = Debug|Win32
+		{B6D1784A-47F3-4BDA-92F3-81E50D5A48D1}.Release|Win32.ActiveCfg = Release|Win32
+		{B6D1784A-47F3-4BDA-92F3-81E50D5A48D1}.Release|Win32.Build.0 = Release|Win32
+		{A9507BA0-5252-48D7-8CBC-4B958B560770}.Debug|Win32.ActiveCfg = Debug|Win32
+		{A9507BA0-5252-48D7-8CBC-4B958B560770}.Debug|Win32.Build.0 = Debug|Win32
+		{A9507BA0-5252-48D7-8CBC-4B958B560770}.Release|Win32.ActiveCfg = Release|Win32
+		{A9507BA0-5252-48D7-8CBC-4B958B560770}.Release|Win32.Build.0 = Release|Win32
+		{4968DC3C-6EB2-40D7-87C2-6C853F2B71D6}.Debug|Win32.ActiveCfg = Debug|Win32
+		{4968DC3C-6EB2-40D7-87C2-6C853F2B71D6}.Debug|Win32.Build.0 = Debug|Win32
+		{4968DC3C-6EB2-40D7-87C2-6C853F2B71D6}.Release|Win32.ActiveCfg = Release|Win32
+		{4968DC3C-6EB2-40D7-87C2-6C853F2B71D6}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

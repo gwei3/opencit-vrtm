@@ -23,22 +23,22 @@
 #include "modtcService.h"
 #include "channelcoding.h"
 #include <stdlib.h>
+#ifdef __linux__
 #include <sys/wait.h> /* for wait */
+#include <sys/un.h>
+#include <unistd.h>
+#endif
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
 #include <string.h>
-#include <unistd.h>
 #include <signal.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+
 #ifdef LINUX
 #include <linux/un.h>
 #else
-#include <sys/un.h>
 #endif
 #include <errno.h>
 
@@ -74,19 +74,6 @@ int cleanupService();
 void* clean_vrtm_table(void *p);
 // ---------------------------------------------------------------------------
 
-bool uidfrompid(int pid, int* puid)
-{
-    char        szfileName[256];
-    struct stat fattr;
-    LOG_TRACE("");
-    sprintf(szfileName, "/proc/%d/stat", pid);
-    if((lstat(szfileName, &fattr))!=0) {
-        LOG_DEBUG("uidfrompid: stat failed");
-        return false;
-    }
-    *puid= fattr.st_uid;
-    return true;
-}
 // ------------------------------------------------------------------------------
 void serviceprocEnt::print()
 {
@@ -715,6 +702,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	char    popen_command[250]={0};
 	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
 	char    measurement_file[2048]={0};
+	std::string line_str;
     LOG_TRACE("Start VM App");
     if(an>30) {
     	LOG_ERROR("Number of arguments passed are more than limit 30");
@@ -762,7 +750,18 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				strcpy(trust_report_dir, g_trust_report_dir);
 				strcat(trust_report_dir, vm_uuid);
 				strcat(trust_report_dir, "/");
+#ifdef __linux__
 				mkdir(trust_report_dir, 0766);
+#elif _WIN32
+				if (CreateDirectory((LPCSTR)trust_report_dir, NULL) == 0) {
+					if (GetLastError() == ERROR_ALREADY_EXISTS) {
+						LOG_WARN("Directory already exist");
+					}
+					else if (GetLastError() == ERROR_PATH_NOT_FOUND) {
+						LOG_ERROR("\nIntermediate Directory not found\n");
+					}
+				}
+#endif
 				char cmd[2048];
 				sprintf(cmd,"cp -p %s %s/",manifest_file, trust_report_dir );
 				system(cmd);
@@ -778,10 +777,18 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				
 				//Read the digest algorithm from manifestlist.xml
 				sprintf(popen_command,"%s%s",xml_command,nohash_manifest_file);
+#ifdef __linux__
 				fp1=popen(popen_command,"r");
+#elif _WIN32
+				fp1 = _popen(popen_command, "r");
+#endif
 				fgets(extension, sizeof(extension)-1, fp1);
 				sprintf(measurement_file,"%s.%s","/measurement",extension);
+#ifdef __linux__
 				pclose(fp1);
+#elif _WIN32
+				_pclose(fp1);
+#endif
 				if(measurement_file[strlen(measurement_file) - 1] == '\n') 
 					measurement_file[strlen(measurement_file) - 1] = '\0';
 				LOG_DEBUG("Extension : %s",extension);
@@ -805,7 +812,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 //	char * nohash_manifest_file ="/root/nohash_manifest.xml"; // Need to be passed by policy agent
         char launchPolicy[10];
         char goldenImageHash[65];
-        FILE *fp, *fq ;
+        FILE *fq ;
         char * line = NULL;
     	char * temp;
     	char * end;
@@ -821,10 +828,18 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 
     	xmlSaveFormatFile (formatted_manifest_file, Doc, 1); /*This would render even inline XML perfect for line by line parsing*/
     	xmlFreeDoc(Doc);
-        fp=fopen(formatted_manifest_file,"r");
-
-        while (getline(&line, &length, fp) != -1) {
-
+        //fp=fopen(formatted_manifest_file,"r");
+		std::ifstream fp(formatted_manifest_file);
+		if (!fp) {
+			start_app_status = 1;
+			goto return_response;
+		}		
+		
+		while (getline(fp, line_str))  //same as getline(fp, line_str).good() or fp.good()
+		{
+			line = (char *)malloc(sizeof(char)*line_str.length());
+			memset(line, 0, line_str.length());
+			strcpy(line, line_str.c_str());			
        		LOG_TRACE("Reading a line");
         	if(strstr(line,"<LaunchControlPolicy")!= NULL){
         		LOG_DEBUG("Found tag");
@@ -837,7 +852,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
                     strcpy(launchPolicy, "Enforce");
                 }
         	if (strcmp(launchPolicy, "Audit") != 0 && strcmp(launchPolicy, "Enforce") !=0) {
-        		fclose(fp);
+        		//fclose(fp);
         		LOG_INFO("Launch policy is neither Audit nor Enforce so vm verification is not not carried out");
         		//return TCSERVICE_RESULT_SUCCESS;
         		char remove_file[1024] = {'\0'};
@@ -907,7 +922,8 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		} // end of file parsing
         free(line);
         line = NULL;
-        fclose(fp);
+        //fclose(fp);
+		fp.close();
 // Only call verfier when measurement is required
         // append rpid to /tmp/imvm-result_"rpid".out
         sprintf(command,"./verifier %s %s IMVM  > /tmp/imvm-result_%d.out 2>&1", nohash_manifest_file, disk_file,child);
@@ -1329,7 +1345,12 @@ void* clean_vrtm_table(void *){
 	LOG_TRACE("");
 	while(g_myService.m_procTable.getcancelledvmcount()) {
 		int cleaned_entries;
+#ifdef __linux__
 		sleep(g_entry_cleanup_interval);
+#elif _WIN32
+		DWORD g_entry_cleanup_interval_msec = g_entry_cleanup_interval * 1000;
+		Sleep(g_entry_cleanup_interval_msec);
+#endif
 		g_myService.CleanVrtmTable(g_cancelled_vm_max_age, VM_STATUS_CANCELLED, &cleaned_entries);
 		LOG_INFO("Number of VM entries with cancelled status removed from vRTM table : %d", cleaned_entries);
 	}

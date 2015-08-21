@@ -90,7 +90,7 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf) {
 	xmlDocPtr doc;
 	xmlNode * root = NULL, *cur_node = NULL, *param_node = NULL;
-	char *method, *param;
+	char *method = NULL, *param;
 	int xmldata_size = -1;
 	LOG_DEBUG("XML to be parsed : %s", buf);
 	if (strlen((char *)buf) == 0) {
@@ -141,7 +141,7 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 
 	xmlDocPtr doc;
 	xmlNode *root = NULL, *cur_node = NULL, *param_node = NULL;
-	char *method, *param, *decoded_data;
+	char *method=NULL, *param, *decoded_data;
 	int i=0, arg_count = 0, status = -1;
 	LOG_DEBUG("XML to be parsed : %s", buf);
 	if (strlen((char *)buf) == 0) {

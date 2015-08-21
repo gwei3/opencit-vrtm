@@ -3,7 +3,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
+#ifdef __linux__
 #include <unistd.h>
+#endif
 #include <stdlib.h>
 
 #include "logging.h"

@@ -29,20 +29,16 @@
 #include <fcntl.h>
 #include <time.h>
 #include <string.h>
-#include <unistd.h>
-#include <sys/socket.h>
+//#include <unistd.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+
 #include <signal.h>
 #include <errno.h>
 #include <stdint.h>
 
 #ifdef LINUX
 #include <wait.h>
-#else
+#elif __linux__
 #include <sys/wait.h>
 #endif
 
@@ -56,6 +52,7 @@
 #include "tcpchan.h"
 #include "modtcService.h"
 #include "vrtminterface.h"
+#include "vrtmsockets.h"
 /*************************************************************************************************************/
 //tcChannel   g_reqChannel;
 //#if 1
@@ -286,7 +283,7 @@ fail:
 	LOG_TRACE("Closing fd = %d",fd1);
 #endif
 	LOG_TRACE("Closing connection for fd : %d",fd1);
-	close(fd1);
+	close_connection(fd1);
 	LOG_TRACE("Exiting thread");
 	return 0;
 }
@@ -295,6 +292,7 @@ fail:
 
 void* dom_listener_main ( void* p)
 {
+
     int                 fd, newfd;
     struct addrinfo     hints, *vrtm_addr;
     struct sockaddr_in  client_addr;
@@ -305,6 +303,10 @@ void* dom_listener_main ( void* p)
     int 		iQueueSize = 100;
     int 		flag = 0;
     int*		thread_fd;
+	int			iResult;
+#ifdef _WIN32
+	WSADATA wsData;
+#endif
     pthread_t tid;
     pthread_attr_t  attr;
     char vrtm_port[6] = {'\0'};
@@ -312,46 +314,54 @@ void* dom_listener_main ( void* p)
     LOG_TRACE("Entered dom_listener_main()");
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    //sem_init(&g_sem_sess, 0, 1);
+	
+	iResult = initialise_lib(&wsData);
+	if (iResult != 0) {
+		LOG_ERROR("Error in intialising library");
+		return false;
+	}
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET; // use IPv4 or IPv6, whichever
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE; // fill in my IP for me
+	hints.ai_protocol = IPPROTO_TCP;
+    hints.ai_flags = AI_PASSIVE; // fill in my IP for me , I will use this IP to for binding 
 
     sprintf(vrtm_port,"%d", g_rpcore_port);
-	getaddrinfo(g_rpcore_ip, vrtm_port, &hints, &vrtm_addr);
+	iResult = getaddrinfo(g_rpcore_ip, vrtm_port, &hints, &vrtm_addr);
+	if (iResult != 0) {
+		LOG_ERROR("getaddrinfo failed!!!");
+		clean_lib();
+		return false;
+	}
+
 	LOG_DEBUG("Socket type : %d, Socket address : %s, Protocol : %d ", vrtm_addr->ai_family, vrtm_addr->ai_addr->sa_data, vrtm_addr->ai_protocol);
 
     LOG_TRACE("Create socket for vRTM core");	
     //fd= socket(AF_INET, SOCK_STREAM, 0);
-    fd = socket(vrtm_addr->ai_family, vrtm_addr->ai_socktype, 0);
+    fd = socket(vrtm_addr->ai_family, vrtm_addr->ai_socktype, vrtm_addr->ai_protocol);
     if(fd<0) {
         LOG_ERROR("Can't open socket");
-        g_ifc_status = IFC_ERR;
-        return false;
+		g_ifc_status = IFC_ERR;
+		clean_lib();
+        return false;		
     }
-    LOG_TRACE("Bind vRTM core socket");
-    /*memset((void*) &server_addr, 0, sizeof(struct sockaddr_in));
-    server_addr.sin_family= AF_INET;
-    server_addr.sin_addr.s_addr= htonl(INADDR_ANY);     // 127.0.0.1*/
-	//ip_env = getenv("RPCORE_IPADDR");
-    //if (ip_env)
-	//	strncpy(g_rpcore_ip, ip_env, 64);
 
-    //inet_aton(g_rpcore_ip, &server_addr.sin_addr);
-    //server_addr.sin_port= htons(g_rpcore_port);
-
-    //iError= bind(fd,(const struct sockaddr *) &server_addr, slen);
+    LOG_TRACE("Bind vRTM core socket");    
 	iError= bind(fd,vrtm_addr->ai_addr, vrtm_addr->ai_addrlen);
     if(iError<0) {
         LOG_ERROR("Can't bind socket %s", strerror(errno));
-        g_ifc_status = IFC_ERR;
-        return false;
+        /*g_ifc_status = IFC_ERR;
+        return false;*/
+		goto fail;
     }
 
-    listen(fd, iQueueSize);
-
+    iError = listen(fd, iQueueSize);
+	if (iError < 0) {
+		LOG_ERROR("Can't start listening request on port");
+		goto fail;
+	}
+#ifdef __linux__
     // set the signal disposition of SIGCHLD to not create zombies
     struct sigaction sigAct;
     memset(&sigAct, 0, sizeof(sigAct));
@@ -364,14 +374,14 @@ void* dom_listener_main ( void* p)
     } else {
         LOG_INFO( "Set SIGCHLD to avoid zombies");
     }
-
+#endif
 	g_ifc_status = IFC_UP;
     
     LOG_INFO("Socket ready to accept requests");
     while(!g_quit)
     {
         newfd= accept(fd, (struct sockaddr*) &client_addr, (socklen_t*)&clen);
-        flag = fcntl(newfd, F_GETFD);
+        /*flag = fcntl(newfd, F_GETFD);
         if (flag >= 0) {
 			flag =  fcntl (newfd, F_SETFD, flag|FD_CLOEXEC);
 			if (flag < 0) {
@@ -379,7 +389,7 @@ void* dom_listener_main ( void* p)
 			}
 		}else {
 				LOG_WARN( "Socket resources may leak to child process %s", strerror(errno));
-		}
+		}*/
 
         if(newfd<0) {
             LOG_WARN( "Can't accept socket %s", strerror(errno));
@@ -395,7 +405,16 @@ void* dom_listener_main ( void* p)
 		pthread_create(&tid, &attr, handle_session, (void*)thread_fd);
 
     }
-    close(fd);
+    //close(fd);
+	
+
+fail:
+	close_connection(fd);
+	if (iResult < 0) {
+		clean_lib();
+		g_ifc_status = IFC_ERR;
+		return false;
+	}	
     return NULL;
 }
 
@@ -411,7 +430,11 @@ bool start_vrtm_interface(const char* name)
         pthread_join(dom_listener_thread,NULL);
 
         while (g_ifc_status  == IFC_UNKNOWN ) {
+#ifdef __linux__
                 sleep(1);
+#elif _WIN32
+			Sleep(1000);
+#endif
         }
 
         if (g_ifc_status == IFC_UP )

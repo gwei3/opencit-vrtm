@@ -25,15 +25,15 @@
 #include <fcntl.h>
 #include <time.h>
 #include <string.h>
+#ifdef __linux__
 #include <unistd.h>
+#include <sys/un.h>
+#endif
 #include <signal.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
+
 #ifdef LINUX
 #include <linux/un.h>
 #else
-#include <sys/un.h>
 #endif
 #include <errno.h>
 #include <stdlib.h>
@@ -44,14 +44,21 @@
 #include "log_vrtmchannel.h"
 #include "tcconfig.h"
 #include "vrtminterface.h"
+#include "win_headers.h"
 
 #define    g_config_file "../configuration/vRTM.cfg"
 #define	   log_properties_file "../configuration/vrtm_log.properties"
 
+#ifdef __linux__
+char 	g_trust_report_dir[512]  = "/var/lib/nova/trustreports/";
+#elif _WIN32
+char 	g_trust_report_dir[512] = "../temp/trustreports/";
+#endif
+	
 char    g_rpcore_ip [64]        = "127.0.0.1";
 int     g_rpcore_port 		= 16005;
 int     g_max_thread_limit 	= 64;
-char 	g_trust_report_dir[512]  = "/var/lib/nova/trustreports/";
+//char 	g_trust_report_dir[512]  = "/var/lib/nova/trustreports/";
 long 	g_entry_cleanup_interval = 30;
 //long 	g_delete_vm_max_age = 3600;
 long 	g_cancelled_vm_max_age = 86400;
@@ -186,14 +193,29 @@ int read_config()
 	LOG_DEBUG("Cancelled VM cleanup interval : %d", g_cancelled_vm_max_age);
 	//g_stopped_vm_max_age = atoi(stopped_vm_max_age.c_str());
 	//LOG_DEBUG("Stopped VM cleanup interval : %d", g_stopped_vm_max_age);
+#ifdef __linux__
 	mkdir(g_trust_report_dir, 0766);
+#elif _WIN32
+	//_mkdir(g_trust_report_dir);
+	//only last mentioned directory will be get created, if intermediate directory does not exist then it will throw an error
+	if (CreateDirectory((LPCSTR)g_trust_report_dir, NULL) == 0) {
+		if (GetLastError() == ERROR_ALREADY_EXISTS) {
+			LOG_WARN("%s directory already exist, failed with error : %d", GetLastError());
+		}
+		else if (GetLastError() == ERROR_PATH_NOT_FOUND) {
+			LOG_ERROR("Error in creating directory. \n PLEASE MAKE SURE INTERMIDEIATE DIRECTORY EXIST ON MACHINE");
+			return -1;
+		}
+	}
+#endif
 	return count;
 }
 
 int singleInstanceRpcoreservice()
 {
-    const char *lockFile="/tmp/rpcoreservice__DT_XX99";
-    
+    const char *lockFile="../temp/rpcoreservice__DT_XX99";
+#ifdef __linux__
+	const char *lockFile="/tmp/rpcoreservice__DT_XX99";
     struct flock rpcsFlock;
     
     rpcsFlock.l_type = F_WRLCK;
@@ -213,6 +235,12 @@ int singleInstanceRpcoreservice()
     	LOG_ERROR( "Already locked - rpcoreservice lock file \n");
 		return -2;
      }
+#elif _WIN32
+	if (CreateFile((LPCSTR)lockFile, GENERIC_READ | GENERIC_WRITE, 0, NULL, 2, FILE_ATTRIBUTE_NORMAL, NULL) == INVALID_HANDLE_VALUE) {
+		//LOG_ERROR("Unable get Handle of lock file. \n Another instance of vRTM might be running");
+		return -2;
+	}
+#endif
 
     return 1;
 }
