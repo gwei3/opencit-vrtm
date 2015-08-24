@@ -458,6 +458,10 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 
 	fp1 = fopen(filepath,"w");
+	if (fp1 == NULL) {
+		LOG_ERROR("Can't write report in signed_report.xml file");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	sprintf(xmlstr,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
@@ -473,6 +477,10 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	sprintf(xmlstr,"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
 	sprintf(tempfile,"%sus_xml.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
+	if (fp == NULL) {
+		LOG_ERROR("can't open the file us_xml.xml");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
 
@@ -482,6 +490,10 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 						
 
 	fp1 = fopen(filepath,"a");
+	if (fp1 == NULL) {
+		LOG_ERROR("can't open the file signed_report.xml");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo><SignatureValue>");
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
@@ -492,17 +504,21 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 	sprintf(tempfile,"%sus_can.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
+	if (fp == NULL) {
+		LOG_ERROR("can't open the file us_can.xml");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	sprintf(xmlstr,"<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod><DigestValue>");
 
 	fprintf(fp,"%s",xmlstr); 
 	fclose(fp1);
-	fclose(fp);
+	//fclose(fp);
 							  
 	sprintf(command0,"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
 	system(command0);
 				 
 	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo>");
-	fp = fopen(tempfile,"a");
+	//fp = fopen(tempfile,"a");
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
 
@@ -514,7 +530,11 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	system(command0); 
 					   
 	sprintf(tempfile,"%ssign_key_passwd",manifest_dir);
-	fp = fopen(tempfile,"r"); 
+	fp = fopen(tempfile,"r");
+	if ( fp == NULL) {
+		LOG_ERROR("can't open the file sign_key_passwd");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	fscanf(fp, "%s", tpm_signkey_passwd);
 	fclose(fp);                
 
