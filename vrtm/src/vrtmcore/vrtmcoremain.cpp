@@ -52,6 +52,7 @@ char    g_rpcore_ip [64]        = "127.0.0.1";
 int     g_rpcore_port 		= 16005;
 int     g_max_thread_limit 	= 64;
 char 	g_trust_report_dir[512]  = "/var/lib/nova/trustreports/";
+char* 	g_mount_path = "/mnt/vrtm/";
 long 	g_entry_cleanup_interval = 30;
 //long 	g_delete_vm_max_age = 3600;
 long 	g_cancelled_vm_max_age = 86400;
@@ -186,7 +187,29 @@ int read_config()
 	LOG_DEBUG("Cancelled VM cleanup interval : %d", g_cancelled_vm_max_age);
 	//g_stopped_vm_max_age = atoi(stopped_vm_max_age.c_str());
 	//LOG_DEBUG("Stopped VM cleanup interval : %d", g_stopped_vm_max_age);
-	mkdir(g_trust_report_dir, 0766);
+	int ret_val = mkdir(g_trust_report_dir, 0766);
+	if (ret_val == 0 ) {
+		LOG_DEBUG("Trust report directory: %s created successfully", g_trust_report_dir);
+	}
+	else if (ret_val < 0 && errno == EEXIST ) {
+		LOG_DEBUG("Trust report directory: %s already exist", g_trust_report_dir);
+	}
+	else {
+		LOG_ERROR("Failed to create the Trust report directory", g_trust_report_dir);
+		return -1;
+	}
+	// create mount location for vRTM at /mnt/vrtm
+	ret_val = mkdir(g_mount_path, 0766);
+	if (ret_val == 0 ) {
+		LOG_DEBUG("directory: %s to mount VM images for vRTM created successfully", g_mount_path);
+	}
+	else if (ret_val < 0 && errno == EEXIST ) {
+		LOG_DEBUG("directory: %s to mount VM images for vRTM already exist", g_mount_path);
+	}
+	else {
+		LOG_ERROR("Failed to create the directory: %s required for vRTM to mount VM images", g_mount_path);
+		return -1;
+	}
 	return count;
 }
 

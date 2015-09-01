@@ -28,7 +28,7 @@ O1CFLAGS=    -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D __FLUSHIO__ $(O1RELEASE_
 CC=         g++
 LINK=       g++
 
-sobjs=     $(OBJ)/channelcoding.o $(OBJ)/parser.o $(OBJ)/tcpchan.o $(OBJ)/logging.o $(OBJ)/base64.o $(OBJ)/log_vrtmchannel.o
+sobjs=     $(OBJ)/channelcoding.o $(OBJ)/parser.o $(OBJ)/tcpchan.o $(OBJ)/logging.o $(OBJ)/base64.o $(OBJ)/log_vrtmchannel.o $(OBJ)/xpathparser.o
 
 
 all: $(LIB)/libvrtmchannel-g.so 
@@ -50,6 +50,10 @@ $(OBJ)/parser.o: $(TM)/parser.cpp
 	
 $(OBJ)/tcpchan.o: $(TM)/tcpchan.cpp $(TM)/tcpchan.h
 	$(CC) $(CFLAGS) -I$(S) -I$(TM) -I$(LOG4CPP) -c -o $(OBJ)/tcpchan.o $(TM)/tcpchan.cpp
+
+$(OBJ)/xpathparser.o: $(TM)/xpathparser.cpp $(TM)/xpathparser.h
+	$(CC) $(CFLAGS) -I$(PY) -I$(S) -I$(LXML) -I$(LOG4CPP) -c -o $(OBJ)/xpathparser.o $(TM)/xpathparser.cpp -lxml2
+
 
 $(LIB)/libvrtmchannel-g.so: $(sobjs)
 	@echo "Building libvrtmchannel-g.so ..."
