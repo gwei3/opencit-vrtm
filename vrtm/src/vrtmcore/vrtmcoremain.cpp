@@ -58,6 +58,18 @@ long 	g_entry_cleanup_interval = 30;
 long 	g_cancelled_vm_max_age = 86400;
 //long	g_stopped_vm_max_age = 864000;
 
+//default signal handlers function pointers
+//__sighandler_t default_handle;
+void ( * default_handler_abrt) (int );
+void ( * default_handler_hup) (int );
+void ( * default_handler_int) (int );
+void ( * default_handler_quit) (int );
+void ( * default_handler_segv) (int );
+void ( * default_handler_term) (int );
+void ( * default_handler_fpe) (int );
+void ( * default_handler_bus) (int );
+void ( * default_handler_tstp) (int );
+
 std:: map<std::string, std::string> config_map;
 
 int  g_quit = 0;
@@ -240,6 +252,68 @@ int singleInstanceRpcoreservice()
     return 1;
 }
 
+void vrtm_signal_handler(int sig_caught) {
+	std::string signal_name;
+	switch(sig_caught) {
+	case SIGABRT:
+		signal_name = "SIGABRT";
+		signal(sig_caught, *default_handler_abrt);
+		break;
+	case SIGHUP:
+		signal_name = "SIGHUP";
+		signal(sig_caught, *default_handler_hup);
+		break;
+	case SIGINT:
+		signal_name = "SIGINT";
+		signal(sig_caught, *default_handler_int);
+		break;
+	/*case SIGKILL:
+		signal_name = "SIGKILL";
+		break;*/
+	case SIGQUIT:
+		signal_name = "SIGQUIT";
+		signal(sig_caught, *default_handler_quit);
+		break;
+	case SIGSEGV:
+		signal_name = "SIGSEGV";
+		signal(sig_caught, *default_handler_segv);
+		break;
+	case SIGTERM:
+		signal_name = "SIGTERM";
+		signal(sig_caught, *default_handler_term);
+		break;
+	/*case SIGSTOP:
+		signal_name = "SIGSTOP";
+		break;*/
+	case SIGFPE:
+		signal_name = "SIGFPE";
+		signal(sig_caught, *default_handler_fpe);
+		break;
+	case SIGBUS:
+		signal_name = "SIGBUS";
+		signal(sig_caught, *default_handler_bus);
+		break;
+	case SIGTSTP:
+		signal_name = "SIGTSTP";
+		signal(sig_caught, *default_handler_tstp);
+		break;
+	}
+	LOG_INFO("caught signal %s", signal_name.c_str());
+	// clean the trust report directory
+
+	std::string command = "rm -rf " + std::string(g_trust_report_dir) + "*";
+	int ret_val = system(command.c_str());
+	if (ret_val != 0) {
+		LOG_ERROR("Failed to remove the trust report directory : %s", command.c_str());
+	}
+	else {
+		LOG_DEBUG("trust report directory removed successfully");
+	}
+	LOG_INFO("vRTM will Exit with recieved signal %d", sig_caught);
+	raise(sig_caught);
+}
+
+
 int main(int an, char** av)
 {
     int            	iRet= 0;
@@ -262,6 +336,19 @@ int main(int an, char** av)
     	LOG_ERROR( "Process (vRTM core service) could not open lock file\n");
 		return 1;
     }
+
+    //Signal handling and clean our trust reports
+    default_handler_abrt = signal(SIGABRT, vrtm_signal_handler); //handle abort signal , arise when program itself detect error
+    default_handler_hup = signal(SIGHUP, vrtm_signal_handler);  //handle shell session termination
+    default_handler_int = signal(SIGINT, vrtm_signal_handler);  //handle signal interrupt ctrl-c
+    //signal(SIGKILL, vrtm_signal_handler); //handle kill -9 but can't be handled or ignored or blocked
+    default_handler_quit = signal(SIGQUIT, vrtm_signal_handler); //handle quit command given by ctrl-\ ---
+    default_handler_segv = signal(SIGSEGV, vrtm_signal_handler); //handle segmentation fault
+    default_handler_term = signal(SIGTERM, vrtm_signal_handler); //handle the kill command
+    //signal(SIGSTOP, vrtm_signal_handler); //handle suspend signals ctrl-s -- can't be handled or ignored or blocked
+    default_handler_fpe = signal(SIGFPE, vrtm_signal_handler);  //to handle divide by zero errors
+    default_handler_bus = signal(SIGBUS, vrtm_signal_handler);  //handle invalid pointer dereferencing different from sigsegv
+    default_handler_tstp = signal(SIGTSTP, vrtm_signal_handler); //to handle interactive stop signal ctrl-z and ctrl-y
 
     LOG_TRACE("Load config file %s", g_config_file);
 	if ( LoadConfig(g_config_file) < 0 ) {
