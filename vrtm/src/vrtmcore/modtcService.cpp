@@ -61,6 +61,7 @@ byte                    g_servicehash[32]= {
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                         };
 #define mount_script "../scripts/mount_vm_image.sh"
+#define ma_log "/measurement.log"
 uint32_t	g_rpdomid = 1000;
 static int g_cleanup_service_status = 0;
 
@@ -935,12 +936,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
          * call mount script to mount the VM disk as :
          * ../scripts/mount_vm_image.sh <disk> <mount_path>
          */
-        sprintf(command, mount_script " %s %s > %s/ma.log 2>&1", disk_file, mount_path, vm_manifest_dir);
+        sprintf(command, mount_script " %s %s > %s/%s 2>&1", disk_file, mount_path, vm_manifest_dir, ma_log);
         LOG_DEBUG("Command to mount the image : %s", command);
         i = system(command);
         LOG_DEBUG("system call to mount image exit status : %d", i);
         if ( i != 0) {
-        	LOG_ERROR("Error in mounting the image for measurement. For more info please look into file %s/mounting.log", mount_path);
+        	LOG_ERROR("Error in mounting the image for measurement. For more info please look into file %s/%s", vm_manifest_dir, ma_log);
         	start_app_status = 1;
         	goto return_response;
         }
@@ -949,12 +950,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
          * call MA to measure the VM as :
          * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
          */
-        sprintf(command, "./verifier %s %s/mount/ IMVM >> %s/ma.log 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir);
+        sprintf(command, "./verifier %s %s/mount/ IMVM >> %s/%s 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log);
         LOG_DEBUG("Command to launch MA : %s", command);
         i = system(command);
         LOG_DEBUG("system call to verifier exit status : %d", i);
         if ( i != 0 ) {
-        	LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement Agent log in file %s/ma.log", mount_path);
+        	LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement log in file %s/%s", vm_manifest_dir, ma_log);
         	start_app_status = 1;
         	goto return_response;
         }
@@ -963,12 +964,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
          * unmount image by calling mount script with UN_MOUNT mode after the measurement as :
          * ../scripts/mount_vm_image.sh MOUNT_PATH
          */
-        sprintf(command, mount_script " %s/mount >> %s/ma.log 2>&1", mount_path, vm_manifest_dir);
+        sprintf(command, mount_script " %s/mount >> %s/%s 2>&1", mount_path, vm_manifest_dir, ma_log);
         LOG_DEBUG("Command to unmount the image : %s", command);
         i = system(command);
         LOG_DEBUG("system call for unmounting exit status : %d", i);
         if ( i != 0 ) {
-        	LOG_ERROR("Error in unmounting the vm image");
+        	LOG_ERROR("Error in unmounting the vm image. Please check log file : %s/%s", vm_manifest_dir, ma_log);
         	start_app_status = 1;
         	goto return_response;
         }
@@ -978,7 +979,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         fq = fopen(cumulativehash_file, "rb");
         if(!fq) 
 		{
-        	LOG_ERROR("Error returned by verifer in generating cumulative hash, please check Measurement Agent log in file %s/ma.log or %s/mounting.log \n", vm_manifest_dir, vm_manifest_dir);
+        	LOG_ERROR("Error returned by verifer in generating cumulative hash, please check Measurement log in file %s/%s\n", vm_manifest_dir, ma_log);
         	//return TCSERVICE_RESULT_FAILED; // measurement failed  (verifier failed to measure)
 			start_app_status = 1;
 			goto return_response;
