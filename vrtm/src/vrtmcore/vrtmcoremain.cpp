@@ -133,7 +133,10 @@ int LoadConfig(const char * configFile)
 
 int read_config()
 {
+	bool create_report_dir = false;
+	struct stat info;
 	int count=0;
+	int ret_val;
 	std::string rpcore_ip, rpcore_port, max_thread_limit, trust_report_dir;
 	std::string entry_cleanup_interval, delete_vm_max_age, cancelled_vm_max_age, stopped_vm_max_age;
 
@@ -199,16 +202,42 @@ int read_config()
 	LOG_DEBUG("Cancelled VM cleanup interval : %d", g_cancelled_vm_max_age);
 	//g_stopped_vm_max_age = atoi(stopped_vm_max_age.c_str());
 	//LOG_DEBUG("Stopped VM cleanup interval : %d", g_stopped_vm_max_age);
-	int ret_val = mkdir(g_trust_report_dir, 0766);
-	if (ret_val == 0 ) {
-		LOG_DEBUG("Trust report directory: %s created successfully", g_trust_report_dir);
+
+	// clear all data in trust report directory if directory already exists
+	if( stat( g_trust_report_dir, &info ) != 0 ) {
+	    LOG_DEBUG( "cannot access %s\n", g_trust_report_dir );
+	    LOG_DEBUG( "New trust report directory %s will be created", g_trust_report_dir);
+	    create_report_dir = true;
 	}
-	else if (ret_val < 0 && errno == EEXIST ) {
-		LOG_DEBUG("Trust report directory: %s already exist", g_trust_report_dir);
+	else if( info.st_mode & S_IFDIR ){ // S_ISDIR() doesn't exist on my windows
+		LOG_DEBUG( "%s is a directory and already exists", g_trust_report_dir );
+		LOG_INFO("%s will be cleaned", g_trust_report_dir);
+		char command[512];
+		sprintf(command,"rm -rf %s/*", g_trust_report_dir);
+		if (system(command) == 0 ) {
+			LOG_INFO("Trust report directory %s, cleaned successfully", g_trust_report_dir);
+		}
+		else {
+			LOG_ERROR("Trust report directory %s, couldn't be cleaned", g_trust_report_dir);
+		}
 	}
 	else {
-		LOG_ERROR("Failed to create the Trust report directory", g_trust_report_dir);
-		return -1;
+	    LOG_DEBUG( "%s is present but not a directory\n", g_trust_report_dir );
+	    create_report_dir = true;
+	}
+	// create trust report directory if not exist
+	if ( create_report_dir) {
+		ret_val = mkdir(g_trust_report_dir, 0766);
+		if (ret_val == 0 ) {
+			LOG_DEBUG("Trust report directory: %s created successfully", g_trust_report_dir);
+		}
+		else if (ret_val < 0 && errno == EEXIST ) {
+			LOG_DEBUG("Trust report directory: %s already exist", g_trust_report_dir);
+		}
+		else {
+			LOG_ERROR("Failed to create the Trust report directory", g_trust_report_dir);
+			return -1;
+		}
 	}
 	// create mount location for vRTM at /mnt/vrtm
 	ret_val = mkdir(g_mount_path, 0766);
