@@ -62,6 +62,9 @@ typedef unsigned TCSERVICE_RESULT;
 #define VM_STATUS_STOPPED						2
 #define VM_STATUS_DELETED						3
 
+#define INSTANCE_TYPE_VM						0
+#define INSTANCE_TYPE_DOCKER					1
+
 #define RG_HASH_SIZE		32
 #define UUID_SIZE		48
 #define IMAGE_ID_SIZE  		256
@@ -106,6 +109,7 @@ public:
     char                m_vm_manifest_dir[MANIFEST_DIR_SIZE];
     int					m_vm_status;
     time_t				m_status_upadation_time;
+    int					m_instance_type;
 
     serviceprocEnt() : m_rgHash(), m_uuid(), m_vdi_uuid(), m_vm_image_id(), m_vm_customer_id(),
     		m_vm_manifest_hash(), m_vm_manifest_signature(), m_vm_launch_policy(), m_vm_manifest_dir() {
@@ -118,6 +122,7 @@ public:
     	m_vm_verfication_status = false;
     	m_vm_status = VM_STATUS_STOPPED;
     	m_status_upadation_time = time(NULL);
+    	m_instance_type = INSTANCE_TYPE_VM;
     }
 };
 
@@ -134,7 +139,7 @@ public:
     ~serviceprocTable();
 
     bool                addprocEntry(int procid, const char* file, int an, char** av,
-    			int sizeHash, byte* hash);
+    			int sizeHash, byte* hash, int instance_type);
     bool 				updateprocEntry(int procid, char* uuid, char* vdi_uuid);
     bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature,char* launch_policy,bool status, char * vm_manifest_dir);
     bool                removeprocEntry(int procid);

@@ -112,7 +112,7 @@ serviceprocTable::~serviceprocTable()
 }
 
 bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char** av,
-                                    int sizeHash, byte* hash)
+                                    int sizeHash, byte* hash, int instance_type)
 {
     LOG_DEBUG("vRTM id : %d file : %s hash size : %d hash : %s", procid, file, sizeHash, hash);
     if(sizeHash>32) {
@@ -127,6 +127,7 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
     proc_ent.m_vm_status = VM_STATUS_STOPPED;
     strcpy(proc_ent.m_uuid, av[0]);
     memcpy(proc_ent.m_rgHash,hash,sizeHash);
+    proc_ent.m_instance_type = instance_type;
     proc_table.insert(std::pair<int, serviceprocEnt>(procid, proc_ent));
     pthread_mutex_unlock(&loc_proc_table);
     LOG_INFO("Entry added for vRTM id %d\n",procid);
@@ -788,6 +789,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
 	char    measurement_file[2048]={0};
 	char 	mount_path[64];
+	bool	instance_type = INSTANCE_TYPE_VM;
 
     LOG_TRACE("Start VM App");
     if(an>30) {
@@ -863,6 +865,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				strcpy(cumulativehash_file, trust_report_dir);
         		sprintf(cumulativehash_file, "%s%s", cumulativehash_file, measurement_file);
         		LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
+        }
+        if (av[i] && strcmp(av[i], "-docker_instance") == 0) {
+        	instance_type = INSTANCE_TYPE_DOCKER;
         }
     }
 
@@ -1033,7 +1038,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		vm_data[0] = vm_uuid;
 		vm_data_size++;
 		if ( temp_proc_id == NULL) {
-			if(!g_myService.m_procTable.addprocEntry(child, kernel_file, vm_data_size, vm_data, size, rgHash)) {
+			if(!g_myService.m_procTable.addprocEntry(child, kernel_file, vm_data_size, vm_data, size, rgHash, instance_type)) {
 				LOG_ERROR( "StartApp: cant add to vRTM Map\n");
 				//return TCSERVICE_RESULT_FAILED;
 				start_app_status = 1;
