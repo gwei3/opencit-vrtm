@@ -288,7 +288,7 @@ function createvRTMStartScript()
 	   ;;
 	 stop)
 	        echo \"Stopping all vrtm processes (if any ) ...\"
-	        pkill -9 vrtmcore
+	        pkill vrtmcore
 	   ;;
 	 version)
 		cat \"$INSTALL_DIR/vrtm/$VERSION_INFO_FILE\"

@@ -22,6 +22,7 @@
 #include "logging.h"
 #include "modtcService.h"
 #include "channelcoding.h"
+#include "xpathparser.h"
 #include <stdlib.h>
 #include <sys/wait.h> /* for wait */
 #include <stdio.h>
@@ -59,7 +60,8 @@ byte                    g_servicehash[32]= {
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                         };
-
+#define mount_script "../scripts/mount_vm_image.sh"
+#define ma_log "/measurement.log"
 uint32_t	g_rpdomid = 1000;
 static int g_cleanup_service_status = 0;
 
@@ -458,6 +460,10 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 
 	fp1 = fopen(filepath,"w");
+	if (fp1 == NULL) {
+		LOG_ERROR("Can't write report in signed_report.xml file");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	sprintf(xmlstr,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
@@ -473,6 +479,10 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	sprintf(xmlstr,"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
 	sprintf(tempfile,"%sus_xml.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
+	if (fp == NULL) {
+		LOG_ERROR("can't open the file us_xml.xml");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
 
@@ -482,6 +492,10 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 						
 
 	fp1 = fopen(filepath,"a");
+	if (fp1 == NULL) {
+		LOG_ERROR("can't open the file signed_report.xml");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo><SignatureValue>");
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
@@ -492,17 +506,21 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 	sprintf(tempfile,"%sus_can.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
+	if (fp == NULL) {
+		LOG_ERROR("can't open the file us_can.xml");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	sprintf(xmlstr,"<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod><DigestValue>");
 
 	fprintf(fp,"%s",xmlstr); 
 	fclose(fp1);
-	fclose(fp);
+	//fclose(fp);
 							  
 	sprintf(command0,"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
 	system(command0);
 				 
 	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo>");
-	fp = fopen(tempfile,"a");
+	//fp = fopen(tempfile,"a");
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
 
@@ -514,7 +532,11 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	system(command0); 
 					   
 	sprintf(tempfile,"%ssign_key_passwd",manifest_dir);
-	fp = fopen(tempfile,"r"); 
+	fp = fopen(tempfile,"r");
+	if ( fp == NULL) {
+		LOG_ERROR("can't open the file sign_key_passwd");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	fscanf(fp, "%s", tpm_signkey_passwd);
 	fclose(fp);                
 
@@ -686,6 +708,57 @@ char* tagEntry (char* line){
         return start;
 }
 
+TCSERVICE_RESULT tcServiceInterface::get_xpath_values(std::map<unsigned char *, char *> xpath_map, xmlChar* namespace_list, char* xml_file) {
+	int p_size = 0;
+	int parser_status = 0;
+	xmlDocPtr Doc = NULL;
+	xmlXPathContextPtr xpathCtx = NULL;
+	char* elements_buf[1]; //array of one char * because we are passing exact xpath of element
+	std::map<xmlChar *, char *>::iterator xpath_map_it;
+	// Initialize xpath parser
+	if (setup_xpath_parser(&Doc, &xpathCtx, xml_file) < 0 ) {
+		LOG_ERROR("Couldn't setup xpath parser for file : \"%s\"", xml_file);
+		parser_status = 1;
+		goto return_parser_status;
+	}
+	LOG_TRACE("xpath parser is ready");
+
+	for (xpath_map_it = xpath_map.begin(); xpath_map_it != xpath_map.end() ; xpath_map_it++) {
+		p_size = 0;
+		//check number of elements present with the xpath
+		p_size = parse_xpath(xpathCtx, xpath_map_it->first, namespace_list, NULL, p_size );
+		if (p_size  < 0) {
+			LOG_ERROR("Error occured in parsing the xpath : \"%s\" in file : %s", xpath_map_it->first,xml_file);
+			parser_status = 1;
+			goto return_parser_status;
+		}
+		else if(p_size > 1) {
+			LOG_ERROR("xpath : \"%s\" have more than one value in file : \"%s\"", xpath_map_it->first, xml_file);
+			parser_status = 1;
+			goto return_parser_status;
+		}
+		else {
+			elements_buf[0] = xpath_map_it->second;
+			p_size = parse_xpath(xpathCtx, xpath_map_it->first, namespace_list, elements_buf, 1);
+			if (p_size < 0) {
+				LOG_ERROR("Error occured while parsing the xpath : %s in file : %s", xpath_map_it->first, xml_file);
+				parser_status = 1;
+				goto return_parser_status;
+			}
+			else {
+				LOG_DEBUG("Successfully parsed xpath : \"%s\" in file : \"%s\"", xpath_map_it->first, xml_file);
+				LOG_DEBUG("Number of values returned for xpath : %d", p_size);
+			}
+		}
+	}
+	return_parser_status:
+		teardown_xpath_parser(Doc, xpathCtx);
+		LOG_TRACE("xpath parser destroyed");
+		if (parser_status)
+			return TCSERVICE_RESULT_FAILED;
+		else
+			return TCSERVICE_RESULT_SUCCESS;
+}
 
 TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int* poutsize, byte* out)
 {
@@ -697,14 +770,13 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char    ramdisk_file[1024] = {0};
     char    disk_file[1024] = {0};
     char    manifest_file[1024] = {0};
-    char    formatted_manifest_file[1024] = {0};
     char    nohash_manifest_file[2048] = {0};
     char    cumulativehash_file[2048] = {0};
     char*   config_file = NULL;
-    char *  vm_image_id;
-    char*   vm_customer_id;
-    char*   vm_manifest_hash;
-    char*   vm_manifest_signature;
+    char *  vm_image_id = NULL;
+    char*   vm_customer_id = NULL;
+    char*   vm_manifest_hash = NULL;
+    char*   vm_manifest_signature = NULL;
     char    vm_manifest_dir[2048] ={0};
     bool 	verification_status = false;
     char	vm_uuid[UUID_SIZE];
@@ -715,6 +787,8 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	char    popen_command[250]={0};
 	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
 	char    measurement_file[2048]={0};
+	char 	mount_path[64];
+
     LOG_TRACE("Start VM App");
     if(an>30) {
     	LOG_ERROR("Number of arguments passed are more than limit 30");
@@ -786,142 +860,126 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 					measurement_file[strlen(measurement_file) - 1] = '\0';
 				LOG_DEBUG("Extension : %s",extension);
 				
-				sprintf(formatted_manifest_file, "%s%s", trust_report_dir, "/fmanifest.xml");
-				LOG_DEBUG("Formatted manifest file %s", formatted_manifest_file);
-        		strncpy(cumulativehash_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
+				strcpy(cumulativehash_file, trust_report_dir);
         		sprintf(cumulativehash_file, "%s%s", cumulativehash_file, measurement_file);
         		LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
         }
     }
 
-    //v: this code will be replaced by IMVM call flow
-//////////////////////////////////////////////////////////////////////////////////////////////////////
        //create domain process shall check the whitelist
 		child = procid;
-    // There will be two input files now, one the manifest and other just the list of files to be passed to verifier
-	// Could be moved to separate function
-	// Paths to 2nd manifest and output are hardcoded	
 
 //	char * nohash_manifest_file ="/root/nohash_manifest.xml"; // Need to be passed by policy agent
-        char launchPolicy[10];
-        char goldenImageHash[65];
-        FILE *fp, *fq ;
-        char * line = NULL;
-    	char * temp;
-    	char * end;
-    	size_t length = 0;
+        char launchPolicy[10] = {'\0'};
+        char goldenImageHash[65] = {'\0'};
+        FILE *fq ;
 
-   //Open Manifest to get list of files to hash
-    	xmlDocPtr Doc;
-    	Doc = xmlParseFile(manifest_file);
+    	xmlChar namespace_list[] =			"a=mtwilson:trustdirector:policy:1.1 b=http://www.w3.org/2000/09/xmldsig#";
+    	xmlChar xpath_customer_id[] = 		"/a:TrustPolicy/a:Director/a:CustomerId";
+    	xmlChar xpath_launch_policy[] = 	"/a:TrustPolicy/a:LaunchControlPolicy";
+    	xmlChar xpath_image_id[] = 			"/a:TrustPolicy/a:Image/a:ImageId";
+    	xmlChar xpath_image_hash[] = 		"/a:TrustPolicy/a:Image/a:ImageHash";
+    	xmlChar xpath_image_signature[] = 	"/a:TrustPolicy/b:Signature/b:SignatureValue";
+    	char* launch_policy_buff = NULL;
 
-        /*This will save the XML file in a correct format, as desired by our parser.
-        We dont use libxml tools to parse but our own pointer legerdemain for the time being
-        Main advantage is simplicity and speed ~O(n) provided space isn't an issue */
+    	/*
+    	 * extract Launch Policy, CustomerId, ImageId, VM hash, and Manifest signature value from formatted manifestlist.xml
+    	 * by specifying fixed xpaths with namespaces
+    	 */
+    	std::map<xmlChar *, char *> xpath_map;
+    	launch_policy_buff = (char *)malloc(sizeof(char)* 64);
+    	xpath_map.insert(std::pair<xmlChar *, char *>(xpath_launch_policy, launch_policy_buff));
+    	vm_customer_id = (char *)malloc(sizeof(char) * CUSTOMER_ID_SIZE);
+    	xpath_map.insert(std::pair<xmlChar*, char *>(xpath_customer_id, vm_customer_id));
+    	vm_image_id = (char *) malloc(sizeof(char) * IMAGE_ID_SIZE);
+    	xpath_map.insert(std::pair<xmlChar*, char *>(xpath_image_id, vm_image_id));
+    	vm_manifest_hash = (char *) malloc(sizeof(char)* MANIFEST_HASH_SIZE);
+    	xpath_map.insert(std::pair<xmlChar*, char *>(xpath_image_hash, vm_manifest_hash));
+    	vm_manifest_signature = (char *) malloc(sizeof(char) * MANIFEST_SIGNATURE_SIZE);
+    	xpath_map.insert(std::pair<xmlChar*, char *>(xpath_image_signature, vm_manifest_signature));
 
-    	xmlSaveFormatFile (formatted_manifest_file, Doc, 1); /*This would render even inline XML perfect for line by line parsing*/
-    	xmlFreeDoc(Doc);
-        fp=fopen(formatted_manifest_file,"r");
+    	if (TCSERVICE_RESULT_FAILED == get_xpath_values(xpath_map, namespace_list, manifest_file)) {
+    		//TODO write a remove directory function using dirint.h header file
+    		char remove_file[1024] = { '\0' };
+    		sprintf(remove_file, "rm -rf %s", vm_manifest_dir);
+    		system(remove_file);
+    		start_app_status = 1;
+    		goto return_response;
+		}
+		if (strcmp(launch_policy_buff, "MeasureOnly") == 0) {
+			strcpy(launchPolicy, "Audit");
+		}
+		else if (strcmp(launch_policy_buff, "MeasureAndEnforce") ==0) {
+			strcpy(launchPolicy, "Enforce");
+		}
+		free(launch_policy_buff);
+		if (strcmp(launchPolicy, "Audit") != 0 && strcmp(launchPolicy, "Enforce") !=0) {
+			LOG_INFO("Launch policy is neither Audit nor Enforce so vm verification is not not carried out");
+			char remove_file[1024] = {'\0'};
+			sprintf(remove_file,"rm -rf %s", vm_manifest_dir);
+			system(remove_file);
+			start_app_status = 0;
+			goto return_response;
+		}
+		strcpy(goldenImageHash, vm_manifest_hash);
 
-        while (getline(&line, &length, fp) != -1) {
-
-       		LOG_TRACE("Reading a line");
-        	if(strstr(line,"<LaunchControlPolicy")!= NULL){
-        		LOG_DEBUG("Found tag");
-        		temp = tagEntry(line);
-        		LOG_DEBUG("<Policy=\"%s\">",NodeValue);
-        		if (strcmp(NodeValue, "MeasureOnly") == 0) {
-                    strcpy(launchPolicy, "Audit");
-                }
-                else if (strcmp(NodeValue, "MeasureAndEnforce") ==0) {
-                    strcpy(launchPolicy, "Enforce");
-                }
-        	if (strcmp(launchPolicy, "Audit") != 0 && strcmp(launchPolicy, "Enforce") !=0) {
-        		fclose(fp);
-        		LOG_INFO("Launch policy is neither Audit nor Enforce so vm verification is not not carried out");
-        		//return TCSERVICE_RESULT_SUCCESS;
-        		char remove_file[1024] = {'\0'};
-				sprintf(remove_file,"rm -rf %s", vm_manifest_dir);
-				system(remove_file);
-        		start_app_status = 0;
-        		goto return_response;
-        	}
+        //mount the disk, then pass the path and manifest file for measurement to MA(Measurement Agent)
+        sprintf(mount_path,"%s%s", g_mount_path, vm_uuid);
+        //create a directory under /mnt/vrtm/VM_UUID to mount the VM disk
+        LOG_DEBUG("Mount location : %s", mount_path);
+        if ( mkdir(mount_path,766) != 0 && errno != EEXIST ) {
+        	LOG_ERROR("can't create directory to mount the image ");
+        	start_app_status = 1;
+        	goto return_response;
         }
-
-        if(strstr(line,"<ImageHash")!= NULL){
-        	LOG_DEBUG( "Found tag imagehash ");
-            temp = tagEntry(line);
-            LOG_DEBUG("<Image Hash=\"%s\"> ",NodeValue);
-            strcpy(goldenImageHash, NodeValue);
-            vm_manifest_hash = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
-			if(vm_manifest_hash == NULL) {
-				LOG_ERROR("StartApp : Error in allocating memory for vm_manifest_hash");
-				//return TCSERVICE_RESULT_FAILED;
-				start_app_status = 1;
-				goto return_response;
-			}
-			strcpy(vm_manifest_hash,NodeValue);
+        /*
+         * call mount script to mount the VM disk as :
+         * ../scripts/mount_vm_image.sh <disk> <mount_path>
+         */
+        sprintf(command, mount_script " %s %s > %s/%s 2>&1", disk_file, mount_path, vm_manifest_dir, ma_log);
+        LOG_DEBUG("Command to mount the image : %s", command);
+        i = system(command);
+        LOG_DEBUG("system call to mount image exit status : %d", i);
+        if ( i != 0) {
+        	LOG_ERROR("Error in mounting the image for measurement. For more info please look into file %s/%s", vm_manifest_dir, ma_log);
+        	start_app_status = 1;
+        	goto return_response;
         }
-
-
-        if(strstr(line,"<ImageId")!= NULL){
-        	LOG_DEBUG("Found image  id tag");
-            temp = tagEntry(line);
-            LOG_DEBUG("<Image Id =\"%s\">",NodeValue);
-            vm_image_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
-            if(vm_image_id == NULL) {
-            	LOG_ERROR("StartApp : Error in allocating memory for vm_image_id");
-                //return TCSERVICE_RESULT_FAILED;
-            	start_app_status = 1;
-            	goto return_response;
-           }
-           strcpy(vm_image_id,NodeValue);
+        LOG_DEBUG("Image Mounted successfully");
+        /*
+         * call MA to measure the VM as :
+         * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
+         */
+        sprintf(command, "./verifier %s %s/mount/ IMVM >> %s/%s 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log);
+        LOG_DEBUG("Command to launch MA : %s", command);
+        i = system(command);
+        LOG_DEBUG("system call to verifier exit status : %d", i);
+        if ( i != 0 ) {
+        	LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement log in file %s/%s", vm_manifest_dir, ma_log);
+        	start_app_status = 1;
+        	goto return_response;
         }
-
-        if(strstr(line,"<CustomerId")!= NULL){
-        	LOG_DEBUG("found custoimer id tag");
-        	temp = tagEntry(line);
-        	LOG_DEBUG("Processed custoimer id tag");
-        	LOG_DEBUG("<Customer Id =\"%s\">\n",NodeValue);
-        	vm_customer_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
-			if(vm_customer_id == NULL) {
-				LOG_DEBUG(" StartApp : Error in allocating memory for vm_customer_id");
-				//return TCSERVICE_RESULT_FAILED;
-				start_app_status = 1;
-				goto return_response;
-			}
-				strcpy(vm_customer_id,NodeValue);
-          }
-		if(strstr(line,"SignatureValue")!= NULL){
-				temp = tagEntry(line);
-				LOG_DEBUG("<Manifest Signature  =\"%s\">",NodeValue);
-				vm_manifest_signature = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
-				if(vm_manifest_signature == NULL) {
-					LOG_ERROR("StartApp : Error in allocating memory for vm_manifest_hash");
-					//return TCSERVICE_RESULT_FAILED;
-					start_app_status = 1;
-					goto return_response;
-				}
-			   strcpy(vm_manifest_signature,NodeValue);
-			  }
-		} // end of file parsing
-        free(line);
-        line = NULL;
-        fclose(fp);
-// Only call verfier when measurement is required
-        // append rpid to /tmp/imvm-result_"rpid".out
-        sprintf(command,"./verifier %s %s IMVM  > /tmp/imvm-result_%d.out 2>&1", nohash_manifest_file, disk_file,child);
-        LOG_DEBUG("Command to execute verifier binary : %s", command);
-        system(command);
+        LOG_DEBUG("MA executed successfully");
+        /*
+         * unmount image by calling mount script with UN_MOUNT mode after the measurement as :
+         * ../scripts/mount_vm_image.sh MOUNT_PATH
+         */
+        sprintf(command, mount_script " %s/mount >> %s/%s 2>&1", mount_path, vm_manifest_dir, ma_log);
+        LOG_DEBUG("Command to unmount the image : %s", command);
+        i = system(command);
+        LOG_DEBUG("system call for unmounting exit status : %d", i);
+        if ( i != 0 ) {
+        	LOG_ERROR("Error in unmounting the vm image. Please check log file : %s/%s", vm_manifest_dir, ma_log);
+        	start_app_status = 1;
+        	goto return_response;
+        }
+        LOG_DEBUG("Unmount of image Successfull");
+        // Only call verfier when measurement is required
 // Open measurement log file at a specified location
         fq = fopen(cumulativehash_file, "rb");
         if(!fq) 
 		{
-        	LOG_ERROR("Error returned by verifer in generating cumulative hash, please check imvm-result.out for more logs\n");
-        	free(vm_image_id);
-			free(vm_customer_id);
-			free(vm_manifest_hash);
-			free(vm_manifest_signature);
+        	LOG_ERROR("Error returned by verifer in generating cumulative hash, please check Measurement log in file %s/%s\n", vm_manifest_dir, ma_log);
         	//return TCSERVICE_RESULT_FAILED; // measurement failed  (verifier failed to measure)
 			start_app_status = 1;
 			goto return_response;
@@ -995,13 +1053,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     }
 
     // free all allocated variable
-    free(vm_image_id);
-    free(vm_customer_id);
-    free(vm_manifest_hash);
-    free(vm_manifest_signature);
     
-
     return_response :
+    	if ( !vm_image_id ) free(vm_image_id);
+        if ( !vm_customer_id ) free(vm_customer_id);
+        if ( !vm_manifest_hash ) free(vm_manifest_hash);
+        if ( !vm_manifest_signature ) free(vm_manifest_signature);
 		for ( i = 0; i < an; i++) {
 			if( av[i] ) {
 				free (av[i]);

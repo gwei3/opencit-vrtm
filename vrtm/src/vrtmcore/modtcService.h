@@ -175,6 +175,7 @@ public:
     TCSERVICE_RESULT	IsVerified(char *vm_uuid, int* verification_status);
     TCSERVICE_RESULT	GenerateSAMLAndGetDir(char *vm_uuid, char * nonce, char * vm_manifest_dir);
     TCSERVICE_RESULT 	CleanVrtmTable(unsigned long entry_max_age,int vm_status, int* deleted_entries);
+    TCSERVICE_RESULT 	get_xpath_values(std::map<unsigned char*, char *> xpath_map, unsigned char* namespace_list, char* xml_file);
 };
 
 bool serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int *outparamsize, byte* outparams);

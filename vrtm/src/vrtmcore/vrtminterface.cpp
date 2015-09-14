@@ -353,7 +353,7 @@ void* dom_listener_main ( void* p)
     listen(fd, iQueueSize);
 
     // set the signal disposition of SIGCHLD to not create zombies
-    struct sigaction sigAct;
+    /*struct sigaction sigAct;
     memset(&sigAct, 0, sizeof(sigAct));
     sigAct.sa_handler = SIG_DFL;
     sigAct.sa_flags = SA_NOCLDWAIT; // don't zombify child processes
@@ -363,7 +363,7 @@ void* dom_listener_main ( void* p)
         LOG_INFO( "Failed to set signal disposition for SIGCHLD");
     } else {
         LOG_INFO( "Set SIGCHLD to avoid zombies");
-    }
+    }*/
 
 	g_ifc_status = IFC_UP;
     
