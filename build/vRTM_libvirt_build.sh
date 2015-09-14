@@ -61,12 +61,12 @@ function installLibvirtRequiredPackages_rhel()
 
 function installLibvirtRequiredPackages_ubuntu()
 {
-	apt-get -y install gcc libsdl1.2-dev zlib1g-dev libasound2-dev linux-kernel-headers pkg-config libgnutls-dev libpci-dev build-essential bzr bzr-builddeb cdbs debhelper devscripts dh-make diffutils dpatch fakeroot gnome-pkg-tools gnupg liburi-perl lintian patch patchutils pbuilder piuparts quilt ubuntu-dev-tools wget libglib2.0-dev libsdl1.2-dev libjpeg-dev libvde-dev libvdeplug2-dev libbrlapi-dev libaio-dev libfdt-dev texi2html texinfo info2man pod2pdf libnss3-dev libcap-dev libattr1-dev libtspi-dev gcc-4.6-multilib libpixman-1-dev libxml2-dev libssl-dev wget
-	apt-get -y install libyajl-dev libdevmapper-dev libpciaccess-dev libnl-dev
-	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp chkconfig
-        apt-get -y install openssh-server
-        apt-get -y install python-dev
-	apt-get -y install wget
+	sudo apt-get -y install gcc libsdl1.2-dev zlib1g-dev libasound2-dev linux-kernel-headers pkg-config libgnutls-dev libpci-dev build-essential bzr bzr-builddeb cdbs debhelper devscripts dh-make diffutils dpatch fakeroot gnome-pkg-tools gnupg liburi-perl lintian patch patchutils pbuilder piuparts quilt ubuntu-dev-tools wget libglib2.0-dev libsdl1.2-dev libjpeg-dev libvde-dev libvdeplug2-dev libbrlapi-dev libaio-dev libfdt-dev texi2html texinfo info2man pod2pdf libnss3-dev libcap-dev libattr1-dev libtspi-dev gcc-4.6-multilib libpixman-1-dev libxml2-dev libssl-dev wget
+	sudo apt-get -y install libyajl-dev libdevmapper-dev libpciaccess-dev libnl-dev
+	sudo apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp chkconfig
+        sudo apt-get -y install openssh-server
+        sudo apt-get -y install python-dev
+	sudo apt-get -y install wget
 }
 
 function installLibvirtRequiredPackages_suse()

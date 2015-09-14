@@ -195,11 +195,11 @@ function install_kvm_packages_rhel()
 function install_kvm_packages_ubuntu()
 {
 	echo "Installing Required Packages for ubuntu ....."
-	apt-get -y install gcc build-essential make python-dev libxml2-dev libssl-dev libvirt-dev
-	apt-get -y install libvirt-bin qemu-kvm
-	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp
-	apt-get -y install openssh-server
-	apt-get -y install python-dev dos2unix
+	sudo apt-get -y install gcc build-essential make python-dev libxml2-dev libssl-dev libvirt-dev
+	sudo apt-get -y install libvirt-bin qemu-kvm
+	sudo apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp
+	sudo apt-get -y install openssh-server
+	sudo apt-get -y install python-dev dos2unix
 	
 	echo "Starting ntp service ....."
 	service ntp start
@@ -249,7 +249,7 @@ function makeUnixExecutable()
 function log4cpp_inst_ubuntu()
 {
         echo "Installing log4cpp devel for Ubuntu..."
-        apt-get -y install liblog4cpp5-dev
+        sudo apt-get -y install liblog4cpp5-dev
         if [ `echo $?` -ne 0 ]
         then
                 echo "Failed to install log4cpp devel..."
