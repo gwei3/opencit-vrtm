@@ -296,9 +296,6 @@ void vrtm_signal_handler(int sig_caught) {
 		signal_name = "SIGINT";
 		signal(sig_caught, *default_handler_int);
 		break;
-	/*case SIGKILL:
-		signal_name = "SIGKILL";
-		break;*/
 	case SIGQUIT:
 		signal_name = "SIGQUIT";
 		signal(sig_caught, *default_handler_quit);
@@ -311,9 +308,6 @@ void vrtm_signal_handler(int sig_caught) {
 		signal_name = "SIGTERM";
 		signal(sig_caught, *default_handler_term);
 		break;
-	/*case SIGSTOP:
-		signal_name = "SIGSTOP";
-		break;*/
 	case SIGFPE:
 		signal_name = "SIGFPE";
 		signal(sig_caught, *default_handler_fpe);
@@ -321,10 +315,6 @@ void vrtm_signal_handler(int sig_caught) {
 	case SIGBUS:
 		signal_name = "SIGBUS";
 		signal(sig_caught, *default_handler_bus);
-		break;
-	case SIGTSTP:
-		signal_name = "SIGTSTP";
-		signal(sig_caught, *default_handler_tstp);
 		break;
 	}
 	LOG_INFO("caught signal %s", signal_name.c_str());
@@ -377,7 +367,7 @@ int main(int an, char** av)
     //signal(SIGSTOP, vrtm_signal_handler); //handle suspend signals ctrl-s -- can't be handled or ignored or blocked
     default_handler_fpe = signal(SIGFPE, vrtm_signal_handler);  //to handle divide by zero errors
     default_handler_bus = signal(SIGBUS, vrtm_signal_handler);  //handle invalid pointer dereferencing different from sigsegv
-    default_handler_tstp = signal(SIGTSTP, vrtm_signal_handler); //to handle interactive stop signal ctrl-z and ctrl-y
+    //default_handler_tstp = signal(SIGTSTP, vrtm_signal_handler); //to handle interactive stop signal ctrl-z and ctrl-y, don't need to clean, process can be resumed again
 
     LOG_TRACE("Load config file %s", g_config_file);
 	if ( LoadConfig(g_config_file) < 0 ) {
