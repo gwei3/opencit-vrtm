@@ -66,7 +66,7 @@ typedef unsigned TCSERVICE_RESULT;
 #define INSTANCE_TYPE_DOCKER					1
 
 #define RG_HASH_SIZE		32
-#define UUID_SIZE		48
+#define UUID_SIZE			65
 #define IMAGE_ID_SIZE  		256
 #define CUSTOMER_ID_SIZE 	256
 #define MANIFEST_HASH_SIZE	65

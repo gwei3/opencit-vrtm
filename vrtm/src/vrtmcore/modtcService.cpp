@@ -114,7 +114,7 @@ serviceprocTable::~serviceprocTable()
 bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char** av,
                                     int sizeHash, byte* hash, int instance_type)
 {
-    LOG_DEBUG("vRTM id : %d file : %s hash size : %d hash : %s", procid, file, sizeHash, hash);
+    LOG_DEBUG("vRTM id : %d file : %s hash size : %d hash : %s, instance type : %d", procid, file, sizeHash, hash, instance_type);
     if(sizeHash>32) {
     	LOG_ERROR("Size of hash is more than 32 bytes. Hash size = %d", sizeHash);
         return false;
@@ -185,10 +185,10 @@ bool serviceprocTable::updateprocEntry(int procid, char* uuid, char *vdi_uuid)
 		LOG_ERROR("UUID %s can't be registered with vRTM, given rpid %d doesn't exist", uuid, procid);
 		return false;
 	}
-    memset(table_it->second.m_uuid, 0, g_max_uuid);
-    memset(table_it->second.m_vdi_uuid, 0, g_max_uuid);
-    memcpy(table_it->second.m_uuid, uuid, g_sz_uuid);
-    memcpy(table_it->second.m_vdi_uuid, vdi_uuid, g_sz_uuid);
+    memset(table_it->second.m_uuid, 0, UUID_SIZE);
+    memset(table_it->second.m_vdi_uuid, 0, UUID_SIZE);
+    memcpy(table_it->second.m_uuid, uuid, strlen(uuid));
+    memcpy(table_it->second.m_vdi_uuid, vdi_uuid, strlen(vdi_uuid));
     pthread_mutex_unlock(&loc_proc_table);
     LOG_INFO("UUID : %s is registered with vRTM successfully\n",table_it->second.m_uuid);
     return true;
@@ -598,8 +598,8 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
 {
 	//remove entry from table.
     LOG_TRACE("Map UUID %s and VDI UUID %s with ID %s", in_uuid, vdi_uuid, str_rp_id);
-	char uuid[48] = {0};
-	char vuuid[48] = {0};
+	char uuid[UUID_SIZE] = {0};
+	char vuuid[UUID_SIZE] = {0};
 	int  rp_id = -1; 
 	if ((str_rp_id == NULL) || (in_uuid == NULL) || (out == NULL)){
 		LOG_ERROR("Can't Register UUID with vRTM either vRTM ID or UUID is NULL");
@@ -608,9 +608,9 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
 	rp_id = atoi(str_rp_id);
 	int inuuid_len = strlen(in_uuid);
 	int invdiuuid_len = strlen(vdi_uuid);
-	memset(uuid, 0, g_max_uuid);
+	memset(uuid, 0, UUID_SIZE);
     memcpy(uuid, in_uuid, inuuid_len);
-	memset(vuuid, 0, g_max_uuid);	
+	memset(vuuid, 0, UUID_SIZE);
 	memcpy(vuuid, vdi_uuid, invdiuuid_len);
 	if ( !g_myService.m_procTable.updateprocEntry(rp_id, uuid, vuuid) ) {
 		return TCSERVICE_RESULT_FAILED;
@@ -788,8 +788,8 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	char    popen_command[250]={0};
 	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
 	char    measurement_file[2048]={0};
-	char 	mount_path[64];
-	bool	instance_type = INSTANCE_TYPE_VM;
+	char 	mount_path[128];
+	int 	instance_type = INSTANCE_TYPE_VM;
 
     LOG_TRACE("Start VM App");
     if(an>30) {
@@ -869,6 +869,11 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         if (av[i] && strcmp(av[i], "-docker_instance") == 0) {
         	instance_type = INSTANCE_TYPE_DOCKER;
         }
+
+        if (av[i] && strcmp(av[i], "-mount_path") == 0) {
+        	strcpy(mount_path, av[++i]);
+        	LOG_DEBUG("Mounted image path : %s", mount_path);
+        }
     }
 
        //create domain process shall check the whitelist
@@ -928,58 +933,77 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		}
 		strcpy(goldenImageHash, vm_manifest_hash);
 
-        //mount the disk, then pass the path and manifest file for measurement to MA(Measurement Agent)
-        sprintf(mount_path,"%s%s", g_mount_path, vm_uuid);
-        //create a directory under /mnt/vrtm/VM_UUID to mount the VM disk
-        LOG_DEBUG("Mount location : %s", mount_path);
-        if ( mkdir(mount_path,766) != 0 && errno != EEXIST ) {
-        	LOG_ERROR("can't create directory to mount the image ");
-        	start_app_status = 1;
-        	goto return_response;
-        }
-        /*
-         * call mount script to mount the VM disk as :
-         * ../scripts/mount_vm_image.sh <disk> <mount_path>
-         */
-        sprintf(command, mount_script " %s %s > %s/%s 2>&1", disk_file, mount_path, vm_manifest_dir, ma_log);
-        LOG_DEBUG("Command to mount the image : %s", command);
-        i = system(command);
-        LOG_DEBUG("system call to mount image exit status : %d", i);
-        if ( i != 0) {
-        	LOG_ERROR("Error in mounting the image for measurement. For more info please look into file %s/%s", vm_manifest_dir, ma_log);
-        	start_app_status = 1;
-        	goto return_response;
-        }
-        LOG_DEBUG("Image Mounted successfully");
-        /*
-         * call MA to measure the VM as :
-         * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
-         */
-        sprintf(command, "./verifier %s %s/mount/ IMVM >> %s/%s 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log);
-        LOG_DEBUG("Command to launch MA : %s", command);
-        i = system(command);
-        LOG_DEBUG("system call to verifier exit status : %d", i);
-        if ( i != 0 ) {
-        	LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement log in file %s/%s", vm_manifest_dir, ma_log);
-        	start_app_status = 1;
-        	goto return_response;
-        }
-        LOG_DEBUG("MA executed successfully");
-        /*
-         * unmount image by calling mount script with UN_MOUNT mode after the measurement as :
-         * ../scripts/mount_vm_image.sh MOUNT_PATH
-         */
-        sprintf(command, mount_script " %s/mount >> %s/%s 2>&1", mount_path, vm_manifest_dir, ma_log);
-        LOG_DEBUG("Command to unmount the image : %s", command);
-        i = system(command);
-        LOG_DEBUG("system call for unmounting exit status : %d", i);
-        if ( i != 0 ) {
-        	LOG_ERROR("Error in unmounting the vm image. Please check log file : %s/%s", vm_manifest_dir, ma_log);
-        	start_app_status = 1;
-        	goto return_response;
-        }
-        LOG_DEBUG("Unmount of image Successfull");
-        // Only call verfier when measurement is required
+		if (instance_type == INSTANCE_TYPE_VM) {
+			//mount the disk, then pass the path and manifest file for measurement to MA(Measurement Agent)
+			sprintf(mount_path,"%s%s", g_mount_path, vm_uuid);
+			//create a directory under /mnt/vrtm/VM_UUID to mount the VM disk
+			LOG_DEBUG("Mount location : %s", mount_path);
+			if ( mkdir(mount_path,766) != 0 && errno != EEXIST ) {
+				LOG_ERROR("can't create directory to mount the image ");
+				start_app_status = 1;
+				goto return_response;
+			}
+			/*
+			 * call mount script to mount the VM disk as :
+			 * ../scripts/mount_vm_image.sh <disk> <mount_path>
+			 */
+			sprintf(command, mount_script " %s %s > %s/%s 2>&1", disk_file, mount_path, vm_manifest_dir, ma_log);
+			LOG_DEBUG("Command to mount the image : %s", command);
+			i = system(command);
+			LOG_DEBUG("system call to mount image exit status : %d", i);
+			if ( i != 0) {
+				LOG_ERROR("Error in mounting the image for measurement. For more info please look into file %s/%s", vm_manifest_dir, ma_log);
+				start_app_status = 1;
+				goto return_response;
+			}
+			LOG_DEBUG("Image Mounted successfully");
+			/*
+			 * call MA to measure the VM as :
+			 * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
+			 */
+			sprintf(command, "./verifier %s %s/mount/ IMVM >> %s/%s 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log);
+			LOG_DEBUG("Command to launch MA : %s", command);
+			i = system(command);
+			LOG_DEBUG("system call to verifier exit status : %d", i);
+			if ( i != 0 ) {
+				LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement log in file %s/%s", vm_manifest_dir, ma_log);
+				start_app_status = 1;
+				goto return_response;
+			}
+			LOG_DEBUG("MA executed successfully");
+			/*
+			 * unmount image by calling mount script with UN_MOUNT mode after the measurement as :
+			 * ../scripts/mount_vm_image.sh MOUNT_PATH
+			 */
+			sprintf(command, mount_script " %s/mount >> %s/%s 2>&1", mount_path, vm_manifest_dir, ma_log);
+			LOG_DEBUG("Command to unmount the image : %s", command);
+			i = system(command);
+			LOG_DEBUG("system call for unmounting exit status : %d", i);
+			if ( i != 0 ) {
+				LOG_ERROR("Error in unmounting the vm image. Please check log file : %s/%s", vm_manifest_dir, ma_log);
+				start_app_status = 1;
+				goto return_response;
+			}
+			LOG_DEBUG("Unmount of image Successfull");
+		}
+		else if( instance_type == INSTANCE_TYPE_DOCKER) {
+			/*
+			 * call MA to measure the VM as :
+			 * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
+			 */
+			LOG_TRACE("Instace type docker : %d", instance_type);
+			sprintf(command, "./verifier %s %s/ IMVM >> %s/%s 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log);
+			LOG_DEBUG("Command to launch MA : %s", command);
+			i = system(command);
+			LOG_DEBUG("system call to verifier exit status : %d", i);
+			if ( i != 0 ) {
+				LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement log in file %s/%s", vm_manifest_dir, ma_log);
+				start_app_status = 1;
+				goto return_response;
+			}
+			LOG_DEBUG("MA executed successfully");
+		}
+
 // Open measurement log file at a specified location
         fq = fopen(cumulativehash_file, "rb");
         if(!fq) 
