@@ -515,13 +515,13 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 	fprintf(fp,"%s",xmlstr); 
 	fclose(fp1);
-	//fclose(fp);
+	fclose(fp);
 							  
 	sprintf(command0,"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
 	system(command0);
 				 
 	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo>");
-	//fp = fopen(tempfile,"a");
+	fp = fopen(tempfile,"a");
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
 

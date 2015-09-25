@@ -4,9 +4,8 @@
 # The script does the following
 # 1. Creates the directory structure ../dist, kvm_build
 # 2. Copies all the resources to kvm_build
-# 3. Builds libvirt, vrtm
-# 4. Creates a tar for the final install
-# 5. Copies the tar and install scripts to dist
+# 3. Creates a tar for the final install
+# 4. Copies the tar and install scripts to dist
 
 START_DIR=$PWD
 SRC_ROOT_DIR=$START_DIR/../
@@ -14,7 +13,6 @@ BUILD_DIR=$START_DIR/KVM_build
 DIST_DIR=$PWD/../dist
 TBOOT_REPO=${TBOOT_REPO:-"$SRC_ROOT_DIR/../dcg_security-tboot-xm"}
 
-BUILD_LIBVIRT="FALSE"
 PACKAGE="vrtm/scripts vrtm/bin vrtm/lib vrtm/configuration"
 
 # This function returns either rhel fedora ubuntu suse
@@ -129,10 +127,6 @@ function buildvrtmcore()
 	#mkdir -p bin/debug bin/release build/debug build/release lib
 	cd src
 
-    if [ "$BUILD_LIBVIRT" == "TRUE" ] ; then
-        echo "Backing up newly created libvirt.so file"
-        cp ../lib/libvirt.so "$BUILD_DIR/."
-    fi
     echo > "$BUILD_DIR/outfile"
     make clean >> "$BUILD_DIR/outfile" 2>&1
     if [ $? -ne 0 ]; then
@@ -142,11 +136,6 @@ function buildvrtmcore()
         echo "VRTMCore clean successful"
     fi
 
-   if [ "$BUILD_LIBVIRT" == "TRUE" ] ; then
-        echo "Restoring libvirt.so..."
-        mv "$BUILD_DIR/libvirt.so" ../lib/libvirt.so
-   fi
-   
     PYTHON_HEADERS=""
     if [ -e /usr/include/python2.7 ]
     then
@@ -160,65 +149,51 @@ function buildvrtmcore()
 		echo "VRTMcore build failed...Please see outfile for more details"
 		exit -1
 	else
-        echo "VRTMCore build successful"
+	        echo "VRTMCore build successful"
 	fi
     cd "$BUILD_DIR"
 }
 
+r
 
 function install_kvm_packages_rhel()
 {
 	echo "Installing Required Packages ....."
-	yum -y -x 'kernel*,redhat-release*' update
 	yum -y groupinstall -y "Development Tools" "Development Libraries"
-	yum install -y "kernel-devel-uname-r == $(uname -r)"
-	if [ $FLAVOUR == "rhel" ]; then
-     	     yum install -y yum-utils
-	     yum-config-manager --enable rhel-6-server-optional-rpms
+	PackageList1=`echo $?`
+	yum install -y "kernel-devel-uname-r == $(uname -r)" libvirt-devel libxml2 gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel libxml2-devel openssl-devel libaio libaio-devel
+        PackageList2=`echo $?`
+        if [ $PackageList1 -ne 0 ] || [ $PackageList2 -ne 0 ]; then
+                echo "Failed to install pre-requisite packages"
+                exit -1
+ 	else
+		echo "Pre-requisite packages installed successfully"
 	fi
-	# Install the openstack repo
-	rpm -q rdo-release
-	if [ $? -ne 0 ] ; then
-		yum install -y yum-plugin-priorities
-		yum install -y https://repos.fedorapeople.org/repos/openstack/openstack-icehouse/rdo-release-icehouse-3.noarch.rpm
-	fi
-
-	yum install -y libvirt-devel libvirt libvirt-python libxml2
-	#Libs required for compiling libvirt 
-	yum install -y gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel libxml2-devel openssl-devel
-	yum install -y python-devel
-	yum install -y openssh-server
-	yum install -y libaio libaio-devel 
-	yum install -y tar dos2unix
 }
 
 function install_kvm_packages_ubuntu()
 {
 	echo "Installing Required Packages for ubuntu ....."
-	apt-get -y install gcc build-essential make python-dev libxml2-dev libssl-dev libvirt-dev
-	apt-get -y install libvirt-bin qemu-kvm
-	apt-get -y install bridge-utils dnsmasq pm-utils ebtables ntp
-	apt-get -y install openssh-server
-	apt-get -y install python-dev dos2unix
-	
-	echo "Starting ntp service ....."
-	service ntp start
-	chkconfig ntp on
+	apt-get -y install gcc build-essential make libxml2-dev libssl-dev libvirt-dev
+	if [ $? -ne 0 ]; then
+                echo "Failed to install pre-requisite packages"
+                exit -1
+        else
+                echo "Pre-requisite packages installed successfully"
 
+	fi
 }
 
 function install_kvm_packages_suse()
 {
 	echo "Installing Required Packages for sue ....."
-	zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI  wget glib2-devel libvirt-devel 
-	zypper -n in libvirt qemu-kvm
-	zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp
-	zypper -n in openssh
-	zypper -n in python-devel dos2unix
-
-	echo "Starting ntp service ....."
-	service ntp start
-	chkconfig ntp on 
+	zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI  wget glib2-devel libvirt-devel
+	if [ $? -ne 0 ]; then
+                echo "Failed to install pre-requisite packages"
+                exit -1
+        else
+                echo "Pre-requisite packages installed successfully"
+	fi
 }
 
 function install_kvm_packages()
@@ -331,18 +306,6 @@ function main()
         echo "Creating the required build structure... "
         makeDirStructure
 
-	if [ "$BUILD_LIBVIRT" == "TRUE" ] ; then
-		echo "Building libvirt and its dependencies..."
-		cd "$BUILD_DIR"
-		cp $START_DIR/vRTM_libvirt_build.sh .
-		chmod +x ./vRTM_libvirt_build.sh
-		tr -d '\r' < ./vRTM_libvirt_build.sh > /tmp/output.file
-		mv /tmp/outfile ./vRTM_libvirt_build.sh
-		./vRTM_libvirt_build.sh
-		# echo "Inclding modified libvirt-1.2.2.tar.gz into dist package"
-		# PACKAGE=`echo $PACKAGE libvirt-1.2.2.tar.gz`
-	fi
-	
 	echo "Installing log4cpp devel..."
 	install_log4cpp
 
@@ -365,10 +328,6 @@ function main()
         mkdir -p "$DIST_DIR"
         cd "$BUILD_DIR"
 	makeUnixExecutable $BUILD_DIR
-	if [ $BUILD_LIBVIRT == "TRUE" ] ; then
-		echo "Removing libvirt.so ..."
-		rm -rf ./vrtm/lib/libvirt.so	
-	fi
         tar czf KVM_install.tar.gz $PACKAGE
         mv KVM_install.tar.gz "$DIST_DIR"
         cp install/vRTM_KVM_install.sh "$DIST_DIR"
@@ -397,13 +356,8 @@ function help_display()
     echo "3. Builds vRTM components"
     echo "4. Creates a tar for the final install in ../dist folder"
     echo ""
-    echo "If --with-libvirt option is used, script will download libvirt 1.2.2 and use"
-    echo "the downloaded version to compile the vRTM components"
-    echo "Otherwise, it will use libvirt installed at default location."
-    echo ""
     echo "Following options are available:"
     echo "--build"
-    echo "--with-libvirt"
     echo "--clean"
     echo "--help"
 }
@@ -418,12 +372,6 @@ if [ $# -eq 0 ] || [ "$1" == "--build" ]
 then
 	echo "Building vRTM"
 	main
-#elif [ "$1" == "--with-libvirt" ]
-#then
-#	echo "Building libvirt and vRTM"
-#	export BUILD_LIBVIRT="TRUE"
-#	main
-	
 elif [ "$1" == "--clean" ]
 then
 	echo "Removing older build folder"
