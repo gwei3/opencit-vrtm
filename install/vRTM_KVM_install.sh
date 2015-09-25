@@ -15,6 +15,7 @@ BUILD_LIBVIRT="FALSE"
 KVM_BINARY=""
 LOG_DIR="/var/log/vrtm"
 VERSION_INFO_FILE=vrtm.version
+DEFAULT_VRTM_MODE="VM"
 
 # This function returns either rhel fedora ubuntu suse
 # TODO : This function can be moved out to some common file
@@ -92,7 +93,17 @@ function untarResources()
 function installKVMPackages_rhel()
 {
         echo "Installing Required Packages ....."
-        yum install -y libguestfs-tools-c tar procps binutils
+	if [ $VRTM_MODE == "VM" ]
+	then
+		#install guestmount only in VM mode
+		yum install -y libguestfs-tools-c
+		if [ $? -ne 0 ]
+		then
+			echo "Failed to install guestfs-tools"
+			exit -1
+		fi
+	fi
+        yum install -y tar procps binutils
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
@@ -114,7 +125,13 @@ function installKVMPackages_rhel()
 function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
-	apt-get -y install libguestfs-tools 
+	if [ "$VRTM_MODE" == "VM" ]
+	then
+		apt-get -y install libguestfs-tools
+	elif [ "$VRTM_MODE" == "DOCKER" ]
+	then
+		return
+	fi
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
@@ -125,7 +142,16 @@ function installKVMPackages_ubuntu()
 
 function installKVMPackages_suse()
 {
-        zypper -n in libguestfs-tools-c wget
+	if [ $VRTM_MODE == "VM" ]
+	then
+		zypper -n in libguestfs-tools-c
+                if [ $? -ne 0 ]
+                then
+                        echo "Failed to install guestfs-tools"
+                        exit -1
+                fi
+	fi
+        zypper -n in wget
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
@@ -135,7 +161,7 @@ function installKVMPackages_suse()
 }
 
 function installKVMPackages()
-{
+{	
         if [ $FLAVOUR == "ubuntu" ] ; then
 		installKVMPackages_ubuntu
         elif [  $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ] ; then
@@ -247,10 +273,16 @@ function startNonTPMRpCore()
     sleep 5
 	echo "Starting non-TPM vrtmCORE...."
 	/usr/local/bin/vrtm start
-
-	/usr/local/bin/vrtmlistener stop
-	echo "Starting vrtm_listener...."
-	/usr/local/bin/vrtmlistener start
+	#might be installing vRTM in DOCKER mode on top of VM mode, So, stop previously running vrtm_listener
+	if [ -e /usr/local/bin/vrtmlistener ]
+	then
+		/usr/local/bin/vrtmlistener stop
+	fi
+	if [ "$VRTM_MODE" == "VM" ]
+	then
+		echo "Starting vrtm_listener...."
+		/usr/local/bin/vrtmlistener start
+	fi
 }
 
 function createvRTMStartScript()
@@ -280,9 +312,12 @@ function createvRTMStartScript()
 ### END INIT INFO
 
 	startVrtm()
-	{
-		chown -R nova:nova /var/run/libvirt/
-        	cd \"$INSTALL_DIR/vrtm/bin\"
+	{" > "$VRTM_SCRIPT"
+	if [ "$VRTM_MODE" == "VM" ]
+	then
+		echo "		chown -R nova:nova /var/run/libvirt/"  >> "$VRTM_SCRIPT"
+	fi
+        echo "		cd \"$INSTALL_DIR/vrtm/bin\"
         	nohup ./vrtmcore > /var/log/vrtm/vrtm_crash.log 2>&1 &
 	}
 	
@@ -308,10 +343,16 @@ function createvRTMStartScript()
 	   exit 3
 	   ;;
 	esac
-	" > "$VRTM_SCRIPT"
+	" >> "$VRTM_SCRIPT"
 	chmod +x "$VRTM_SCRIPT"
 	rm -rf /usr/local/bin/vrtm
 	ln -s "$VRTM_SCRIPT" /usr/local/bin/vrtm
+	
+	if [ "$VRTM_MODE" != "VM" ]
+	then
+		#only vrtmcore is needed to be installed in DOCKER mode
+		return;
+	fi
 
 	VRTM_LISTNER_SCRIPT="$INSTALL_DIR/vrtm/scripts/vrtmlistener.sh"
 	echo "Creating the startup script.... $VRTM_LISTNER_SCRIPT"
@@ -471,14 +512,15 @@ function install_log4cpp()
 
 function main_default()
 {
+	if [ -z "$VRTM_MODE" ]
+	then
+		VRTM_MODE=$DEFAULT_VRTM_MODE
+	fi
   if [ -z "$INSTALL_DIR" ]; then
     INSTALL_DIR="$DEFAULT_INSTALL_DIR"
   fi
   mkdir -p "$INSTALL_DIR"
   
-  mkdir -p "$LOG_DIR" 
-  chmod 777 "$LOG_DIR"
-
 	FLAVOUR=`getFlavour`
 	updateFlavourVariables
         cd "$INSTALL_DIR"
@@ -489,8 +531,11 @@ function main_default()
 	echo "Untarring Resources ..."
         untarResources
 
-	echo "Validating installation ... "
-	validate
+	if [ "$VRTM_MODE" == "VM" ]
+	then
+		echo "Validating installation ... "
+		validate
+	fi
 
 	echo "Creating VRTM startup scripts"
 	createvRTMStartScript
@@ -499,13 +544,18 @@ function main_default()
         install_log4cpp
 	
 	echo "Creating Log directory for VRTM..."
+	mkdir -p "$LOG_DIR"
+	chmod 777 "$LOG_DIR"
 
 	echo "Installing vrtmcore ..."
 
-	echo "Installing vrtmProxy and vrtmListener..."
-	installvrtmProxyAndListner
-	touch "$LOG_DIR"/vrtm_proxy.log
-        chmod 766 "$LOG_DIR"/vrtm_proxy.log
+	if [ "$VRTM_MODE" == "VM" ]
+	then
+		echo "Installing vrtmProxy and vrtmListener..."
+		installvrtmProxyAndListner
+		touch "$LOG_DIR"/vrtm_proxy.log
+        	chmod 766 "$LOG_DIR"/vrtm_proxy.log
+	fi
  
 	startNonTPMRpCore
 
