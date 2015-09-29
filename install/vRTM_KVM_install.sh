@@ -92,36 +92,46 @@ function untarResources()
 function installKVMPackages_rhel()
 {
         echo "Installing Required Packages ....."
-        yum install -y "kernel-devel-uname-r == $(uname -r)"
-        if [ $FLAVOUR == "rhel" ]; then
-          yum install -y yum-utils
-          yum-config-manager --enable rhel-6-server-optional-rpms
-        fi
-        yum install -y libguestfs-tools-c
-        #Libs required for compiling libvirt
-        yum install -y openssh-server
-	yum install -y tar procps binutils
+        yum install -y libguestfs-tools-c tar procps binutils
+	if [ $? -ne 0 ]; then
+                echo "Failed to install pre-requisite packages"
+                exit -1
+        else
+                echo "Pre-requisite packages installed successfully"
+	fi
 	selinuxenabled
 	if [ $? -eq 0 ] ; then
 		yum install -y policycoreutils-python
+		if [ $? -ne 0 ]; then
+                	echo "Failed to install pre-requisite packages"
+                	exit -1
+        	else
+                	echo "Pre-requisite packages installed successfully"
+		fi
 	fi
-
 }
 
 function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
-	apt-get -y install libvirt-bin qemu-kvm libguestfs-tools openssh-server
-	echo "Starting ntp service ....."
-	service ntp start
+	apt-get -y install libguestfs-tools 
+	if [ $? -ne 0 ]; then
+                echo "Failed to install pre-requisite packages"
+                exit -1
+        else
+                echo "Pre-requisite packages installed successfully"
+        fi
 }
 
 function installKVMPackages_suse()
 {
-	zypper addrepo -f obs://Cloud:OpenStack:Icehouse/openSUSE_13.1 Icehouse
-	zypper -n refresh
-        zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp wget
-        zypper -n in openssh dos2unix
+        zypper -n in libguestfs-tools-c wget
+	if [ $? -ne 0 ]; then
+                echo "Failed to install pre-requisite packages"
+                exit -1
+        else
+                echo "Pre-requisite packages installed successfully"
+        fi
 }
 
 function installKVMPackages()
@@ -382,7 +392,6 @@ function validate()
 	# Validate the following 
 	# qemu-kvm is libvirt 1.2.2 is installed
 	# nova-compute is installed
-	# checks for xenbr0 interface
 
 	# Validate qemu-kmv installation	
 	if [ ! -e $QEMU_INSTALL_LOCATION ] ; then
@@ -534,7 +543,7 @@ elif [ "$1" == "--with-libvirt" ] ; then
 	BUILD_LIBVIRT="TRUE"
 	main_default
 else
-	echo "Installing vrtmCore components and applies patch for Openstack compute"
+	echo "Installing vrtmCore components"
 	main_default
 fi
 
