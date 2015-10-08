@@ -107,29 +107,34 @@ int LoadConfig(const char * configFile)
 	while(true)
 	{
 		line = (char *) calloc(1,sizeof(char) * 512);
-		if(line == NULL)
-			continue;
-		fgets(line,line_size,fp);
-		if(feof(fp)) {
+		if(line != NULL) {
+			fgets(line,line_size,fp);
+			if(feof(fp)) {
+				free(line);
+				break;
+			}
+			LOG_TRACE("Line read from config file: %s", line);
+			if( line[0] == '#' ) {
+				LOG_DEBUG("Comment in configuration file : %s", &line[1]);
+				free(line);
+				continue;
+			}
+			key=strtok(line,"=");
+			value=strtok(NULL,"=");
+			if(key != NULL && value != NULL) {
+				std::string map_key (key);
+				std::string map_value (value);
+				LOG_TRACE("Parsed Key=%s and Value=%s", map_key.c_str(), map_value.c_str());
+				std::pair<std::string, std::string> config_pair (trim_copy(map_key," \t\n"),trim_copy(map_value," \t\n"));
+				config_map.insert(config_pair);
+			}
 			free(line);
-			break;
 		}
-        LOG_TRACE("Line read from config file: %s", line);
-        if( line[0] == '#' ) {
-        	LOG_DEBUG("Comment in configuration file : %s", &line[1]);
-        	free(line);
-        	continue;
-        }
-		key=strtok(line,"=");
-		value=strtok(NULL,"=");
-		if(key != NULL && value != NULL) {
-			std::string map_key (key);
-			std::string map_value (value);
-        	LOG_TRACE("Parsed Key=%s and Value=%s", map_key.c_str(), map_value.c_str());
-			std::pair<std::string, std::string> config_pair (trim_copy(map_key," \t\n"),trim_copy(map_value," \t\n"));
-			config_map.insert(config_pair);
+		else {
+			LOG_ERROR("Can't allocate memory to read a line");
+			config_map.clear();
+			return -1;
 		}
-		free(line);
 	}
 	fclose(fp);
 	return config_map.size();

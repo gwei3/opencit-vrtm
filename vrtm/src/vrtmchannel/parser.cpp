@@ -147,8 +147,10 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 	LOG_DEBUG("XML to be parsed : %s", buf);
 	if (strlen((char *)buf) == 0) {
 		method = (char *)calloc(1,sizeof(char));
-		//method[0] = '\0';
-		*psz = method;
+		if(method != NULL) {
+			method[0] = '\0';
+			*psz = method;
+		}
 		*pnargs = arg_count;
 		status = *pnargs;
 		return status;
@@ -156,8 +158,10 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 	doc = xmlParseMemory((char*)buf, strlen((char*)buf));
 	if(doc == NULL) {
 		method = (char *)calloc(1,sizeof(char));
-		//method[0] = '\0';
-		*psz = method;
+		if(method != NULL) {
+			method[0] = '\0';
+			*psz = method;
+		}
 		*pnargs = arg_count;
 		status = *pnargs;
 		return status;
@@ -205,7 +209,7 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 	xmlFreeDoc (doc);
 	//xmlCleanupParser();
 	xmlMemoryDump();
-	*psz = method;
+	if(method != NULL)	*psz = method;
 	*pnargs = arg_count;
 	status = *pnargs;
 

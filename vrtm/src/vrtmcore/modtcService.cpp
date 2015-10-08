@@ -153,8 +153,7 @@ bool serviceprocTable::removeprocEntry(int procid)
 		table_it->second.m_szexeFile = NULL;
 	}
 	char file_to_del[1024] = {'\0'};
-	snprintf(file_to_del, sizeof(file_to_del) - 1, "rm -rf %s", table_it->second.m_vm_manifest_dir);
-	file_to_del[sizeof(file_to_del) - 1] = '\0';
+	snprintf(file_to_del, sizeof(file_to_del), "rm -rf %s", table_it->second.m_vm_manifest_dir);
 	system(file_to_del);
 	proc_table.erase(table_it);
 	pthread_mutex_unlock(&loc_proc_table);
@@ -460,7 +459,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	// Generate Signed  XML  in same vm_manifest_dir
 	//sprintf(manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
 	snprintf(filepath, sizeof(filepath), "%ssigned_report.xml",manifest_dir);
-	filepath[ sizeof(filepath) -1 ] = '\0';
 
 	fp1 = fopen(filepath,"w");
 	if (fp1 == NULL) {
@@ -480,7 +478,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 
 	sprintf(xmlstr,"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
-	snprintf(tempfile,sizeof(tempfile) - 1, "%sus_xml.xml",manifest_dir);
+	snprintf(tempfile,sizeof(tempfile), "%sus_xml.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
 	if (fp == NULL) {
 		LOG_ERROR("can't open the file us_xml.xml");
@@ -507,7 +505,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	// Calculate the Signature Value
 
 
-	snprintf(tempfile, sizeof(tempfile) - 1, "%sus_can.xml",manifest_dir);
+	snprintf(tempfile, sizeof(tempfile), "%sus_can.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
 	if (fp == NULL) {
 		LOG_ERROR("can't open the file us_can.xml");
@@ -540,7 +538,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	LOG_DEBUG("TPM signing key password :%s \n", command0);
 	system(command0); 
 					   
-	snprintf(tempfile, sizeof(tempfile) - 1, "%ssign_key_passwd",manifest_dir);
+	snprintf(tempfile, sizeof(tempfile), "%ssign_key_passwd",manifest_dir);
 	fp = fopen(tempfile,"r");
 	if ( fp == NULL) {
 		LOG_ERROR("can't open the file sign_key_passwd");
@@ -797,8 +795,8 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char    ramdisk_file[1024] = {0};
     char    disk_file[1024] = {0};
     char    manifest_file[1024] = {0};
-    char    nohash_manifest_file[2048] = {0};
-    char    cumulativehash_file[2048] = {0};
+    char    nohash_manifest_file[1024] = {0};
+    char    cumulativehash_file[1024] = {0};
     char*   config_file = NULL;
     char *  vm_image_id = NULL;
     char*   vm_customer_id = NULL;
@@ -869,7 +867,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         		LOG_DEBUG( "Manifest file : %s\n", manifest_file);
 		        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
         		LOG_DEBUG( "Manifest list path %s\n", nohash_manifest_file);
-        		strcpy(vm_manifest_dir, nohash_manifest_file);
+        		strncpy(vm_manifest_dir, nohash_manifest_file, sizeof(vm_manifest_dir) - 1);
         		//Extract UUID of VM
         		char *uuid_ptr = strrchr(vm_manifest_dir, '/');
         		strcpy(vm_uuid, uuid_ptr + 1);
@@ -884,13 +882,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				strcat(trust_report_dir, vm_uuid);
 				strcat(trust_report_dir, "/");
 				mkdir(trust_report_dir, 0766);
-				char cmd[2048];
-				snprintf(cmd, sizeof(cmd) - 1, "cp -p %s %s/",manifest_file, trust_report_dir );
-				cmd[sizeof(cmd) -1 ] = '\0';
-				system(cmd);
-				memset(cmd,0, 2048);
-				sprintf(cmd, "cp -p %s %s/", nohash_manifest_file, trust_report_dir);
-				system(cmd);
+				//char cmd[2304];
+				snprintf(command, sizeof(command), "cp -p %s %s/",manifest_file, trust_report_dir );
+				system(command);
+				memset(command,0, sizeof(command));
+				snprintf(command, sizeof(command), "cp -p %s %s/", nohash_manifest_file, trust_report_dir);
+				system(command);
         		strcpy(vm_manifest_dir, trust_report_dir);
         		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
 				snprintf(manifest_file, sizeof(manifest_file) - 1, "%s%s", trust_report_dir, "/trustpolicy.xml");
@@ -900,8 +897,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
 				
 				//Read the digest algorithm from manifestlist.xml
-				snprintf(popen_command, sizeof(popen_command) - 1, "%s%s",xml_command,nohash_manifest_file);
-				popen_command[ sizeof(popen_command) -1 ] = '\0';
+				snprintf(popen_command, sizeof(popen_command), "%s%s",xml_command,nohash_manifest_file);
 				fp1=popen(popen_command,"r");
 				if (fp1 != NULL) {
 					fgets(extension, sizeof(extension)-1, fp1);
@@ -954,7 +950,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			if (strcmp(launchPolicy, "Audit") != 0 && strcmp(launchPolicy, "Enforce") !=0) {
 				LOG_INFO("Launch policy is neither Audit nor Enforce so vm verification is not not carried out");
 				char remove_file[2048] = {'\0'};
-				snprintf(remove_file, sizeof(remove_file) - 1, "rm -rf %s", vm_manifest_dir);
+				snprintf(remove_file, sizeof(remove_file), "rm -rf %s", vm_manifest_dir);
 				system(remove_file);
 				start_app_status = 0;
 				goto return_response;
@@ -974,8 +970,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 * call mount script to mount the VM disk as :
 			 * ../scripts/mount_vm_image.sh <disk> <mount_path>
 			 */
-			snprintf(command, sizeof(command) - 1, mount_script " %s %s > %s/%s 2>&1", disk_file, mount_path, vm_manifest_dir, ma_log);
-			command[sizeof(command) - 1] = '\0';
+			snprintf(command, sizeof(command), mount_script " %s %s > %s/%s 2>&1", disk_file, mount_path, vm_manifest_dir, ma_log);
 			LOG_DEBUG("Command to mount the image : %s", command);
 			i = system(command);
 			LOG_DEBUG("system call to mount image exit status : %d", i);
@@ -989,8 +984,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 * call MA to measure the VM as :
 			 * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
 			 */
-			snprintf(command, sizeof(command) - 1, "./verifier %s %s/mount/ IMVM >> %s/%s 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log);
-			command[sizeof(command) - 1] = '\0';
+			snprintf(command, sizeof(command), "./verifier %s %s/mount/ IMVM >> %s/%s 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log);
 			LOG_DEBUG("Command to launch MA : %s", command);
 			i = system(command);
 			LOG_DEBUG("system call to verifier exit status : %d", i);
@@ -1004,8 +998,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 * unmount image by calling mount script with UN_MOUNT mode after the measurement as :
 			 * ../scripts/mount_vm_image.sh MOUNT_PATH
 			 */
-			snprintf(command, sizeof(command) - 1, mount_script " %s/mount >> %s/%s 2>&1", mount_path, vm_manifest_dir, ma_log);
-			command[sizeof(command) - 1] = '\0';
+			snprintf(command, sizeof(command), mount_script " %s/mount >> %s/%s 2>&1", mount_path, vm_manifest_dir, ma_log);
 			LOG_DEBUG("Command to unmount the image : %s", command);
 			i = system(command);
 			LOG_DEBUG("system call for unmounting exit status : %d", i);
@@ -1065,7 +1058,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				int len = strlen(imageHash);
 				int iSize = 0;
 				for (c= 0; c < len; c = c+2) {
-					sscanf(&imageHash[c], "%02x", (int *)&rgHash[c/2]);
+					sscanf(&imageHash[c], "%02x", (unsigned int *)&rgHash[c/2]);
 					iSize++;
 				}
 				LOG_TRACE("Adding proc table entry for measured VM");
@@ -1116,7 +1109,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     	if (start_app_status) {
 			//TODO write a remove directory function using dirint.h header file
 			char remove_file[2048] = {'\0'};
-			snprintf(remove_file, sizeof(remove_file) - 1, "rm -rf %s", vm_manifest_dir);
+			snprintf(remove_file, sizeof(remove_file), "rm -rf %s", vm_manifest_dir);
 			system(remove_file);
 			*poutsize = sizeof(int);
 			*((int*)out) = -1;

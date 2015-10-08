@@ -253,8 +253,11 @@ void* handle_session(void* p) {
 	int sz_data = 0;
 	int err = -1;
 	int domid = -1;
-	//int fd1 = ps->fd;
-	int fd1 = *(int *)p;
+	int fd1 = -1;
+	if ( p!= NULL) {
+		fd1 = *(int *)p;
+		free(p);
+	}
 	LOG_TRACE("Entered handle_session() with fd as %d",fd1);
 	//fprintf(g_logFile, "handle_session(): Client connection from domid %d\n", domid);
 	
@@ -402,6 +405,9 @@ void* dom_listener_main ( void* p)
 			*thread_fd=newfd;
         	LOG_DEBUG("Creating separate thread to handle session");
 			pthread_create(&tid, &attr, handle_session, (void*)thread_fd);
+		}
+		else {
+			LOG_ERROR("Couldn't allocate memory for fd of this request");
 		}
     }
     close(fd);
