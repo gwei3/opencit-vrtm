@@ -107,6 +107,8 @@ int LoadConfig(const char * configFile)
 	while(true)
 	{
 		line = (char *) calloc(1,sizeof(char) * 512);
+		if(line == NULL)
+			continue;
 		fgets(line,line_size,fp);
 		if(feof(fp)) {
 			free(line);
@@ -120,14 +122,16 @@ int LoadConfig(const char * configFile)
         }
 		key=strtok(line,"=");
 		value=strtok(NULL,"=");
-		std::string map_key (key);
-		std::string map_value (value);
-        LOG_TRACE("Parsed Key=%s and Value=%s", map_key.c_str(), map_value.c_str());
-
-		std::pair<std::string, std::string> config_pair (trim_copy(map_key," \t\n"),trim_copy(map_value," \t\n"));
-		config_map.insert(config_pair);
+		if(key != NULL && value != NULL) {
+			std::string map_key (key);
+			std::string map_value (value);
+        	LOG_TRACE("Parsed Key=%s and Value=%s", map_key.c_str(), map_value.c_str());
+			std::pair<std::string, std::string> config_pair (trim_copy(map_key," \t\n"),trim_copy(map_value," \t\n"));
+			config_map.insert(config_pair);
+		}
 		free(line);
 	}
+	fclose(fp);
 	return config_map.size();
 }
 
@@ -212,8 +216,8 @@ int read_config()
 	else if( info.st_mode & S_IFDIR ){ // S_ISDIR() doesn't exist on my windows
 		LOG_DEBUG( "%s is a directory and already exists", g_trust_report_dir );
 		LOG_INFO("%s will be cleaned", g_trust_report_dir);
-		char command[512];
-		sprintf(command,"rm -rf %s/*", g_trust_report_dir);
+		char command[512] = {'\0'};
+		snprintf(command, sizeof(command), "rm -rf %s/*", g_trust_report_dir);
 		if (system(command) == 0 ) {
 			LOG_INFO("Trust report directory %s, cleaned successfully", g_trust_report_dir);
 		}

@@ -34,28 +34,33 @@ int Base64Decode(char* b64message, char** buffer) {
 	int decodeLen = calcDecodeLength(b64message), len = 0;
 	LOG_DEBUG("Possible Message length after decoding : %d", decodeLen);
 	*buffer = (char*) malloc(decodeLen + 1);
-	if(decodeLen == 0 ) {
-		*buffer[0] = '\0';
-		return 0;
+	if ( buffer != NULL ) {
+		if(decodeLen == 0 ) {
+			*buffer[0] = '\0';
+			return 0;
+		}
+		FILE* stream = fmemopen(b64message, strlen(b64message), "r");
+
+		b64 = BIO_new(BIO_f_base64());
+		bio = BIO_new_fp(stream, BIO_NOCLOSE);
+		bio = BIO_push(b64, bio);
+		BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL); //Do not use newlines to flush buffer
+		len = BIO_read(bio, *buffer, strlen(b64message));
+		if(len != decodeLen) {
+			free(*buffer);
+			LOG_DEBUG("Anticiipated decode len and actual decode len doesn't match");
+			return 1;//error
+		}
+		(*buffer)[len] = '\0';
+
+		BIO_free_all(bio);
+		fclose(stream);
+
+		return (0); //success
 	}
-	FILE* stream = fmemopen(b64message, strlen(b64message), "r");
-
-	b64 = BIO_new(BIO_f_base64());
-	bio = BIO_new_fp(stream, BIO_NOCLOSE);
-	bio = BIO_push(b64, bio);
-	BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL); //Do not use newlines to flush buffer
-	len = BIO_read(bio, *buffer, strlen(b64message));
-	if(len != decodeLen) {
-		free(*buffer);
-		LOG_DEBUG("Anticiipated decode len and actual decode len doesn't match");
-		return 1;//error
+	else {
+		return 1;
 	}
-	(*buffer)[len] = '\0';
-
-	BIO_free_all(bio);
-	fclose(stream);
-
-	return (0); //success
 }
 
 int Base64Encode(char* message, char** buffer) {

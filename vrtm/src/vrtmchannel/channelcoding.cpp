@@ -57,7 +57,7 @@ static void ascii2bin(const char* szMsg, int *iSize, byte* pbData)
 	*iSize = 0;
     for (i= 0; i < len; i = i+2) {
 	
-			sscanf(&szMsg[i], "%02x", &pbData[i/2]);
+			sscanf(&szMsg[i], "%02x", (int *)&pbData[i/2]);
 			(*iSize)++;
     }
     

@@ -159,7 +159,7 @@ int list_elements_from_object(xmlNodeSetPtr nodes, char** elements_buf, int elem
 	size = (nodes) ? nodes->nodeNr : 0;
 	LOG_DEBUG("Total number of element with given xpath : %d", size);
 	//return the possible number of elements with matching xpath
-	if (elements_buf == NULL && elements_buf_size == 0) {
+	if (elements_buf == NULL || elements_buf_size == 0) {
 		return size;
 	}
 	for( i = 0 ; i < size && i < elements_buf_size ; i++ ) {
