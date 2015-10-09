@@ -133,6 +133,7 @@ int LoadConfig(const char * configFile)
 		else {
 			LOG_ERROR("Can't allocate memory to read a line");
 			config_map.clear();
+			fclose(fp);
 			return -1;
 		}
 	}

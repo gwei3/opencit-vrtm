@@ -893,7 +893,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				snprintf(manifest_file, sizeof(manifest_file) - 1, "%s%s", trust_report_dir, "/trustpolicy.xml");
 				manifest_file[ sizeof(manifest_file) - 1] = '\0';
 				LOG_DEBUG("Manifest path %s ", manifest_file);
-				sprintf(nohash_manifest_file, "%s%s", trust_report_dir, "/manifestlist.xml");
+				snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", trust_report_dir, "/manifestlist.xml");
 				LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
 				
 				//Read the digest algorithm from manifestlist.xml
@@ -908,7 +908,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 					LOG_DEBUG("Extension : %s",extension);
 
 					strcpy(cumulativehash_file, trust_report_dir);
-					sprintf(cumulativehash_file, "%s%s", cumulativehash_file, measurement_file);
+					//sprintf(cumulativehash_file, "%s%s", cumulativehash_file, measurement_file);
+					strncat(cumulativehash_file, measurement_file, sizeof(cumulativehash_file) - strlen(cumulativehash_file) - 1);
+					cumulativehash_file[ sizeof(cumulativehash_file) - 1] = '\0';
 					LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
 				}
 				else {
