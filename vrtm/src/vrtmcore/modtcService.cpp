@@ -62,6 +62,7 @@ byte                    g_servicehash[32]= {
                         };
 #define mount_script "../scripts/mount_vm_image.sh"
 #define ma_log "/measurement.log"
+#define stripped_manifest_file "manifest.xml"
 uint32_t	g_rpdomid = 1000;
 static int g_cleanup_service_status = 0;
 
@@ -1034,7 +1035,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         		LOG_TRACE("Extracted UUID : %s", vm_uuid);
 
         		//sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
-        		strncat(nohash_manifest_file, "/manifestlist.xml", sizeof(nohash_manifest_file) - strlen(nohash_manifest_file) - 1);
+        		strncat(nohash_manifest_file, "/" stripped_manifest_file, sizeof(nohash_manifest_file) - strlen(nohash_manifest_file) - 1);
         		nohash_manifest_file[ sizeof(nohash_manifest_file) - 1] = '\0';
         		//Create Trust Report directory and copy relevant files
 				char trust_report_dir[1024];
@@ -1053,7 +1054,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				snprintf(manifest_file, sizeof(manifest_file) - 1, "%s%s", trust_report_dir, "/trustpolicy.xml");
 				manifest_file[ sizeof(manifest_file) - 1] = '\0';
 				LOG_DEBUG("Manifest path %s ", manifest_file);
-				snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", trust_report_dir, "/manifestlist.xml");
+				snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s/%s", trust_report_dir, stripped_manifest_file);
 				LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
 				
 				//Read the digest algorithm from manifestlist.xml
