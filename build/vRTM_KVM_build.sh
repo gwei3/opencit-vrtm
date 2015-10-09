@@ -154,7 +154,6 @@ function buildvrtmcore()
     cd "$BUILD_DIR"
 }
 
-r
 
 function install_kvm_packages_rhel()
 {
@@ -174,7 +173,7 @@ function install_kvm_packages_rhel()
 function install_kvm_packages_ubuntu()
 {
 	echo "Installing Required Packages for ubuntu ....."
-	apt-get -y install gcc build-essential make libxml2-dev libssl-dev libvirt-dev
+	sudo -n apt-get install -y gcc build-essential make libxml2-dev libssl-dev libvirt-dev
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
@@ -224,7 +223,7 @@ function makeUnixExecutable()
 function log4cpp_inst_ubuntu()
 {
         echo "Installing log4cpp devel for Ubuntu..."
-        apt-get -y install liblog4cpp5-dev
+        sudo -n apt-get install -y liblog4cpp5-dev
         if [ `echo $?` -ne 0 ]
         then
                 echo "Failed to install log4cpp devel..."
