@@ -231,7 +231,7 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 	LOG_DEBUG("Response tcbuffer Attributes API Request No. : %d payload size : %d response status : %d",
 			send_tc_buff->m_reqID, send_tc_buff->m_reqSize, send_tc_buff->m_ustatus);
 	int res_buf_size = tcBuffer_size + outparams_size;
-	memcpy(&buf[tcBuffer_size], outparams, outparams_size-1);
+	memcpy(&buf[tcBuffer_size], outparams, PARAMSIZE - tcBuffer_size - 1);
 	free(outparams);
 	int data_send_size = -1;
         LOG_TRACE("Sending response");
