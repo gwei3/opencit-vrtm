@@ -60,7 +60,7 @@
 //tcChannel   g_reqChannel;
 //#if 1
 
-extern char g_rpcore_ip [64];
+extern char g_vrtmcore_ip [64];
 int g_ifc_status = 0; 
 
 #define IFC_UNKNOWN		0
@@ -319,8 +319,8 @@ void* dom_listener_main ( void* p)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; // fill in my IP for me
 
-    sprintf(vrtm_port,"%d", g_rpcore_port);
-	getaddrinfo(g_rpcore_ip, vrtm_port, &hints, &vrtm_addr);
+    sprintf(vrtm_port,"%d", g_vrtmcore_port);
+	getaddrinfo(g_vrtmcore_ip, vrtm_port, &hints, &vrtm_addr);
 	LOG_DEBUG("Socket type : %d, Socket address : %s, Protocol : %d ", vrtm_addr->ai_family, vrtm_addr->ai_addr->sa_data, vrtm_addr->ai_protocol);
 
     LOG_TRACE("Create socket for vRTM core");	
@@ -335,12 +335,12 @@ void* dom_listener_main ( void* p)
     /*memset((void*) &server_addr, 0, sizeof(struct sockaddr_in));
     server_addr.sin_family= AF_INET;
     server_addr.sin_addr.s_addr= htonl(INADDR_ANY);     // 127.0.0.1*/
-	//ip_env = getenv("RPCORE_IPADDR");
+	//ip_env = getenv("VRTMCORE_IPADDR");
     //if (ip_env)
-	//	strncpy(g_rpcore_ip, ip_env, 64);
+	//	strncpy(g_vrtmcore_ip, ip_env, 64);
 
-    //inet_aton(g_rpcore_ip, &server_addr.sin_addr);
-    //server_addr.sin_port= htons(g_rpcore_port);
+    //inet_aton(g_vrtmcore_ip, &server_addr.sin_addr);
+    //server_addr.sin_port= htons(g_vrtmcore_port);
 
     //iError= bind(fd,(const struct sockaddr *) &server_addr, slen);
 	iError= bind(fd,vrtm_addr->ai_addr, vrtm_addr->ai_addrlen);

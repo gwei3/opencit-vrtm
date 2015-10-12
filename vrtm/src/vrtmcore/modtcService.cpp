@@ -52,7 +52,7 @@
 
 tcServiceInterface      g_myService;
 int                     g_servicepid= 0;
-extern bool				g_fterminateLoop;
+//extern bool			g_fterminateLoop;
 u32                     g_fservicehashValid= false;
 u32                     g_servicehashType= 0;
 int                     g_servicehashSize= 0;
@@ -60,7 +60,7 @@ byte                    g_servicehash[32]= {
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                         };
-#define mount_script "../scripts/mount_vm_image.sh"
+#define mount_script_path "scripts/mount_vm_image.sh"
 #define ma_log "/measurement.log"
 uint32_t	g_rpdomid = 1000;
 static int g_cleanup_service_status = 0;
@@ -780,7 +780,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char*   vm_manifest_signature = NULL;
     char    vm_manifest_dir[2048] ={0};
     bool 	verification_status = false;
-    char	vm_uuid[UUID_SIZE];
+    char	vm_uuid[UUID_SIZE] = {0};
     int 	start_app_status = 0;
     char 	command[512]={0};
 	FILE*   fp1=NULL;
@@ -789,6 +789,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
 	char    measurement_file[2048]={0};
 	char 	mount_path[128];
+	char	mount_script[128];
 	int 	instance_type = INSTANCE_TYPE_VM;
 
     LOG_TRACE("Start VM App");
@@ -816,70 +817,81 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
             LOG_DEBUG("config file : %s",config_file);
         }
 
+        if( av[i] && strcmp(av[i], "-uuid") == 0 ){
+        	strcpy(vm_uuid, av[++i]);
+        	LOG_DEBUG("uuid : %s",vm_uuid);
+        }
+
         if( av[i] && strcmp(av[i], "-disk") == 0 ){
         	strcpy(disk_file, av[++i]);
             LOG_DEBUG("Disk : %s",disk_file );
         }
+
         if( av[i] && strcmp(av[i], "-manifest") == 0 ){
-                        strcpy(manifest_file, av[++i]);
-			//Create path for just list of files to be passes to verifier
-        		LOG_DEBUG( "Manifest file : %s\n", manifest_file);
-		        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
-        		LOG_DEBUG( "Manifest list path %s\n", nohash_manifest_file);
-        		strcpy(vm_manifest_dir, nohash_manifest_file);
-        		//Extract UUID of VM
-        		char *uuid_ptr = strrchr(vm_manifest_dir, '/');
-        		strcpy(vm_uuid, uuid_ptr + 1);
-        		LOG_TRACE("Extracted UUID : %s", vm_uuid);
-
-        		sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
-        		//Create Trust Report directory and copy relevant files
-				char trust_report_dir[1024];
-				strcpy(trust_report_dir, g_trust_report_dir);
-				strcat(trust_report_dir, vm_uuid);
-				strcat(trust_report_dir, "/");
-				mkdir(trust_report_dir, 0766);
-				char cmd[2048];
-				sprintf(cmd,"cp -p %s %s/",manifest_file, trust_report_dir );
-				system(cmd);
-				memset(cmd,0, 2048);
-				sprintf(cmd, "cp -p %s %s/", nohash_manifest_file, trust_report_dir);
-				system(cmd);
-        		strcpy(vm_manifest_dir, trust_report_dir);
-        		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
-				sprintf(manifest_file,"%s%s", trust_report_dir, "/trustpolicy.xml");
-				LOG_DEBUG("Manifest path %s ", manifest_file);
-				sprintf(nohash_manifest_file, "%s%s", trust_report_dir, "/manifestlist.xml");
-				LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
-				
-				//Read the digest algorithm from manifestlist.xml
-				sprintf(popen_command,"%s%s",xml_command,nohash_manifest_file);
-				fp1=popen(popen_command,"r");
-				fgets(extension, sizeof(extension)-1, fp1);
-				sprintf(measurement_file,"%s.%s","/measurement",extension);
-				pclose(fp1);
-				if(measurement_file[strlen(measurement_file) - 1] == '\n') 
-					measurement_file[strlen(measurement_file) - 1] = '\0';
-				LOG_DEBUG("Extension : %s",extension);
-				
-				strcpy(cumulativehash_file, trust_report_dir);
-        		sprintf(cumulativehash_file, "%s%s", cumulativehash_file, measurement_file);
-        		LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
+            strcpy(manifest_file, av[++i]);
+            LOG_DEBUG( "Manifest file : %s", manifest_file);
         }
-        if (av[i] && strcmp(av[i], "-docker_instance") == 0) {
+
+        if ( av[i] && strcmp(av[i], "-docker_instance") == 0) {
         	instance_type = INSTANCE_TYPE_DOCKER;
+        	LOG_DEBUG("Instance type : Docker instance, %d", instance_type);
         }
 
-        if (av[i] && strcmp(av[i], "-mount_path") == 0) {
+        if ( av[i] && strcmp(av[i], "-mount_path") == 0) {
         	strcpy(mount_path, av[++i]);
         	LOG_DEBUG("Mounted image path : %s", mount_path);
         }
     }
 
-       //create domain process shall check the whitelist
+	if(manifest_file[0] == 0 || vm_uuid[0] == 0) {
+		LOG_ERROR("Either manifest file or uuid is not present");
+		return TCSERVICE_RESULT_FAILED;
+	}
+
+
+        //Create path for just list of files to be passes to verifier
+		strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
+		sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
+		LOG_DEBUG( "Manifest list path %s\n", nohash_manifest_file);
+
+		//Create Trust Report directory and copy relevant files
+		char trust_report_dir[1024];
+		strcpy(trust_report_dir, g_trust_report_dir);
+		strcat(trust_report_dir, vm_uuid);
+		strcat(trust_report_dir, "/");
+		mkdir(trust_report_dir, 0766);
+		char cmd[2048];
+		sprintf(cmd,"cp -p %s %s/",manifest_file, trust_report_dir );
+		system(cmd);
+		memset(cmd,0, 2048);
+		sprintf(cmd, "cp -p %s %s/", nohash_manifest_file, trust_report_dir);
+		system(cmd);
+		strcpy(vm_manifest_dir, trust_report_dir);
+		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
+		sprintf(manifest_file,"%s%s", trust_report_dir, "/trustpolicy.xml");
+		LOG_DEBUG("Manifest path %s ", manifest_file);
+		sprintf(nohash_manifest_file, "%s%s", trust_report_dir, "/manifestlist.xml");
+		LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
+
+		//Read the digest algorithm from manifestlist.xml
+		sprintf(popen_command,"%s%s",xml_command,nohash_manifest_file);
+		fp1=popen(popen_command,"r");
+		fgets(extension, sizeof(extension)-1, fp1);
+		sprintf(measurement_file,"%s.%s","/measurement",extension);
+		pclose(fp1);
+		if(measurement_file[strlen(measurement_file) - 1] == '\n')
+			measurement_file[strlen(measurement_file) - 1] = '\0';
+		LOG_DEBUG("Extension : %s",extension);
+
+		strcpy(cumulativehash_file, trust_report_dir);
+		sprintf(cumulativehash_file, "%s%s", cumulativehash_file, measurement_file);
+		LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
+
+
+      	//create domain process shall check the whitelist
 		child = procid;
 
-//	char * nohash_manifest_file ="/root/nohash_manifest.xml"; // Need to be passed by policy agent
+	    //char * nohash_manifest_file ="/root/nohash_manifest.xml"; // Need to be passed by policy agent
         char launchPolicy[10] = {'\0'};
         char goldenImageHash[65] = {'\0'};
         FILE *fq ;
@@ -909,10 +921,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     	xpath_map.insert(std::pair<xmlChar*, char *>(xpath_image_signature, vm_manifest_signature));
 
     	if (TCSERVICE_RESULT_FAILED == get_xpath_values(xpath_map, namespace_list, manifest_file)) {
-    		//TODO write a remove directory function using dirint.h header file
-    		char remove_file[1024] = { '\0' };
-    		sprintf(remove_file, "rm -rf %s", vm_manifest_dir);
-    		system(remove_file);
+    		LOG_ERROR("Function get_xpath_values failed");
     		start_app_status = 1;
     		goto return_response;
 		}
@@ -943,11 +952,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				start_app_status = 1;
 				goto return_response;
 			}
+			sprintf(mount_script, "%s" mount_script_path, g_vrtm_root);
 			/*
 			 * call mount script to mount the VM disk as :
 			 * ../scripts/mount_vm_image.sh <disk> <mount_path>
 			 */
-			sprintf(command, mount_script " %s %s > %s/%s 2>&1", disk_file, mount_path, vm_manifest_dir, ma_log);
+			sprintf(command,"%s %s %s > %s/%s 2>&1", mount_script, disk_file, mount_path, vm_manifest_dir, ma_log);
 			LOG_DEBUG("Command to mount the image : %s", command);
 			i = system(command);
 			LOG_DEBUG("system call to mount image exit status : %d", i);
@@ -975,7 +985,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 * unmount image by calling mount script with UN_MOUNT mode after the measurement as :
 			 * ../scripts/mount_vm_image.sh MOUNT_PATH
 			 */
-			sprintf(command, mount_script " %s/mount >> %s/%s 2>&1", mount_path, vm_manifest_dir, ma_log);
+			sprintf(command,"%s %s/mount >> %s/%s 2>&1", mount_script, mount_path, vm_manifest_dir, ma_log);
 			LOG_DEBUG("Command to unmount the image : %s", command);
 			i = system(command);
 			LOG_DEBUG("system call for unmounting exit status : %d", i);

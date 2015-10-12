@@ -48,9 +48,10 @@
 #define    g_config_file "../configuration/vRTM.cfg"
 #define	   log_properties_file "../configuration/vrtm_log.properties"
 
-char    g_rpcore_ip [64]        = "127.0.0.1";
-int     g_rpcore_port 		= 16005;
+char    g_vrtmcore_ip [64]        = "127.0.0.1";
+int     g_vrtmcore_port 		= 16005;
 int     g_max_thread_limit 	= 64;
+char    g_vrtm_root[64] = "../";
 char 	g_trust_report_dir[512]  = "/var/lib/nova/trustreports/";
 char* 	g_mount_path = "/mnt/vrtm/";
 long 	g_entry_cleanup_interval = 30;
@@ -137,20 +138,20 @@ int read_config()
 	struct stat info;
 	int count=0;
 	int ret_val;
-	std::string rpcore_ip, rpcore_port, max_thread_limit, trust_report_dir;
+	std::string vrtmcore_ip, vrtmcore_port, max_thread_limit, vrtm_root, trust_report_dir;
 	std::string entry_cleanup_interval, delete_vm_max_age, cancelled_vm_max_age, stopped_vm_max_age;
 
 	LOG_TRACE("Setting vRTM configuration");
-	rpcore_ip = config_map["rpcore_ip"];
-	if(rpcore_ip == ""){
-		rpcore_ip = "127.0.0.1";
-		LOG_WARN("vRTM IP is not found in vRTM.cfg. Using default IP %s", rpcore_ip.c_str());
+	vrtmcore_ip = config_map["vrtmcore_ip"];
+	if(vrtmcore_ip == ""){
+		vrtmcore_ip = "127.0.0.1";
+		LOG_WARN("vRTM IP is not found in vRTM.cfg. Using default IP %s", vrtmcore_ip.c_str());
 	}
 	count++;
-	rpcore_port = config_map["rpcore_port"];
-	if(rpcore_port == ""){
-		rpcore_port = "16005";
-		LOG_WARN("vRTM Port No. is not found in vRTM.cfg. Using default Port %s", rpcore_port.c_str());
+	vrtmcore_port = config_map["vrtmcore_port"];
+	if(vrtmcore_port == ""){
+		vrtmcore_port = "16005";
+		LOG_WARN("vRTM Port No. is not found in vRTM.cfg. Using default Port %s", vrtmcore_port.c_str());
 	}
 	count++;
 	max_thread_limit = config_map["max_thread_limit"];
@@ -159,9 +160,15 @@ int read_config()
 		LOG_WARN("Thread Limit for vRTM is not found in vRTM.cfg. Using default limit %s", max_thread_limit.c_str());
 	}
 	count++;
+	vrtm_root = config_map["vrtm_root"];
+	if (vrtm_root == "") {
+		vrtm_root = "../";
+		LOG_WARN("Vrtm Root is not found in vRTM.cfg. Using default location %s", vrtm_root.c_str());
+	}
+	count++;
 	trust_report_dir = config_map["trust_report_dir"];
 	if (trust_report_dir == "") {
-		trust_report_dir = "/var/lib/nova/trust_report_dir/";
+		trust_report_dir = "/var/lib/nova/trustreports/";
 		LOG_WARN("Trust Report directory is not found in vRTM.cfg. Using default location %s", trust_report_dir.c_str());
 	}
 	count++;
@@ -185,12 +192,15 @@ int read_config()
 		LOG_WARN("Stopped VM cleanup interval not found in vRTM.cfg. Using default value : %d", g_stopped_vm_max_age);
 	}
 	count++;*/
-	strcpy(g_rpcore_ip,rpcore_ip.c_str());
-	LOG_DEBUG("vRTM IP : %s", g_rpcore_ip);
-	g_rpcore_port = atoi(rpcore_port.c_str());
-	LOG_DEBUG("vRTM listening port : %d", g_rpcore_port);
+	strcpy(g_vrtmcore_ip,vrtmcore_ip.c_str());
+	LOG_DEBUG("vRTM IP : %s", g_vrtmcore_ip);
+	g_vrtmcore_port = atoi(vrtmcore_port.c_str());
+	LOG_DEBUG("vRTM listening port : %d", g_vrtmcore_port);
 	g_max_thread_limit = atoi(max_thread_limit.c_str());
 	LOG_DEBUG("vRTM Max concurrent request processing limit : %d", g_max_thread_limit);
+	strcpy(g_vrtm_root, vrtm_root.c_str());
+	strcat(g_vrtm_root, "/");
+	LOG_DEBUG("vRTM root : %s", g_vrtm_root);
 	strcpy(g_trust_report_dir, trust_report_dir.c_str());
 	strcat(g_trust_report_dir, "/");
 	LOG_DEBUG("vRTM trust report directory : %s", g_trust_report_dir);

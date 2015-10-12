@@ -1,7 +1,7 @@
 /*
-RP Proxy acts as a proxy for QEMU. It intercepts the call from libvirt to QEMU to contact RPCore for VM image measurement. 
-RP-Proxy binary is installed with the name qemu, so that when libvirt calls qemu, actually the RP-proxy binary is called.
-RP-proxy will call qemu with VM launch options after the VM image measurement is successfull.
+VRTM Proxy acts as a proxy for QEMU. It intercepts the call from libvirt to QEMU to contact VRTMCore for VM image measurement.
+VRTM-Proxy binary is installed with the name qemu, so that when libvirt calls qemu, actually the VRTM-proxy binary is called.
+VRTM-proxy will call qemu with VM launch options after the VM image measurement is successfull.
 */
 
 #include <unistd.h>
@@ -28,12 +28,12 @@ RP-proxy will call qemu with VM launch options after the VM image measurement is
 #include "log_vrtmchannel.h"
 
 #define QEMU_SYSTEM_PATH            "/usr/bin/qemu-system-x86_64_orig"
-#define RPCORE_DEFAULT_IP_ADDR      "127.0.0.1"
+#define VRTMCORE_DEFAULT_IP_ADDR    "127.0.0.1"
 #define PARAMSIZE                   8192
 #define TCSERVICESTARTAPPFROMAPP    15
-#define RPCORE_DEFAULT_PORT         16005
-#define RP_LISTENER_IP_ADDR         "127.0.0.1"
-#define RP_LISTENER_SERVICE_PORT    16004
+#define VRTMCORE_DEFAULT_PORT       16005
+#define VRTM_LISTENER_IP_ADDR       "127.0.0.1"
+#define VRTM_LISTENER_SERVICE_PORT  16004
 #define VM_NAME_MAXLEN              2048
 #define log_properties_file "/opt/vrtm/configuration/vrtm_proxylog.properties"
 #ifndef byte
@@ -80,7 +80,7 @@ int conn_open() {
 
 
 /*
- Send kernel, ramdisk, disk and manifest path to RPCore and get the response
+ Send kernel, ramdisk, disk and manifest path to VRTMCore and get the response
  Extract dom id from the response
 */
 int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path, 
@@ -95,6 +95,8 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
     char*       av[20] = {0};
     int response_size;
     byte response[1024] = {'\0'};
+    char    	trustpolicy_parent_dir[2048] ={0};
+    char		uuid[65];
 
     LOG_TRACE("Prepare request to send to vRTM");
     av[an++] = "./vmtest";
@@ -106,8 +108,17 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
     av[an++] = disk_path;
     av[an++] = "-manifest";
     av[an++] = manifest_path;
+
+    //Extract UUID of VM
+    strncpy(trustpolicy_parent_dir, manifest_path, strlen(manifest_path)-strlen("/trustpolicy.xml"));
+	char *uuid_ptr = strrchr(trustpolicy_parent_dir, '/');
+	strcpy(uuid, uuid_ptr + 1);
+	LOG_TRACE("Extracted UUID : %s", uuid);
+
     av[an++] = "-config";
     av[an++] = "config";
+    av[an++] = "-uuid";
+    av[an++] = uuid;
  
     size = sizeof(tcBuffer);
     size = encodeVM2RP_STARTAPP("foo", an, av, PARAMSIZE -size, &rgBuf[size]);
@@ -180,13 +191,13 @@ int main(int argc, char** argv) {
 
     char    kernel_args[4096];
     int     rp_domid = -1;
-    char    *rpcore_ip, *s_rpcore_port;
-    int     rpcore_port;
+    char    *vrtmcore_ip, *s_vrtmcore_port;
+    int     vrtmcore_port;
     bool    has_drive = false, has_smbios = false;
     bool    is_launch_request = false;
     bool    kernel_provided = false;
     int     vm_pid;
-    //const char* log_properties_file = "/opt/dcg_security-vrtm-cleanup-2.0/rpcore/config/rp_proxylog.properties";
+    //const char* log_properties_file = "/opt/dcg_security-vrtm-cleanup-2.0/vrtmcore/config/rp_proxylog.properties";
     // instantiate the logger
     if( initLog(log_properties_file, "proxy") ){
        	return 1;
@@ -203,8 +214,8 @@ int main(int argc, char** argv) {
     log the original qemu command. Two possibilities here:
     I. Start a qemu process and talk QMP over stdio to discover what capabilities the binary 
        supports. In this case just start the qemu process without any modification.
-    II. Start a qemu process for new VM. In this case first send request to RPCore and proceed only
-        if RPCore allows the launch.
+    II. Start a qemu process for new VM. In this case first send request to VRTMCore and proceed only
+        if VRTMCore allows the launch.
     */
     LOG_DEBUG( "Original qemu command:");
     for (i=0; i<argc; i++) {
@@ -223,7 +234,7 @@ int main(int argc, char** argv) {
             has_drive = true;
 
             drive_data = argv[i+1];
-            LOG_DEBUG("has drive : %d drive data : ",has_drive, drive_data);
+            LOG_DEBUG("has drive : %d drive data : %s",has_drive, drive_data);
         }
         if ( argv[i] && strcmp(argv[i], "-smbios") == 0 ) {
             has_smbios = true;
@@ -231,7 +242,7 @@ int main(int argc, char** argv) {
         }
         if ( argv[i] && strcmp(argv[i], "-name") == 0 ) {
             vm_name = argv[i+1];
-            LOG_DEBUG("vm_NAME : ", vm_name);
+            LOG_DEBUG("vm_NAME : %s", vm_name);
         }
         if ( argv[i] && strcmp(argv[i], "-kernel") == 0 ) {
             kernel_path = argv[i+1];
@@ -287,18 +298,18 @@ int main(int argc, char** argv) {
     LOG_DEBUG( "VM name: %s\n", vm_name);
     LOG_DEBUG("kernel_path=%s, ramdisk_path=%s, disk_path=%s, trustpolicy_path=%s\n",
                 kernel_path, initrd_path, disk_path, manifest_path);
-    rpcore_ip = getenv("RPCORE_IPADDR");
-    if (!rpcore_ip)
-        rpcore_ip = RPCORE_DEFAULT_IP_ADDR;
+    vrtmcore_ip = getenv("VRTMCORE_IPADDR");
+    if (!vrtmcore_ip)
+        vrtmcore_ip = VRTMCORE_DEFAULT_IP_ADDR;
 
-    s_rpcore_port = getenv("RPCORE_PORT");
-    if (!s_rpcore_port)
-        rpcore_port = RPCORE_DEFAULT_PORT;
+    s_vrtmcore_port = getenv("VRTMCORE_PORT");
+    if (!s_vrtmcore_port)
+        vrtmcore_port = VRTMCORE_DEFAULT_PORT;
     else
-        rpcore_port = atoi(s_rpcore_port);
+        vrtmcore_port = atoi(s_vrtmcore_port);
 
     /* 
-    get the decision from RPCore. RPCore will verify the integrity of the disk using 
+    get the decision from VRTMCore. VRTMCore will verify the integrity of the disk using
     IMVM and return the result (pass/fail) and a unique id (integer) for the VM
     */
 
@@ -306,19 +317,19 @@ int main(int argc, char** argv) {
     rp_domid = get_rpcore_response(kernel_path, initrd_path, disk_path, manifest_path);
 
 
-    LOG_DEBUG( "Response from rpcore is : %d\n", rp_domid);
+    LOG_DEBUG( "Response from vrtmcore is : %d\n", rp_domid);
     if (rp_domid <= 0) {
-        LOG_ERROR("Launch denied by RPCore\n");
+        LOG_ERROR("Launch denied by VRTMCore\n");
         closeLog();
         return EXIT_FAILURE;
     }
 
-    // add RPCore ip and port in kernel arguments for the VM. The VM can use it to contact RPCore
+    // add VRTMCore ip and port in kernel arguments for the VM. The VM can use it to contact VRTMCore
     if(kernel_provided) {
         index++;
         sprintf(kernel_args, "%s", argv[index]);
-        sprintf(kernel_args, "%s rpcore_ip=%s", kernel_args, rpcore_ip);
-        sprintf(kernel_args, "%s rp_port=%d", kernel_args, rpcore_port);
+        sprintf(kernel_args, "%s vrtmcore_ip=%s", kernel_args, vrtmcore_ip);
+        sprintf(kernel_args, "%s vrtmcore_port=%d", kernel_args, vrtmcore_port);
         argv[index] = kernel_args;
         
         LOG_DEBUG( "Modified kernel args: %s", kernel_args);
@@ -330,9 +341,9 @@ int main(int argc, char** argv) {
         LOG_DEBUG( "%s%s", " ", argv[i]);
     }
 
-    /* If RPCore allows the launch then the id returned by RPCore needs to be replaced with
+    /* If VRTMCore allows the launch then the id returned by VRTMCore needs to be replaced with
        the actual UUID of the VM after successful launch. The control will be lost when we call execve command, so notify rp_listener now.
-       If VM launch is successfull then rp_listener will request RPCore to update the entry for this VM.
+       If VM launch is successfull then rp_listener will request VRTMCore to update the entry for this VM.
     */
     /*if(notify_rp_listener(rp_domid, vm_name) <= 0) {
         closeLog();
@@ -341,7 +352,7 @@ int main(int argc, char** argv) {
     LOG_DEBUG("Starting QEMU process");
     closeLog();
 
-    //launch the VM process, RP-Proxy stack will be overwritten by qemu process.
+    //launch the VM process, VRTM-Proxy stack will be overwritten by qemu process.
     execve(argv[0], argv, NULL);
 
     return EXIT_SUCCESS;
