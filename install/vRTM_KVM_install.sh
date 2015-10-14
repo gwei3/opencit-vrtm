@@ -30,7 +30,7 @@ function getFlavour()
                 flavour="rhel"
         fi
         grep -c -i fedora /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
+        if [ $? -eq 0 ] && [ $flavour == "" ] ; then
                 flavour="fedora"
         fi
         grep -c -i suse /etc/*-release > /dev/null
