@@ -240,7 +240,7 @@ int update_vm_status(char* uuid, int vm_status) {
     
     int fd1 = 0;
     int err = -1;
-    int retval;
+    int retval = -1;
     
     int         size= PARAMSIZE;
     byte        rgBuf[PARAMSIZE];
@@ -274,7 +274,6 @@ int update_vm_status(char* uuid, int vm_status) {
     err = ch_write(fd1, rgBuf, size + sizeof(tcBuffer) );
     if (err < 0){
         LOG_ERROR( "Socket write error: %s", strerror(errno));
-        retval = -1;
         goto fail;
     }
 
@@ -293,7 +292,6 @@ again:
         }
 
         LOG_ERROR("Read error: %d  %s\n", errno, strerror(errno));
-        retval = -1;
         goto fail;
     }
 
@@ -313,7 +311,6 @@ again:
     	}
     else {
         LOG_ERROR( "Error occurred in vRTM in processing updating VM status for VM uuid %s\n", uuid);
-        retval = -1;
         goto fail;
     }
     retval = atoi( (char *)response);
