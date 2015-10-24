@@ -92,7 +92,7 @@ function untarResources()
 function installKVMPackages_rhel()
 {
         echo "Installing Required Packages ....."
-        yum install -y libguestfs-tools-c tar procps binutils
+        yum install -y libguestfs-tools-c tar procps binutils kpartx lvm2
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
@@ -114,7 +114,7 @@ function installKVMPackages_rhel()
 function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
-	apt-get -y install libguestfs-tools 
+	apt-get -y install libguestfs-tools qemu-utils kpartx lvm2
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
@@ -125,7 +125,7 @@ function installKVMPackages_ubuntu()
 
 function installKVMPackages_suse()
 {
-        zypper -n in libguestfs-tools-c wget
+        zypper -n in libguestfs-tools-c wget kpartx lvm2
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
