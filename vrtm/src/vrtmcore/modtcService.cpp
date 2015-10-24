@@ -422,7 +422,7 @@ TCSERVICE_RESULT tcServiceInterface::IsVerified(char *vm_uuid, int* verification
 	return TCSERVICE_RESULT_FAILED;
 }
 
-/*// Need to get nonce also as input
+// Need to get nonce also as input
 TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *nonce, char* vm_manifest_dir)
 {
     
@@ -545,7 +545,8 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 		LOG_ERROR("can't open the file sign_key_passwd");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	fscanf(fp, "%%%ds", sizeof(tpm_signkey_passwd),tpm_signkey_passwd);
+	//fscanf(fp, "%%%ds", sizeof(tpm_signkey_passwd),tpm_signkey_passwd);
+	fread( tpm_signkey_passwd, 1, sizeof(tpm_signkey_passwd), fp);
 	tpm_signkey_passwd[ sizeof(tpm_signkey_passwd) - 1 ] = '\0';
 	fclose(fp);                
 
@@ -593,166 +594,8 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	fclose(fp1);
 					
 	return TCSERVICE_RESULT_SUCCESS;
-}*/
-
-//=================================================================
-
-TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *nonce, char* vm_manifest_dir)
-{
-
-	char xmlstr[8192]={0};
-	char tpm_signkey_passwd[100]={0};
-	char tempfile[200]={0};
-	char filepath[200]={0};
-	char command0[400]={0};
-	char manifest_dir[400]={0};
-	FILE * fp = NULL;
-	FILE * fp1 = NULL;
-
-    LOG_DEBUG("Generating SAML Report for UUID: %s and getting manifest Directory against nonce : %s", vm_uuid, nonce);
-
-	int proc_id = m_procTable.getprocIdfromuuid(vm_uuid);
-	if (proc_id == NULL) {
-		LOG_ERROR("UUID : %s is not registered with vRTM\n", vm_uuid);
-		return TCSERVICE_RESULT_FAILED;
-	}
-	serviceprocEnt * pEnt = m_procTable.getEntfromprocId(proc_id);
-	LOG_INFO("Match found for given UUID \n");
-	if( pEnt->m_vm_status == VM_STATUS_STOPPED) {
-		LOG_INFO("Can't generate report. VM with UUID : %s is in stopped state.");
-		//TODO
-		return TCSERVICE_RESULT_FAILED;
-	}
-	sprintf(vm_manifest_dir, "%s%s/", g_trust_report_dir,vm_uuid);
-	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
-
-
-	strcpy(manifest_dir,vm_manifest_dir);
-
-	// Generate Signed  XML  in same vm_manifest_dir
-	//sprintf(manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
-	sprintf(filepath,"%ssigned_report.xml",manifest_dir);
-
-
-	fp1 = fopen(filepath,"w");
-	if (fp1 == NULL) {
-		LOG_ERROR("Can't write report in signed_report.xml file");
-		return TCSERVICE_RESULT_FAILED;
-	}
-	sprintf(xmlstr,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
-	fprintf(fp1,"%s",xmlstr);
-    LOG_DEBUG("XML content : %s", xmlstr);
-
-	sprintf(xmlstr,"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
-	fprintf(fp1,"%s",xmlstr);
-	fclose(fp1);
-    LOG_DEBUG("XML content : %s", xmlstr);
-
-	// Calculate the Digest Value
-
-
-	sprintf(xmlstr,"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
-	sprintf(tempfile,"%sus_xml.xml",manifest_dir);
-	fp = fopen(tempfile,"w");
-	if (fp == NULL) {
-		LOG_ERROR("can't open the file us_xml.xml");
-		return TCSERVICE_RESULT_FAILED;
-	}
-	fprintf(fp,"%s",xmlstr);
-	fclose(fp);
-
-	sprintf(command0,"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n >> %ssigned_report.xml", manifest_dir,manifest_dir);
-	LOG_DEBUG("command generated to calculate hash: %s", command0);
-	system(command0);
-
-
-	fp1 = fopen(filepath,"a");
-	if (fp1 == NULL) {
-		LOG_ERROR("can't open the file signed_report.xml");
-		return TCSERVICE_RESULT_FAILED;
-	}
-	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo><SignatureValue>");
-	fprintf(fp1,"%s",xmlstr);
-    LOG_DEBUG("XML content : %s", xmlstr);
-
-
-	// Calculate the Signature Value
-
-
-	sprintf(tempfile,"%sus_can.xml",manifest_dir);
-	fp = fopen(tempfile,"w");
-	if (fp == NULL) {
-		LOG_ERROR("can't open the file us_can.xml");
-		return TCSERVICE_RESULT_FAILED;
-	}
-	sprintf(xmlstr,"<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod><DigestValue>");
-
-	fprintf(fp,"%s",xmlstr);
-	fclose(fp1);
-	fclose(fp);
-
-	sprintf(command0,"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
-	system(command0);
-
-	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo>");
-	fp = fopen(tempfile,"a");
-	fprintf(fp,"%s",xmlstr);
-	fclose(fp);
-
-
-
-	// Store the TPM signing key password
-	sprintf(command0,"cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2 | xargs echo -n > %ssign_key_passwd", manifest_dir);
-	LOG_DEBUG("TPM signing key password :%s \n", command0);
-	system(command0);
-
-	sprintf(tempfile,"%ssign_key_passwd",manifest_dir);
-	fp = fopen(tempfile,"r");
-	if ( fp == NULL) {
-		LOG_ERROR("can't open the file sign_key_passwd");
-		return TCSERVICE_RESULT_FAILED;
-	}
-	fscanf(fp, "%s", tpm_signkey_passwd);
-	fclose(fp);
-
-
-
-	// Sign the XML
-	sprintf(command0,"xmlstarlet c14n %sus_can.xml | openssl dgst -sha1 -binary -out %shash.input",manifest_dir,manifest_dir);
-	system(command0);
-
-	sprintf(command0,"/opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
-	LOG_DEBUG("Signing Command : %s", command0);
-	system(command0);
-
-	sprintf(command0,"openssl enc -base64 -in %shash.sig |xargs echo -n >> %ssigned_report.xml",manifest_dir,manifest_dir);
-	system(command0);
-
-
-
-	fp1 = fopen(filepath,"a");
-	sprintf(xmlstr,"</SignatureValue><KeyInfo><X509Data><X509Certificate>");
-	LOG_DEBUG("XML content : %s", xmlstr);
-	fprintf(fp1,"%s",xmlstr);
-	fclose(fp1);
-
-
-
-	// Append the X.509 certificate
-	sprintf(command0,"openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
-	LOG_DEBUG("Command to generate certificate : %s", command0);
-	system(command0);
-
-
-
-	fp1 = fopen(filepath,"a");
-	sprintf(xmlstr,"</X509Certificate></X509Data></KeyInfo></Signature></VMQuote>");
-	fprintf(fp1,"%s",xmlstr);
-	fclose(fp1);
-
-	return TCSERVICE_RESULT_SUCCESS;
 }
-//===================================================================
+
 
 TCSERVICE_RESULT tcServiceInterface::TerminateApp(char* uuid, int* psizeOut, byte* out)
 {
@@ -974,7 +817,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
 	char    measurement_file[2048]={0};
 	char 	mount_path[64];
-
+	bool	keep_measurement_log = false;
    //create domain process shall check the whitelist
 	child = procid;
 
@@ -1121,7 +964,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			strcpy(goldenImageHash, vm_manifest_hash);
 
 			//mount the disk, then pass the path and manifest file for measurement to MA(Measurement Agent)
-			sprintf(mount_path,"%s%s", g_mount_path, vm_uuid);
+			sprintf(mount_path,"%s%s-%d", g_mount_path, vm_uuid, child);
 			//create a directory under /mnt/vrtm/VM_UUID to mount the VM disk
 			LOG_DEBUG("Mount location : %s", mount_path);
 			if ( mkdir(mount_path,766) != 0 && errno != EEXIST ) {
@@ -1131,14 +974,16 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			}
 			/*
 			 * call mount script to mount the VM disk as :
-			 * ../scripts/mount_vm_image.sh <disk> <mount_path>
+			 * <ID> is mount LVMs
+			 * ../scripts/mount_vm_image.sh <disk> <mount_path> <ID>
 			 */
-			snprintf(command, sizeof(command), mount_script " %s %s > %s/%s 2>&1", disk_file, mount_path, vm_manifest_dir, ma_log);
+			snprintf(command, sizeof(command), mount_script " %s %s %d > %s/%s-%d 2>&1", disk_file, mount_path, child, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to mount the image : %s", command);
 			i = system(command);
 			LOG_DEBUG("system call to mount image exit status : %d", i);
+			keep_measurement_log = true;
 			if ( i != 0) {
-				LOG_ERROR("Error in mounting the image for measurement. For more info please look into file %s/%s", vm_manifest_dir, ma_log);
+				LOG_ERROR("Error in mounting the image for measurement. For more info please look into file %s/%s-%d", vm_manifest_dir, ma_log, child);
 				start_app_status = 1;
 				goto return_response;
 			}
@@ -1147,12 +992,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 * call MA to measure the VM as :
 			 * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
 			 */
-			snprintf(command, sizeof(command), "./verifier %s %s/mount/ IMVM >> %s/%s 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log);
+			snprintf(command, sizeof(command), "./verifier %s %s/mount/ IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to launch MA : %s", command);
 			i = system(command);
 			LOG_DEBUG("system call to verifier exit status : %d", i);
 			if ( i != 0 ) {
-				LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement log in file %s/%s", vm_manifest_dir, ma_log);
+				LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement log in file %s/%s-%d", vm_manifest_dir, ma_log, child);
 				start_app_status = 1;
 				goto return_response;
 			}
@@ -1161,12 +1006,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 * unmount image by calling mount script with UN_MOUNT mode after the measurement as :
 			 * ../scripts/mount_vm_image.sh MOUNT_PATH
 			 */
-			snprintf(command, sizeof(command), mount_script " %s/mount >> %s/%s 2>&1", mount_path, vm_manifest_dir, ma_log);
+			snprintf(command, sizeof(command), mount_script " %s >> %s/%s-%d 2>&1", mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to unmount the image : %s", command);
 			i = system(command);
 			LOG_DEBUG("system call for unmounting exit status : %d", i);
 			if ( i != 0 ) {
-				LOG_ERROR("Error in unmounting the vm image. Please check log file : %s/%s", vm_manifest_dir, ma_log);
+				LOG_ERROR("Error in unmounting the vm image. Please check log file : %s/%s", vm_manifest_dir, ma_log, child);
 				start_app_status = 1;
 				goto return_response;
 			}
@@ -1176,7 +1021,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			fq = fopen(cumulativehash_file, "rb");
 			if(!fq)
 			{
-				LOG_ERROR("Error returned by verifer in generating cumulative hash, please check Measurement log in file %s/%s\n", vm_manifest_dir, ma_log);
+				LOG_ERROR("Error returned by verifer in generating cumulative hash, please check Measurement log in file %s/%s-%d\n", vm_manifest_dir, ma_log, child);
 				//return TCSERVICE_RESULT_FAILED; // measurement failed  (verifier failed to measure)
 				start_app_status = 1;
 				goto return_response;
@@ -1270,10 +1115,16 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			}
 		}
     	if (start_app_status) {
-			//TODO write a remove directory function using dirint.h header file
-			char remove_file[2048] = {'\0'};
-			snprintf(remove_file, sizeof(remove_file), "rm -rf %s", vm_manifest_dir);
-			system(remove_file);
+			if ( keep_measurement_log == false ) {
+				//TODO write a remove directory function using dirint.h header file
+				LOG_TRACE("will remove reports directory %s", vm_manifest_dir);
+				char remove_file[2048] = {'\0'};
+				snprintf(remove_file, sizeof(remove_file), "rm -rf %s", vm_manifest_dir);
+				system(remove_file);
+			}
+			else {
+				LOG_TRACE("will not remove reports directory %s", vm_manifest_dir);
+			}
 			*poutsize = sizeof(int);
 			*((int*)out) = -1;
     		return TCSERVICE_RESULT_FAILED;
