@@ -1,5 +1,5 @@
 #!/bin/bash
-#set -x
+set -x
 
 ## Ret codes
 ## 0 : Operation successful
