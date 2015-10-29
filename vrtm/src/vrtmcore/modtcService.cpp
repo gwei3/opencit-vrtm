@@ -818,6 +818,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	char    measurement_file[2048]={0};
 	char 	mount_path[64];
 	bool	keep_measurement_log = false;
+	int	verifier_exit_status=1;
    //create domain process shall check the whitelist
 	child = procid;
 
@@ -994,14 +995,11 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 */
 			snprintf(command, sizeof(command), "./verifier %s %s/mount/ IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to launch MA : %s", command);
-			i = system(command);
-			LOG_DEBUG("system call to verifier exit status : %d", i);
-			if ( i != 0 ) {
+			verifier_exit_status = system(command);
+			LOG_DEBUG("system call to verifier exit status : %d", verifier_exit_status);
+			if ( verifier_exit_status != 0 ) {
 				LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement log in file %s/%s-%d", vm_manifest_dir, ma_log, child);
-				start_app_status = 1;
-				goto return_response;
 			}
-			LOG_DEBUG("MA executed successfully");
 			/*
 			 * unmount image by calling mount script with UN_MOUNT mode after the measurement as :
 			 * ../scripts/mount_vm_image.sh MOUNT_PATH
@@ -1016,6 +1014,11 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				goto return_response;
 			}
 			LOG_DEBUG("Unmount of image Successfull");
+			if ( verifier_exit_status != 0 ) {
+				start_app_status = 1;
+				goto return_response;
+			}
+			LOG_DEBUG("MA executed successfully");
 			// Only call verfier when measurement is required
 	// Open measurement log file at a specified location
 			fq = fopen(cumulativehash_file, "rb");
