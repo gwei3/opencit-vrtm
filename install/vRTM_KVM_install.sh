@@ -30,7 +30,7 @@ function getFlavour()
                 flavour="rhel"
         fi
         grep -c -i fedora /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
+        if [ $? -eq 0 ] && [ $flavour == "" ] ; then
                 flavour="fedora"
         fi
         grep -c -i suse /etc/*-release > /dev/null
@@ -91,8 +91,17 @@ function untarResources()
 
 function installKVMPackages_rhel()
 {
+        echo "Enabling epel-testing repo for log4cpp"
+        yum-config-manager --enable epel-testing > /dev/null
+        if [ $? -ne 0 ]
+        then
+                echo "can't enable the epel-testing repo"
+                echo "log4cpp might not get installed on RHEL-7"
+        else
+                echo "enabled epel-testing repo"
+        fi
         echo "Installing Required Packages ....."
-        yum install -y libguestfs-tools-c tar procps binutils
+        yum install -y libguestfs-tools-c tar procps binutils kpartx lvm2
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
@@ -114,7 +123,7 @@ function installKVMPackages_rhel()
 function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
-	apt-get -y install libguestfs-tools 
+	apt-get -y install libguestfs-tools qemu-utils kpartx lvm2
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
@@ -125,7 +134,7 @@ function installKVMPackages_ubuntu()
 
 function installKVMPackages_suse()
 {
-        zypper -n in libguestfs-tools-c wget
+        zypper -n in libguestfs-tools-c wget kpartx lvm2
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
