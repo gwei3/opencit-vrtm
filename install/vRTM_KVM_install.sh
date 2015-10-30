@@ -91,6 +91,15 @@ function untarResources()
 
 function installKVMPackages_rhel()
 {
+        echo "Enabling epel-testing repo for log4cpp"
+        yum-config-manager --enable epel-testing > /dev/null
+        if [ $? -ne 0 ]
+        then
+                echo "can't enable the epel-testing repo"
+                echo "log4cpp might not get installed on RHEL-7"
+        else
+                echo "enabled epel-testing repo"
+        fi
         echo "Installing Required Packages ....."
         yum install -y libguestfs-tools-c tar procps binutils kpartx lvm2
 	if [ $? -ne 0 ]; then

@@ -157,6 +157,15 @@ function buildvrtmcore()
 
 function install_kvm_packages_rhel()
 {
+	echo "Enabling epel-testing repo for log4cpp"
+	yum-config-manager --enable epel-testing > /dev/null
+	if [ $? -ne 0 ]
+	then
+		echo "can't enable the epel-testing repo"
+		echo "log4cpp might not get installed on RHEL-7"
+	else
+		echo "enabled epel-testing repo"
+	fi
 	echo "Installing Required Packages ....."
 	yum -y groupinstall -y "Development Tools" "Development Libraries"
 	PackageList1=`echo $?`
