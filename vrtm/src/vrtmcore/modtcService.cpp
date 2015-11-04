@@ -886,7 +886,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				strcpy(trust_report_dir, g_trust_report_dir);
 				strcat(trust_report_dir, vm_uuid);
 				strcat(trust_report_dir, "/");
-				mkdir(trust_report_dir, 0766);
+				mkdir(trust_report_dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 				//char cmd[2304];
 				snprintf(command, sizeof(command), "cp -p %s %s/",manifest_file, trust_report_dir );
 				system(command);
