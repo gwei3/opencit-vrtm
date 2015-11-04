@@ -209,6 +209,10 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 		return -1;
 	}
 	outparams = (char *) calloc(1,sizeof(byte)*PARAMSIZE);
+	if ( outparams == NULL ) {
+		LOG_ERROR("couldn't allocate memory for output buffer");
+		return -1;
+	}
 	if(!serviceRequest(req_id, uReq, payload_size, (byte *)buf + tcBuffer_size, &outparams_size, (byte *)outparams)) {
 		LOG_ERROR("Error in serving the request");
 	}

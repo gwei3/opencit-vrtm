@@ -808,7 +808,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char*   vm_manifest_signature = NULL;
     char    vm_manifest_dir[1024] ={0};
     bool 	verification_status = false;
-    char	vm_uuid[UUID_SIZE];
+    char	vm_uuid[UUID_SIZE] = {'\0'};
     int 	start_app_status = 0;
     char 	command[2304]={0};
 	FILE*   fp1=NULL;
