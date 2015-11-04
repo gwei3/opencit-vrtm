@@ -237,7 +237,7 @@ int read_config()
 	}
 	// create trust report directory if not exist
 	if ( create_report_dir) {
-		ret_val = mkdir(g_trust_report_dir, 0766);
+		ret_val = mkdir(g_trust_report_dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 		if (ret_val == 0 ) {
 			LOG_DEBUG("Trust report directory: %s created successfully", g_trust_report_dir);
 		}
