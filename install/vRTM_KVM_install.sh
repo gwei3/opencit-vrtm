@@ -212,7 +212,14 @@ function installvrtmProxyAndListner()
 
 	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
 		if [ $FLAVOUR == "rhel" ] ; then
-			SELINUX_TYPE="svirt_t"
+			rhel7_version=""
+			rhel7_version=`cat /etc/redhat-release | grep -o "7\.."`
+			if [ ! -z "$rhel7_version" ]
+			then
+				SELINUX_TYPE="svirt_tcg_t"
+			else
+				SELINUX_TYPE="svirt_t"
+			fi
 		else
 			SELINUX_TYPE="svirt_tcg_t"
 		fi
@@ -233,11 +240,37 @@ function installvrtmProxyAndListner()
                                require {
                                type nova_var_lib_t;
                                type $SELINUX_TYPE;
+			 " > svirt_for_links.te
+			 if [ ! -z "$rhel7_version" ]
+			 then
+			 
+			 echo "
+			       type var_log_t;
+			 " >> svirt_for_links.te
+			 fi
+			 echo "
                                class lnk_file read;
+			 " >> svirt_for_links.te
+			 if [ ! -z "$rhel7_version" ]
+			 then
+			 
+			 echo "
+			       class file read;
+			       class file write;
+			       class file open;
+			 " >> svirt_for_links.te
+			 fi 
+			 echo "
                                }
                                #============= svirt_t ==============
                                allow $SELINUX_TYPE nova_var_lib_t:lnk_file read;
-                          " > svirt_for_links.te
+			  " >> svirt_for_links.te
+			  if [ ! -z "$rhel7_version" ]
+			  then
+			  echo "
+			       allow svirt_tcg_t var_log_t:file { read write open };
+                          " >> svirt_for_links.te
+			  fi
                           /usr/bin/checkmodule -M -m -o svirt_for_links.mod svirt_for_links.te
                           /usr/bin/semodule_package -o svirt_for_links.pp -m svirt_for_links.mod
                           /usr/sbin/semodule -i svirt_for_links.pp
