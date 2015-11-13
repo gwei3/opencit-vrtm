@@ -99,7 +99,6 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
     char		uuid[65];
 
     LOG_TRACE("Prepare request to send to vRTM");
-    av[an++] = "./vmtest";
     av[an++] = "-kernel";
     av[an++] = kernel_path;
     av[an++] = "-ramdisk";

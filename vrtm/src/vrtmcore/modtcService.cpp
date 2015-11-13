@@ -799,7 +799,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     }
 
 
-    for ( i = 1; i < an; i++) {
+    for ( i = 0; i < an; i++) {
 
         LOG_TRACE( "arg parsing %d \n", i);
         if( av[i] && strcmp(av[i], "-kernel") == 0 ){
