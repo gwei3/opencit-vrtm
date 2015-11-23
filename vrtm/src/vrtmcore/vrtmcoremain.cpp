@@ -108,27 +108,37 @@ int LoadConfig(const char * configFile)
 	while(true)
 	{
 		line = (char *) calloc(1,sizeof(char) * 512);
-		fgets(line,line_size,fp);
-		if(feof(fp)) {
+		if(line != NULL) {
+			fgets(line,line_size,fp);
+			if(feof(fp)) {
+				free(line);
+				break;
+			}
+			LOG_TRACE("Line read from config file: %s", line);
+			if( line[0] == '#' ) {
+				LOG_DEBUG("Comment in configuration file : %s", &line[1]);
+				free(line);
+				continue;
+			}
+			key=strtok(line,"=");
+			value=strtok(NULL,"=");
+			if(key != NULL && value != NULL) {
+				std::string map_key (key);
+				std::string map_value (value);
+				LOG_TRACE("Parsed Key=%s and Value=%s", map_key.c_str(), map_value.c_str());
+				std::pair<std::string, std::string> config_pair (trim_copy(map_key," \t\n"),trim_copy(map_value," \t\n"));
+				config_map.insert(config_pair);
+			}
 			free(line);
-			break;
 		}
-        LOG_TRACE("Line read from config file: %s", line);
-        if( line[0] == '#' ) {
-        	LOG_DEBUG("Comment in configuration file : %s", &line[1]);
-        	free(line);
-        	continue;
-        }
-		key=strtok(line,"=");
-		value=strtok(NULL,"=");
-		std::string map_key (key);
-		std::string map_value (value);
-        LOG_TRACE("Parsed Key=%s and Value=%s", map_key.c_str(), map_value.c_str());
-
-		std::pair<std::string, std::string> config_pair (trim_copy(map_key," \t\n"),trim_copy(map_value," \t\n"));
-		config_map.insert(config_pair);
-		free(line);
+		else {
+			LOG_ERROR("Can't allocate memory to read a line");
+			config_map.clear();
+			fclose(fp);
+			return -1;
+		}
 	}
+	fclose(fp);
 	return config_map.size();
 }
 
@@ -222,8 +232,8 @@ int read_config()
 	else if( info.st_mode & S_IFDIR ){ // S_ISDIR() doesn't exist on my windows
 		LOG_DEBUG( "%s is a directory and already exists", g_trust_report_dir );
 		LOG_INFO("%s will be cleaned", g_trust_report_dir);
-		char command[512];
-		sprintf(command,"rm -rf %s/*", g_trust_report_dir);
+		char command[512] = {'\0'};
+		snprintf(command, sizeof(command), "rm -rf %s/*", g_trust_report_dir);
 		if (system(command) == 0 ) {
 			LOG_INFO("Trust report directory %s, cleaned successfully", g_trust_report_dir);
 		}
@@ -237,7 +247,7 @@ int read_config()
 	}
 	// create trust report directory if not exist
 	if ( create_report_dir) {
-		ret_val = mkdir(g_trust_report_dir, 0766);
+		ret_val = mkdir(g_trust_report_dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 		if (ret_val == 0 ) {
 			LOG_DEBUG("Trust report directory: %s created successfully", g_trust_report_dir);
 		}

@@ -108,7 +108,7 @@ void tcBufferprint(tcBuffer* p)
 // -------------------------------------------------------------------
 
 
-bool g_fterminateLoop= false;
+//bool g_fterminateLoop= false;
 
 #ifndef TCIODEVICEDRIVERPRESENT
 bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
@@ -117,7 +117,6 @@ bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     int                 slen= 0;
     int                 iQsize= 5;
     int                 iError= 0;
-    int                 l;
 
     LOG_TRACE("Open Server");
 //    fprintf(g_logFile, "open server FILE: %s\n", szunixPath);
@@ -133,10 +132,12 @@ bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     iError= bind(fd, psrv, slen);
     if(iError<0) {
         LOG_ERROR("openserver:bind error %s\n", strerror(errno));
+		close(fd);
         return false;
     }
     if(listen(fd, iQsize)==(-1)) {
         LOG_ERROR("listen error in server init");
+		close(fd);
         return false;
     }
 
@@ -208,6 +209,10 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 		return -1;
 	}
 	outparams = (char *) calloc(1,sizeof(byte)*PARAMSIZE);
+	if ( outparams == NULL ) {
+		LOG_ERROR("couldn't allocate memory for output buffer");
+		return -1;
+	}
 	if(!serviceRequest(req_id, uReq, payload_size, (byte *)buf + tcBuffer_size, &outparams_size, (byte *)outparams)) {
 		LOG_ERROR("Error in serving the request");
 	}
@@ -230,7 +235,7 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 	LOG_DEBUG("Response tcbuffer Attributes API Request No. : %d payload size : %d response status : %d",
 			send_tc_buff->m_reqID, send_tc_buff->m_reqSize, send_tc_buff->m_ustatus);
 	int res_buf_size = tcBuffer_size + outparams_size;
-	memcpy(&buf[tcBuffer_size], outparams, outparams_size);
+	memcpy(&buf[tcBuffer_size], outparams, PARAMSIZE - tcBuffer_size - 1);
 	free(outparams);
 	int data_send_size = -1;
         LOG_TRACE("Sending response");
@@ -252,8 +257,11 @@ void* handle_session(void* p) {
 	int sz_data = 0;
 	int err = -1;
 	int domid = -1;
-	//int fd1 = ps->fd;
-	int fd1 = *(int *)p;
+	int fd1 = -1;
+	if ( p!= NULL) {
+		fd1 = *(int *)p;
+		free(p);
+	}
 	LOG_TRACE("Entered handle_session() with fd as %d",fd1);
 	//fprintf(g_logFile, "handle_session(): Client connection from domid %d\n", domid);
 	
@@ -319,8 +327,8 @@ void* dom_listener_main ( void* p)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; // fill in my IP for me
 
-    sprintf(vrtm_port,"%d", g_vrtmcore_port);
-	getaddrinfo(g_vrtmcore_ip, vrtm_port, &hints, &vrtm_addr);
+    snprintf(vrtm_port, sizeof(vrtm_port), "%d", g_rpcore_port);
+	getaddrinfo(g_rpcore_ip, vrtm_port, &hints, &vrtm_addr);
 	LOG_DEBUG("Socket type : %d, Socket address : %s, Protocol : %d ", vrtm_addr->ai_family, vrtm_addr->ai_addr->sa_data, vrtm_addr->ai_protocol);
 
     LOG_TRACE("Create socket for vRTM core");	
@@ -329,6 +337,8 @@ void* dom_listener_main ( void* p)
     if(fd<0) {
         LOG_ERROR("Can't open socket");
         g_ifc_status = IFC_ERR;
+        freeaddrinfo(vrtm_addr);
+        pthread_attr_destroy(&attr);
         return false;
     }
     LOG_TRACE("Bind vRTM core socket");
@@ -347,6 +357,9 @@ void* dom_listener_main ( void* p)
     if(iError<0) {
         LOG_ERROR("Can't bind socket %s", strerror(errno));
         g_ifc_status = IFC_ERR;
+		close(fd);
+		freeaddrinfo(vrtm_addr);
+		pthread_attr_destroy(&attr);
         return false;
     }
 
@@ -387,15 +400,23 @@ void* dom_listener_main ( void* p)
         }
 		
 		LOG_INFO( "Client connection from %s ", inet_ntoa(client_addr.sin_addr));
-		if (g_quit)
+		if (g_quit) {
+			close(newfd);
 			continue;
+		}
 		thread_fd = (int *)malloc(sizeof(int));
-		*thread_fd=newfd;
-        LOG_DEBUG("Creating separate thread to handle session");
-		pthread_create(&tid, &attr, handle_session, (void*)thread_fd);
-
+		if(thread_fd != NULL) {
+			*thread_fd=newfd;
+        	LOG_DEBUG("Creating separate thread to handle session");
+			pthread_create(&tid, &attr, handle_session, (void*)thread_fd);
+		}
+		else {
+			LOG_ERROR("Couldn't allocate memory for fd of this request");
+		}
     }
     close(fd);
+    freeaddrinfo(vrtm_addr);
+    pthread_attr_destroy(&attr);
     return NULL;
 }
 

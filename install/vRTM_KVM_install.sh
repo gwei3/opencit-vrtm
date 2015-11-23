@@ -31,7 +31,7 @@ function getFlavour()
                 flavour="rhel"
         fi
         grep -c -i fedora /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
+        if [ $? -eq 0 ] && [ $flavour == "" ] ; then
                 flavour="fedora"
         fi
         grep -c -i suse /etc/*-release > /dev/null
@@ -92,14 +92,23 @@ function untarResources()
 
 function installKVMPackages_rhel()
 {
+        echo "Enabling epel-testing repo for log4cpp"
+        yum-config-manager --enable epel-testing > /dev/null
+        if [ $? -ne 0 ]
+        then
+                echo "can't enable the epel-testing repo"
+                echo "log4cpp might not get installed on RHEL-7"
+        else
+                echo "enabled epel-testing repo"
+        fi
         echo "Installing Required Packages ....."
 	if [ $VRTM_MODE == "VM" ]
 	then
 		#install guestmount only in VM mode
-		yum install -y libguestfs-tools-c
+		yum install -y libguestfs-tools-c  kpartx lvm2
 		if [ $? -ne 0 ]
 		then
-			echo "Failed to install guestfs-tools"
+			echo "Failed to install guestfs-tools and mounting tools"
 			exit -1
 		fi
 	fi
@@ -127,7 +136,7 @@ function installKVMPackages_ubuntu()
 	echo "Installing Required Packages ....."
 	if [ "$VRTM_MODE" == "VM" ]
 	then
-		apt-get -y install libguestfs-tools
+		apt-get -y install libguestfs-tools qemu-utils kpartx lvm2
 	elif [ "$VRTM_MODE" == "DOCKER" ]
 	then
 		return
@@ -144,14 +153,14 @@ function installKVMPackages_suse()
 {
 	if [ $VRTM_MODE == "VM" ]
 	then
-		zypper -n in libguestfs-tools-c
-                if [ $? -ne 0 ]
-                then
-                        echo "Failed to install guestfs-tools"
-                        exit -1
-                fi
+		zypper -n in libguestfs-tools-c kpartx lvm2
+		if [ $? -ne 0 ]
+		then
+			echo "Failed to install guestfs-tools"
+			exit -1
+		fi
 	fi
-        zypper -n in wget
+	zypper -n in wget
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
@@ -229,7 +238,14 @@ function installvrtmProxyAndListner()
 
 	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
 		if [ $FLAVOUR == "rhel" ] ; then
-			SELINUX_TYPE="svirt_t"
+			rhel7_version=""
+			rhel7_version=`cat /etc/redhat-release | grep -o "7\.."`
+			if [ ! -z "$rhel7_version" ]
+			then
+				SELINUX_TYPE="svirt_tcg_t"
+			else
+				SELINUX_TYPE="svirt_t"
+			fi
 		else
 			SELINUX_TYPE="svirt_tcg_t"
 		fi
@@ -250,11 +266,37 @@ function installvrtmProxyAndListner()
                                require {
                                type nova_var_lib_t;
                                type $SELINUX_TYPE;
+			 " > svirt_for_links.te
+			 if [ ! -z "$rhel7_version" ]
+			 then
+			 
+			 echo "
+			       type var_log_t;
+			 " >> svirt_for_links.te
+			 fi
+			 echo "
                                class lnk_file read;
+			 " >> svirt_for_links.te
+			 if [ ! -z "$rhel7_version" ]
+			 then
+			 
+			 echo "
+			       class file read;
+			       class file write;
+			       class file open;
+			 " >> svirt_for_links.te
+			 fi 
+			 echo "
                                }
                                #============= svirt_t ==============
                                allow $SELINUX_TYPE nova_var_lib_t:lnk_file read;
-                          " > svirt_for_links.te
+			  " >> svirt_for_links.te
+			  if [ ! -z "$rhel7_version" ]
+			  then
+			  echo "
+			       allow svirt_tcg_t var_log_t:file { read write open };
+                          " >> svirt_for_links.te
+			  fi
                           /usr/bin/checkmodule -M -m -o svirt_for_links.mod svirt_for_links.te
                           /usr/bin/semodule_package -o svirt_for_links.pp -m svirt_for_links.mod
                           /usr/sbin/semodule -i svirt_for_links.pp

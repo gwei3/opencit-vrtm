@@ -8,7 +8,7 @@
     <packaging>pom</packaging>
     
     <modules>
-        <module>vrtm-linux-makeself</module>
+        <module>vrtm</module>
         <module>vrtm-zip</module>
     </modules>
 </project>

@@ -88,7 +88,7 @@ int ch_write(int fd, void* buf, int len) {
 }
 
 
-int ch_register(int fd)
+void ch_register(int fd)
 {
     char rpid[64]={0};
     pid_t rpproxyid;
@@ -126,14 +126,11 @@ int ch_open(char* serverip, int port) {
 
 
 	iError= connect(fd, (const struct sockaddr*) &server_addr, (socklen_t) slen);
-	if (iError < 0 )
-		fd = -1;
-
-	if(fd < 0)
-	{
-        	LOG_ERROR("Can't connect with server, Please check that it's running : %s\n", strerror(errno));
-        	return -1;
-    } 
+	if (iError < 0 ) {
+		LOG_ERROR("Can't connect with server, Please check that it's running : %s\n", strerror(errno));
+		close(fd);
+       	return -1;
+	} 
     
     return fd;
 
