@@ -334,12 +334,12 @@ int main(int argc, char** argv) {
         index++;
 		strncat(kernel_args, argv[index], (sizeof(kernel_args) - strlen(kernel_args) - 1));
         //snprintf(kernel_args, sizeof(kernel_args), "%s", argv[index]);
-		strncat(kernel_args, " rpcore_ip=", (sizeof(kernel_args) - strlen(kernel_args) - 1));
-		strncat(kernel_args, rpcore_ip, (sizeof(kernel_args) - strlen(kernel_args) - 1));
+		strncat(kernel_args, " vrtmcore_ip=", (sizeof(kernel_args) - strlen(kernel_args) - 1));
+		strncat(kernel_args, vrtmcore_ip, (sizeof(kernel_args) - strlen(kernel_args) - 1));
         //snprintf(kernel_args, sizeof(kernel_args), "%s rpcore_ip=%s", kernel_args, rpcore_ip);
-		strncat(kernel_args, " rp_port=", (sizeof(kernel_args) - strlen(kernel_args) - 1));
+		strncat(kernel_args, " vrtmcore_port=", (sizeof(kernel_args) - strlen(kernel_args) - 1));
 		char vrtm_port_buff[32] = {'\0'};
-		snprintf(vrtm_port_buff, sizeof(vrtm_port_buff) - 1, "%d", rpcore_port);
+		snprintf(vrtm_port_buff, sizeof(vrtm_port_buff) - 1, "%d", vrtmcore_port);
 		strncat(kernel_args, vrtm_port_buff, (sizeof(kernel_args) - strlen(kernel_args) - 1));
         //snprintf(kernel_args, sizeof(kernel_args), "%s rp_port=%d", kernel_args, rpcore_port);
 		kernel_args[sizeof(kernel_args) - 1] = '\0';

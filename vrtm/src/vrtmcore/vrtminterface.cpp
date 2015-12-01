@@ -327,8 +327,8 @@ void* dom_listener_main ( void* p)
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; // fill in my IP for me
 
-    snprintf(vrtm_port, sizeof(vrtm_port), "%d", g_rpcore_port);
-	getaddrinfo(g_rpcore_ip, vrtm_port, &hints, &vrtm_addr);
+    snprintf(vrtm_port, sizeof(vrtm_port), "%d", g_vrtmcore_port);
+	getaddrinfo(g_vrtmcore_ip, vrtm_port, &hints, &vrtm_addr);
 	LOG_DEBUG("Socket type : %d, Socket address : %s, Protocol : %d ", vrtm_addr->ai_family, vrtm_addr->ai_addr->sa_data, vrtm_addr->ai_protocol);
 
     LOG_TRACE("Create socket for vRTM core");	

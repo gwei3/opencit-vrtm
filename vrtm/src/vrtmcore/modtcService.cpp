@@ -898,7 +898,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 
         //Create path for just list of files to be passes to verifier
 		strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
-		snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", nohash_manifest_file, "/manifestlist.xml");
+		strncat(nohash_manifest_file, "/manifest.xml", sizeof(nohash_manifest_file) - strlen(nohash_manifest_file) -1);
 		LOG_DEBUG( "Manifest list path %s\n", nohash_manifest_file);
 
 		//Create Trust Report directory and copy relevant files
@@ -913,11 +913,11 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		memset(command,0, sizeof(command));
 		snprintf(command, sizeof(command), "cp -p %s %s/", nohash_manifest_file, trust_report_dir);
 		system(command);
-		snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s" trust_report_dir);
+		snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s", trust_report_dir);
 		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
 		snprintf(manifest_file, sizeof(manifest_file), "%s%s", trust_report_dir, "/trustpolicy.xml");
 		LOG_DEBUG("Manifest path %s ", manifest_file);
-		snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", trust_report_dir, "/manifestlist.xml");
+		snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", trust_report_dir, "/manifest.xml");
 		LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
 
 		//Read the digest algorithm from manifestlist.xml
@@ -1044,6 +1044,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 * call MA to measure the VM as :
 			 * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
 			 */
+			keep_measurement_log = true;
 			LOG_TRACE("Instace type docker : %d", instance_type);
 			sprintf(command, "./verifier %s %s/ IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to launch MA : %s", command);
@@ -1115,7 +1116,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				vm_data[0] = vm_uuid;
 				vm_data_size++;
 				if ( temp_proc_id == NULL) {
-					if(!g_myService.m_procTable.addprocEntry(child, kernel_file, vm_data_size, vm_data, size, rgHash)) {
+					if(!g_myService.m_procTable.addprocEntry(child, kernel_file, vm_data_size, vm_data, size, rgHash, instance_type)) {
 						LOG_ERROR( "StartApp: cant add to vRTM Map\n");
 						//return TCSERVICE_RESULT_FAILED;
 						start_app_status = 1;
