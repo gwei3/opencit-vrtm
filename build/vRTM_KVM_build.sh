@@ -169,7 +169,7 @@ function install_kvm_packages_rhel()
 	echo "Installing Required Packages ....."
 	sudo -n yum -y groupinstall -y "Development Tools" "Development Libraries"
 	PackageList1=`echo $?`
-	sudo -n yum install -y "kernel-devel-uname-r == $(uname -r)" libvirt-devel libxml2 gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel libxml2-devel openssl-devel libaio libaio-devel
+	sudo -n yum install -y "kernel-devel-uname-r == $(uname -r)" libvirt-devel libxml2 gcc-c++ gcc make libxml2-devel openssl-devel
         PackageList2=`echo $?`
         if [ $PackageList1 -ne 0 ] || [ $PackageList2 -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
