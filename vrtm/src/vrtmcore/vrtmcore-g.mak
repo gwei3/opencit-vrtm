@@ -3,7 +3,7 @@ RPROOT=../..
 ifeq ($(debug),1)
 	DEBUG_CFLAGS     := -Wall  -Wno-format -g -DDEBUG
 else
-        DEBUG_CFLAGS     := -Wall -Wno-unknown-pragmas -Wno-format -O3
+        DEBUG_CFLAGS     := -Wall -Wno-unknown-pragmas -Wno-format -O3 -Wformat -Wformat-security
 endif
 
 BIN=        $(RPROOT)/bin
@@ -20,8 +20,9 @@ LOG4CPP=	/usr/include/log4cpp/
 #DEBUG_CFLAGS     := -Wall  -Wno-format -g -DDEBUG
 #RELEASE_CFLAGS   := -Wall  -Wno-unknown-pragmas -Wno-format -O3
 O1RELEASE_CFLAGS   := -Wall  -Wno-unknown-pragmas -Wno-format -O1
+RELEASE_LDFLAGS  := -pie -z noexecstack -z relro -z now
 LDFLAGS          := ${RELEASE_LDFLAGS}
-CFLAGS=     -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D TEST1 -D TCSERVICE -D __FLUSHIO__ $(DEBUG_CFLAGS) -DNEWANDREORGANIZED -D TPMTEST -DTEST_SEG -DCSR_REQ
+CFLAGS=     -fPIE -fPIC -fstack-protector -O2 -D FORTIFY_SOURCE=2 -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D TEST1 -D TCSERVICE -D __FLUSHIO__ $(DEBUG_CFLAGS) -DNEWANDREORGANIZED -D TPMTEST -DTEST_SEG -DCSR_REQ
 #CFLAGS=     -D TPMSUPPORT -D TEST -D QUOTE2_DEFINED -D TCSERVICE -D __FLUSHIO__ $(RELEASE_CFLAGS) -DNEWANDREORGANIZED
 O1CFLAGS=    -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D __FLUSHIO__ $(O1RELEASE_CFLAGS)
 
