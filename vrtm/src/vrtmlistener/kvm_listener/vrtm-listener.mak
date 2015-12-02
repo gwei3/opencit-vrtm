@@ -2,7 +2,7 @@ RPROOT	= ../../..
 ifeq ($(debug),1)
 	DEBUG_CFLAGS    := -Wall  -Wno-format -g -DDEBUG -fpermissive
 else
-	DEBUG_CFLAGS    := -Wall -Wno-unknown-pragmas -Wno-format -fpermissive -O3
+	DEBUG_CFLAGS    := -Wall -Wno-unknown-pragmas -Wno-format -fpermissive -O3 -Wformat -Wformat-security
 endif
 
 BIN     	= $(RPROOT)/bin
@@ -17,10 +17,11 @@ SC=         ../../util
 
 
 #DEBUG_CFLAGS	:= -Wall  -Wno-format -g -DDEBUG -fpermissive
-RELEASE_CFLAGS	:= -Wall  -Wno-unknown-pragmas -Wno-format -O3
-CFLAGS			= $(DEBUG_CFLAGS)
+#RELEASE_CFLAGS	:= -Wall  -Wno-unknown-pragmas -Wno-format -O3
+LDFLAGS  := -pie -z noexecstack -z relro -z now
+CFLAGS	= -fPIE -fPIC -fstack-protector -O2 -D FORTIFY_SOURCE=2 $(DEBUG_CFLAGS)
 
-CC		= g++
+CC	= g++
 LINK	= g++
 
 listnerobj=$(OBJ)/vrtm_listener.o $(OBJ)/logging.o
@@ -28,7 +29,7 @@ listnerobj=$(OBJ)/vrtm_listener.o $(OBJ)/logging.o
 all: $(BIN)/vrtm_listener 
 
 $(BIN)/vrtm_listener: $(listnerobj)
-	$(LINK) -o $(BIN)/vrtm_listener $(listnerobj) -L$(LIB) -L/usr/local/lib/ -lvrtmchannel-g -lpthread -lvirt -llog4cpp
+	$(LINK) -o $(BIN)/vrtm_listener $(listnerobj) -L$(LIB) -L/usr/local/lib/ -lvrtmchannel-g -lpthread -lvirt -llog4cpp $(LDFLAGS)
 ifneq "$(debug)" "1"
 	strip -s $(BIN)/vrtm_listener
 endif
