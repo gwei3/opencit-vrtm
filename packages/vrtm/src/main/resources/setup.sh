@@ -168,4 +168,7 @@ register_startup_script /usr/local/bin/vrtmlistener vrtmlistener
 #fi
 #ln -s "$tbootxmVerifier" "$vrtmVerifier"
 
+ldconfig
+if [ $? -ne 0 ]; then echo_warning "Failed to load ldconfig. Please run command "ldconfig" after installation completes. And start vrtm & vrtmlistener services again"; fi
+
 echo_success "VRTM Installation complete"
