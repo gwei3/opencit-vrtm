@@ -107,7 +107,7 @@ int LoadConfig(const char * configFile)
 	}
 	while(true)
 	{
-		line = (char *) calloc(1,sizeof(char) * 512);
+		line = (char *) calloc(1,sizeof(char) * line_size);
 		if(line != NULL) {
 			fgets(line,line_size,fp);
 			if(feof(fp)) {

@@ -48,7 +48,6 @@
 #include "vrtm_api_code.h"
 
 #include <libxml/xmlreader.h>
-#include <map>
 
 tcServiceInterface      g_myService;
 int                     g_servicepid= 0;
@@ -65,6 +64,7 @@ byte                    g_servicehash[32]= {
 #define stripped_manifest_file "manifest.xml"
 uint32_t	g_rpdomid = 1000;
 static int g_cleanup_service_status = 0;
+static int g_docker_deletion_service_status = 0;
 
 
 #define NUMPROCENTS 200
@@ -75,6 +75,7 @@ static int g_cleanup_service_status = 0;
 
 int cleanupService();
 void* clean_vrtm_table(void *p);
+void* clean_deleted_docker_instances(void *p);
 // ---------------------------------------------------------------------------
 
 bool uidfrompid(int pid, int* puid)
@@ -125,7 +126,10 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
     //proc_ent.m_procid = procid;
     proc_ent.m_szexeFile = strdup(file);
     proc_ent.m_sizeHash = sizeHash;
-    proc_ent.m_vm_status = VM_STATUS_STOPPED;
+    if(instance_type == 0)
+        proc_ent.m_vm_status = VM_STATUS_STOPPED;
+    else
+        proc_ent.m_vm_status = VM_STATUS_STARTED;
     strncpy(proc_ent.m_uuid, av[0], sizeof(proc_ent.m_uuid) - 1);
     memcpy(proc_ent.m_rgHash,hash,sizeHash);
     proc_ent.m_instance_type = instance_type;
@@ -279,6 +283,18 @@ int serviceprocTable::getcancelledvmcount() {
 	pthread_mutex_unlock(&loc_proc_table);
 	LOG_DEBUG("Number of VM with cancelled status : %d ", count);
 	return count;
+}
+
+int serviceprocTable::getactivedockeruuid(std::set<std::string> & uuid_list) {
+	pthread_mutex_lock(&loc_proc_table);
+	for( proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++) {
+		if (table_it->second.m_instance_type == INSTANCE_TYPE_DOCKER && table_it->second.m_vm_status != VM_STATUS_CANCELLED) {
+			uuid_list.insert(std::string(table_it->second.m_uuid));
+		}
+	}
+	pthread_mutex_unlock(&loc_proc_table);
+	LOG_DEBUG("Number of active docker instances in vrtm table: %d ", uuid_list.size());
+	return uuid_list.size();
 }
 
 void serviceprocTable::print()
@@ -700,6 +716,42 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(unsigned long entry_max_age
 	return TCSERVICE_RESULT_SUCCESS;
 }
 
+TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries) {
+	FILE *fp = NULL;
+	*deleted_entries = 0;
+	char command[48] = {0};
+	char *line;
+	int line_size = 42;
+
+	snprintf(command, sizeof(command), "docker ps --format \"{{.Names}}\"");
+	LOG_DEBUG("Docker command : %s", command);
+	fp=popen(command,"r");
+	if (fp != NULL) {
+		while(true) {
+			line = (char *) calloc(1,sizeof(char) * line_size);
+			fgets(line,line_size,fp);
+			if(feof(fp)) {
+				free(line);
+				break;
+			}
+			if(line[0] != '\n') {
+				LOG_DEBUG("Running Docker container Id : %s",line);
+				uuid_list.erase(std::string(strchr(line,'-')+1));
+			}
+			free(line);
+		}
+		pclose(fp);
+	}
+
+	for(std::set<std::string>::iterator iter = uuid_list.begin() ; iter != uuid_list.end(); iter++) {
+		strncpy(command, (*iter).c_str(), sizeof(command)-1);
+		LOG_DEBUG("Entry to be removed : %s", command);
+		if(m_procTable.removeprocEntry(command));
+			(*deleted_entries)++;
+	}
+	return TCSERVICE_RESULT_SUCCESS;
+}
+
 /*This function returns the value of an XML tag.
 Input parameter: Line read from the XML file
 Output: Value in the tag
@@ -897,27 +949,26 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 
 
         //Create path for just list of files to be passes to verifier
-		strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
-		strncat(nohash_manifest_file, "/manifest.xml", sizeof(nohash_manifest_file) - strlen(nohash_manifest_file) -1);
-		LOG_DEBUG( "Manifest list path %s\n", nohash_manifest_file);
+		//strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
+		//strncat(nohash_manifest_file, "/manifest.xml", sizeof(nohash_manifest_file) - strlen(nohash_manifest_file) -1);
+		//LOG_DEBUG( "Manifest list path %s\n", nohash_manifest_file);
 
 		//Create Trust Report directory and copy relevant files
-		char trust_report_dir[1024];
-		strncpy(trust_report_dir, g_trust_report_dir, sizeof(trust_report_dir) - 1);
-		strncat(trust_report_dir, vm_uuid, sizeof(trust_report_dir) - strlen(trust_report_dir) - 1);
-		strcat(trust_report_dir, "/");
-		mkdir(trust_report_dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+		//char trust_report_dir[1024];
+		//strncpy(trust_report_dir, g_trust_report_dir, sizeof(trust_report_dir) - 1);
+		//strncat(trust_report_dir, vm_uuid, sizeof(trust_report_dir) - strlen(trust_report_dir) - 1);
+		//mkdir(trust_report_dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 		//char cmd[2304];
-		snprintf(command, sizeof(command), "cp -p %s %s/",manifest_file, trust_report_dir );
-		system(command);
-		memset(command,0, sizeof(command));
-		snprintf(command, sizeof(command), "cp -p %s %s/", nohash_manifest_file, trust_report_dir);
-		system(command);
-		snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s", trust_report_dir);
+		//snprintf(command, sizeof(command), "cp -p %s %s/",manifest_file, trust_report_dir );
+		//system(command);
+		//memset(command,0, sizeof(command));
+		//snprintf(command, sizeof(command), "cp -p %s %s/", nohash_manifest_file, trust_report_dir);
+		//system(command);
+		snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s%s/", g_trust_report_dir, vm_uuid);
 		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
-		snprintf(manifest_file, sizeof(manifest_file), "%s%s", trust_report_dir, "/trustpolicy.xml");
+		snprintf(manifest_file, sizeof(manifest_file), "%s%s", vm_manifest_dir, "/trustpolicy.xml");
 		LOG_DEBUG("Manifest path %s ", manifest_file);
-		snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", trust_report_dir, "/manifest.xml");
+		snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", vm_manifest_dir, "/manifest.xml");
 		LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
 
 		//Read the digest algorithm from manifestlist.xml
@@ -931,7 +982,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				measurement_file[strlen(measurement_file) - 1] = '\0';
 			LOG_DEBUG("Extension : %s",extension);
 
-			strncpy(cumulativehash_file, trust_report_dir, sizeof(cumulativehash_file) -  1);
+			strncpy(cumulativehash_file, vm_manifest_dir, sizeof(cumulativehash_file) -  1);
 			strncat(cumulativehash_file, measurement_file, sizeof(cumulativehash_file) - strlen(cumulativehash_file) - 1);
 			cumulativehash_file[ sizeof(cumulativehash_file) - 1] = '\0';
 			LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
@@ -1491,26 +1542,64 @@ void* clean_vrtm_table(void *){
 	return NULL;
 }
 
+void* clean_deleted_docker_instances(void *){
+	std::set<std::string> uuid_list;
+	LOG_TRACE("");
+	while(g_myService.m_procTable.getactivedockeruuid(uuid_list)) {
+		int cleaned_entries;
+		sleep(g_entry_cleanup_interval);
+		g_myService.CleanVrtmTable(uuid_list, &cleaned_entries);
+		LOG_INFO("Number of Docker instances removed from vRTM table : %d", cleaned_entries);
+		uuid_list.clear();
+	}
+	g_docker_deletion_service_status = 0;
+	LOG_DEBUG("Docker Deletion Service thread exiting...");
+	return NULL;
+}
+
 int cleanupService() {
-	pthread_t tid;
-	pthread_attr_t attr;
+	pthread_t tid, tid_d;
+	pthread_attr_t attr, attr_d;
 	LOG_TRACE("");
 	if (g_cleanup_service_status == 1) {
 		LOG_INFO("Clean-up Service already running");
-		return 0;
-	}
-	pthread_attr_init(&attr);
-	if (!pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
-		pthread_create(&tid, &attr, clean_vrtm_table, (void *)NULL);
-		LOG_INFO("Successfully created the thread for entries cleanup");
-		g_cleanup_service_status = 1;
-		pthread_attr_destroy(&attr);
-		return 0;
+		//return 0;
 	}
 	else {
-		LOG_ERROR("Can't set cleanup thread attribute to detatchstate");
-		LOG_ERROR("Failed to spawn the vRTM entry clean up thread");
-		pthread_attr_destroy(&attr);
-		return 1;
+		pthread_attr_init(&attr);
+		if (!pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
+			pthread_create(&tid, &attr, clean_vrtm_table, (void *)NULL);
+			LOG_INFO("Successfully created the thread for entries cleanup");
+			g_cleanup_service_status = 1;
+			pthread_attr_destroy(&attr);
+			//return 0;
+		}
+		else {
+			LOG_ERROR("Can't set cleanup thread attribute to detatchstate");
+			LOG_ERROR("Failed to spawn the vRTM entry clean up thread");
+			pthread_attr_destroy(&attr);
+			//return 1;
+		}
 	}
-}
+
+	if(g_docker_deletion_service_status == 1) {
+		LOG_INFO("Docker deletion Service already running");
+		//return 0;
+	}
+	else {
+		pthread_attr_init(&attr_d);
+		if (!pthread_attr_setdetachstate(&attr_d, PTHREAD_CREATE_DETACHED)) {
+			pthread_create(&tid_d, &attr_d, clean_deleted_docker_instances, (void *)NULL);
+			LOG_INFO("Successfully created the thread for cleaning deleted docker instances");
+			g_docker_deletion_service_status = 1;
+			pthread_attr_destroy(&attr_d);
+			//return 0;
+		}
+		else {
+			LOG_ERROR("Can't set docker deletion thread attribute to detachstate");
+			LOG_ERROR("Failed to spawn the Docker Deletion service thread");
+			pthread_attr_destroy(&attr_d);
+			//return 1;
+		}
+	}
+}			
