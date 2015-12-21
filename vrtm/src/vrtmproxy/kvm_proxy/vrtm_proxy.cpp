@@ -27,6 +27,14 @@ RP-proxy will call qemu with VM launch options after the VM image measurement is
 #include "logging.h"
 #include "log_vrtmchannel.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 #define QEMU_SYSTEM_PATH            "/usr/bin/qemu-system-x86_64_orig"
 #define RPCORE_DEFAULT_IP_ADDR      "127.0.0.1"
 #define PARAMSIZE                   8192
@@ -127,7 +135,7 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
         goto fail;
     }
 
-    memset(rgBuf, 0, sizeof(rgBuf));
+    memset_s(rgBuf, sizeof(rgBuf), 0);
     LOG_TRACE("Request sent successfully");
     
 again:  
@@ -258,18 +266,17 @@ int main(int argc, char** argv) {
         return 0;
     }
     // Parse the command line request and extract the disk path and manifest path
-    disk_start_ptr = strstr(drive_data, "file=") + strlen("file=");
+    disk_start_ptr = strstr(drive_data, "file=") + strnlen_s("file=", sizeof("file="));
     disk_end_ptr = strstr(drive_data, ",if=none");
     int disk_path_len = disk_end_ptr-disk_start_ptr;
 	LOG_DEBUG("Disk path length: %d", disk_path_len);
-    memset(disk_path, '\0', sizeof(disk_path));
-    strncpy(disk_path, disk_start_ptr, disk_path_len);
+    memset_s(disk_path, sizeof(disk_path), '\0');
+    strncpy_s(disk_path, PATH_MAX, disk_start_ptr, disk_path_len);
 	LOG_DEBUG("Disk Path: %s", disk_path);
-    memset(manifest_path, '\0', sizeof(manifest_path));
-    strncpy(manifest_path, disk_path, disk_path_len-strlen("/disk"));
+    memset_s(manifest_path, sizeof(manifest_path), '\0');
+    strncpy_s(manifest_path, PATH_MAX, disk_path, disk_path_len-strnlen_s("/disk", sizeof("/disk")));
 	LOG_DEBUG("Manfest paht : %s", manifest_path);
-	strncat(manifest_path, "/trustpolicy.xml", (sizeof(manifest_path) - strlen(manifest_path) - 1));
-	manifest_path[sizeof(manifest_path) - 1] = '\0';
+	strcat_s(manifest_path, sizeof(manifest_path), "/trustpolicy.xml");
     //snprintf(manifest_path, sizeof(manifest_path), "%s%s", manifest_path, "/trustpolicy.xml");
     LOG_DEBUG("Path of trust policy: %s", manifest_path);
 
@@ -322,17 +329,16 @@ int main(int argc, char** argv) {
     // add RPCore ip and port in kernel arguments for the VM. The VM can use it to contact RPCore
     if(kernel_provided && index != -1) {
         index++;
-		strncat(kernel_args, argv[index], (sizeof(kernel_args) - strlen(kernel_args) - 1));
+		strcat_s(kernel_args, sizeof(kernel_args), argv[index]);
         //snprintf(kernel_args, sizeof(kernel_args), "%s", argv[index]);
-		strncat(kernel_args, " rpcore_ip=", (sizeof(kernel_args) - strlen(kernel_args) - 1));
-		strncat(kernel_args, rpcore_ip, (sizeof(kernel_args) - strlen(kernel_args) - 1));
+		strcat_s(kernel_args, sizeof(kernel_args), " rpcore_ip=");
+		strcat_s(kernel_args, sizeof(kernel_args), rpcore_ip);
         //snprintf(kernel_args, sizeof(kernel_args), "%s rpcore_ip=%s", kernel_args, rpcore_ip);
-		strncat(kernel_args, " rp_port=", (sizeof(kernel_args) - strlen(kernel_args) - 1));
+		strcat_s(kernel_args, sizeof(kernel_args), " rp_port=");
 		char vrtm_port_buff[32] = {'\0'};
-		snprintf(vrtm_port_buff, sizeof(vrtm_port_buff) - 1, "%d", rpcore_port);
-		strncat(kernel_args, vrtm_port_buff, (sizeof(kernel_args) - strlen(kernel_args) - 1));
+		snprintf(vrtm_port_buff, sizeof(vrtm_port_buff), "%d", rpcore_port);
+		strcat_s(kernel_args, sizeof(kernel_args), vrtm_port_buff);
         //snprintf(kernel_args, sizeof(kernel_args), "%s rp_port=%d", kernel_args, rpcore_port);
-		kernel_args[sizeof(kernel_args) - 1] = '\0';
         argv[index] = kernel_args;
         
         LOG_DEBUG( "Modified kernel args: %s", kernel_args);

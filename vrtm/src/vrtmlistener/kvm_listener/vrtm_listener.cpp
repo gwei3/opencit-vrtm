@@ -33,6 +33,14 @@ VM’s UUID to clean up the VM’s record in RPCore.
 #include "logging.h"
 #include "log_vrtmchannel.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 #define UUID_LENGTH         36
 #define TCP_REQUEST_SIZE    512
 #define TCP_LISTEN_PORT     16004
@@ -169,7 +177,7 @@ static void stopOnSignal(int sig) {
 void* listen_libvirt_events( void* input) {
 
     struct sigaction action_stop;
-    memset(&action_stop, 0, sizeof(action_stop));
+    memset_s(&action_stop, sizeof(action_stop), 0);
     action_stop.sa_handler = stopOnSignal;
     LOG_TRACE("Registering for listening to Libvirt events");
 
@@ -277,7 +285,7 @@ int update_vm_status(char* uuid, int vm_status) {
         goto fail;
     }
 
-    memset(rgBuf, 0, sizeof(rgBuf));
+    memset_s(rgBuf, sizeof(rgBuf), 0);
     LOG_TRACE( "Request sent successfully");
     LOG_TRACE( "Reading from socket for response");
     
