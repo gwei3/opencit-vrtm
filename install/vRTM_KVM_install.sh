@@ -325,7 +325,8 @@ function createvRTMStartScript()
 
 	startVrtm()
 	{
-		chown -R nova:nova /var/run/libvirt/
+		#chown -R nova:nova /var/run/libvirt/
+		ldconfig
         	cd \"$INSTALL_DIR/vrtm/bin\"
         	nohup ./vrtmcore > /var/log/vrtm/vrtm_crash.log 2>&1 &
 	}
@@ -378,6 +379,7 @@ function createvRTMStartScript()
 
     startRpListner()
     {
+    	ldconfig
         cd \"$INSTALL_DIR/vrtm/bin\"
         nohup ./vrtm_listener > /var/log/vrtm/vrtm_listener_crash.log 2>&1 &
 	echo \$! > \$RPLISTENER_PID_FILE
