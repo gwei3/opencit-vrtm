@@ -116,6 +116,22 @@ if [ "$(whoami)" == "root" ]; then
   if [ -e "/etc/ld.so.conf.d/vrtm.conf" ]; then
     rm -rf /etc/ld.so.conf.d/vrtm.conf
   fi
+	#Remove apparmor policy of vRTM component
+	LIBVIRT_QEMU_FILE="/etc/apparmor.d/abstractions/libvirt-qemu"
+	vrtm_comment="#Intel CIT vrtm"
+	end_vrtm_comment="#End Intel CIT vrtm"
+	if [ -e $LIBVIRT_QEMU_FILE ]
+	then
+		start_line=`grep -n "$vrtm_comment" $LIBVIRT_QEMU_FILE | cut -f1 -d:`
+		end_line=`grep -n "$end_vrtm_comment" $LIBVIRT_QEMU_FILE | cut -f1 -d:`
+		sed -i "$start_line,$end_line d" $LIBVIRT_QEMU_FILE 2>/dev/null
+		if [ $? -eq 0 ]
+		then
+			echo "successfully removed apparmor policy for vRTM component"
+		else
+			echo "apparmor policy for vrtm component not found"
+		fi
+	fi
 fi
 
 if [ -e $VRTM_LOGS ]; then
