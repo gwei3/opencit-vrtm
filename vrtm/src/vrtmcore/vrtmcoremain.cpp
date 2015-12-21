@@ -26,6 +26,15 @@
 #include "tcconfig.h"
 #include "vrtminterface.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
+
 #define    g_config_file "../configuration/vRTM.cfg"
 #define	   log_properties_file "../configuration/vrtm_log.properties"
 
@@ -100,8 +109,10 @@ int LoadConfig(const char * configFile)
 				free(line);
 				continue;
 			}
-			key=strtok(line,"=");
-			value=strtok(NULL,"=");
+			size_t line_max = 512;
+			char *next_token;
+			key=strtok_s(line,&line_max,"=",&next_token);
+			value=strtok_s(NULL,&line_max,"=",&next_token);
 			if(key != NULL && value != NULL) {
 				std::string map_key (key);
 				std::string map_value (value);
@@ -176,14 +187,14 @@ int read_config()
 		LOG_WARN("Stopped VM cleanup interval not found in vRTM.cfg. Using default value : %d", g_stopped_vm_max_age);
 	}
 	count++;*/
-	strcpy(g_rpcore_ip,rpcore_ip.c_str());
+	strcpy_s(g_rpcore_ip,sizeof(g_rpcore_ip),rpcore_ip.c_str());
 	LOG_DEBUG("vRTM IP : %s", g_rpcore_ip);
 	g_rpcore_port = atoi(rpcore_port.c_str());
 	LOG_DEBUG("vRTM listening port : %d", g_rpcore_port);
 	g_max_thread_limit = atoi(max_thread_limit.c_str());
 	LOG_DEBUG("vRTM Max concurrent request processing limit : %d", g_max_thread_limit);
-	strcpy(g_trust_report_dir, trust_report_dir.c_str());
-	strcat(g_trust_report_dir, "/");
+	strcpy_s(g_trust_report_dir,sizeof(g_trust_report_dir),trust_report_dir.c_str());
+	strcat_s(g_trust_report_dir,sizeof(g_trust_report_dir),"/");
 	LOG_DEBUG("vRTM trust report directory : %s", g_trust_report_dir);
 	g_entry_cleanup_interval = atoi(entry_cleanup_interval.c_str());
 	LOG_DEBUG("VM Entry cleanup interval : %d", g_entry_cleanup_interval);
@@ -218,7 +229,7 @@ int read_config()
 	}
 	// create trust report directory if not exist
 	if ( create_report_dir) {
-		ret_val = mkdir(g_trust_report_dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+		ret_val = mkdir(g_trust_report_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 		if (ret_val == 0 ) {
 			LOG_DEBUG("Trust report directory: %s created successfully", g_trust_report_dir);
 		}
