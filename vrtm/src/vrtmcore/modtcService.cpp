@@ -856,7 +856,6 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         }
         if( av[i] && strcmp(av[i], "-manifest") == 0 ){
                 strcpy_s(manifest_file, sizeof(manifest_file), av[++i]);
-                manifest_file[ sizeof(manifest_file) - 1] = '\0';
 			//Create path for just list of files to be passes to verifier
         		LOG_DEBUG( "Manifest file : %s\n", manifest_file);
 		        strncpy_s(nohash_manifest_file, sizeof(nohash_manifest_file), manifest_file, strnlen_s(manifest_file,sizeof(manifest_file))-strnlen_s("/trustpolicy.xml", sizeof("/trustpolicy.xml")));
@@ -883,8 +882,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				system(command);
         		strcpy_s(vm_manifest_dir, sizeof(vm_manifest_dir), trust_report_dir);
         		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
-				snprintf(manifest_file, sizeof(manifest_file) - 1, "%s%s", trust_report_dir, "/trustpolicy.xml");
-				manifest_file[ sizeof(manifest_file) - 1] = '\0';
+				snprintf(manifest_file, sizeof(manifest_file), "%s%s", trust_report_dir, "/trustpolicy.xml");
 				LOG_DEBUG("Manifest path %s ", manifest_file);
 				snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s/%s", trust_report_dir, stripped_manifest_file);
 				LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
@@ -1050,7 +1048,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			//same as in rpchannel/channelcoding.cpp:ascii2bin(),
 			{
 				int c = 0;
-				strcpy_s(vm_manifest_hash, sizeof(vm_manifest_hash), imageHash);
+				strcpy_s(vm_manifest_hash, MANIFEST_HASH_SIZE, imageHash);
 				int len = strnlen_s(imageHash,sizeof(imageHash));
 				int iSize = 0;
 				for (c= 0; c < len; c = c+2) {
