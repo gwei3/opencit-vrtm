@@ -16,7 +16,8 @@ SC=         ../util
 CH=         ../vrtmchannel
 TM=	    	../vrtmcore
 LOG4CPP=	/usr/include/log4cpp/
-SAFELIB=    ../util/SafeStringLibrary/include/
+SAFESTRING=     ../util/SafeStringLibrary/
+SAFESTRING_INCLUDE=    $(SAFESTRING)/include/
 
 #DEBUG_CFLAGS     := -Wall  -Wno-format -g -DDEBUG
 #RELEASE_CFLAGS   := -Wall  -Wno-unknown-pragmas -Wno-format -O3
@@ -40,7 +41,7 @@ all: $(BIN)/vrtmcore
 
 $(BIN)/vrtmcore: $(sobjs)
 	@echo "vrtmcoreservice"
-	$(LINK) -o $(BIN)/vrtmcore $(sobjs) $(LDFLAGS) -L$(LIB) -L/usr/local/lib/ -lSafeStringRelease -lpthread  -lvrtmchannel -lxml2 -llog4cpp
+	$(LINK) -o $(BIN)/vrtmcore $(sobjs) $(LDFLAGS) -L$(LIB) -L$(SAFESTRING) -L/usr/local/lib/ -lSafeStringRelease -lpthread  -lvrtmchannel -lxml2 -llog4cpp
 ifneq "$(debug)" "1"
 	strip -s $(BIN)/vrtmcore
 endif
@@ -52,13 +53,13 @@ $(OBJ)/logging.o: $(SC)/logging.cpp $(SC)/logging.h
 
 $(OBJ)/vrtmcoremain.o: $(TM)/vrtmcoremain.cpp
 	@echo $(debug)
-	$(CC)  $(CFLAGS) -I$(UTIL) -I$(SC) -I$(LOG4CPP) -I$(CH) -I$(SAFELIB) -c -o $(OBJ)/vrtmcoremain.o $(TM)/vrtmcoremain.cpp
+	$(CC)  $(CFLAGS) -I$(UTIL) -I$(SC) -I$(LOG4CPP) -I$(CH) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/vrtmcoremain.o $(TM)/vrtmcoremain.cpp
 
 $(OBJ)/vrtminterface.o: $(TM)/vrtminterface.cpp 
-	$(CC) $(CFLAGS)  -I$(CH) -I$(UTIL)   -I$(SC) -I$(LOG4CPP) -I$(SAFELIB) -c -o $(OBJ)/vrtminterface.o $(TM)/vrtminterface.cpp
+	$(CC) $(CFLAGS)  -I$(CH) -I$(UTIL)   -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/vrtminterface.o $(TM)/vrtminterface.cpp
 
 
 #original tcService
 $(OBJ)/modtcService.o: $(TM)/modtcService.cpp
-	$(CC) $(CFLAGS) -I$(UTIL)  -I/usr/include/libxml2 -I$(CH)  -I$(SC) -I$(LOG4CPP) -I$(SAFELIB) -c -o $(OBJ)/modtcService.o $(TM)/modtcService.cpp
+	$(CC) $(CFLAGS) -I$(UTIL)  -I/usr/include/libxml2 -I$(CH)  -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/modtcService.o $(TM)/modtcService.cpp
 

@@ -14,7 +14,8 @@ TM      = ../../vrtmchannel
 RPCORE  = ../../vrtmcore/
 LOG4CPP=	/usr/include/log4cpp/
 SC=         ../../util
-SAFELIB=    $(SC)/SafeStringLibrary/include/
+SAFESTRING=     $(SC)/SafeStringLibrary/
+SAFESTRING_INCLUDE=    $(SAFESTRING)/include/
 
 #DEBUG_CFLAGS	:= -Wall  -Wno-format -g -DDEBUG -fpermissive
 #RELEASE_CFLAGS	:= -Wall  -Wno-unknown-pragmas -Wno-format -O3
@@ -29,7 +30,7 @@ listnerobj=$(OBJ)/vrtm_listener.o $(OBJ)/logging.o
 all: $(BIN)/vrtm_listener 
 
 $(BIN)/vrtm_listener: $(listnerobj)
-	$(LINK) -o $(BIN)/vrtm_listener $(listnerobj) -L$(LIB) -L/usr/local/lib/ -lvrtmchannel -lpthread -lvirt -llog4cpp -lSafeStringRelease $(LDFLAGS)
+	$(LINK) -o $(BIN)/vrtm_listener $(listnerobj) -L$(LIB) -L$(SAFESTRING) -L/usr/local/lib/ -lvrtmchannel -lpthread -lvirt -llog4cpp -lSafeStringRelease $(LDFLAGS)
 ifneq "$(debug)" "1"
 	strip -s $(BIN)/vrtm_listener
 endif
@@ -39,7 +40,7 @@ $(OBJ)/logging.o: $(SC)/logging.cpp $(SC)/logging.h
 
 $(OBJ)/vrtm_listener.o: vrtm_listener.cpp
 	mkdir -p $(OBJ)
-	$(CC) $(CFLAGS) -I. -I$(TM) -I$(RPCORE) -I$(LOG4CPP) -I$(SC) -I$(SAFELIB) -c -o $(OBJ)/vrtm_listener.o vrtm_listener.cpp
+	$(CC) $(CFLAGS) -I. -I$(TM) -I$(RPCORE) -I$(LOG4CPP) -I$(SC) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/vrtm_listener.o vrtm_listener.cpp
 
 
 .PHONY: clean
