@@ -27,32 +27,6 @@ extern "C" {
  int g_max_uuid = 48;
  int g_sz_uuid = 36;
  
-static void bin2ascii(int iSize, const byte* pbData, char* szMsg)
-{
-    int i;
-    int len = MAX_LEN;
-    for (i= 0; i<iSize; i++) {
-	
-			snprintf(&szMsg[2*i], len - (2*i), "%02x", pbData[i]);
-    }
-    
-    szMsg[2*iSize] = '\0';
-}
-
-static void ascii2bin(const char* szMsg, int *iSize, byte* pbData)
-{
-    int i = 0;
-    int len = strnlen_s(szMsg, MAX_LEN);
-	*iSize = 0;
-    for (i= 0; i < len; i = i+2) {
-	
-			sscanf(&szMsg[i], "%02x", (unsigned int *)&pbData[i/2]);
-			(*iSize)++;
-    }
-    
-}
-
-
 
 int encodeVM2RP_STARTAPP(const char* file, int nargs, char** args, 
                                    int bufsize, byte* buf)
