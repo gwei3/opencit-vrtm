@@ -58,7 +58,7 @@ $(OBJ)/xpathparser.o: $(TM)/xpathparser.cpp $(TM)/xpathparser.h
 
 $(LIB)/libvrtmchannel.so: $(sobjs)
 	@echo "Building libvrtmchannel.so ..."
-	$(LINK) -shared  -o  $(LIB)/libvrtmchannel.so  $(sobjs) $(LDFLAGS) -L$(SAFESTRING) -L/usr/lib -L/usr/local/lib/ -lpthread -lxml2 -lssl -lcrypto -llog4cpp -lSafeStringRelease
+	$(LINK) -shared  -o  $(LIB)/libvrtmchannel.so  $(sobjs) $(LDFLAGS) -L$(SAFESTRING) -L/usr/lib -L/usr/local/lib/ -L/usr/local/ssl/lib -lpthread -lxml2 -lssl -lcrypto -llog4cpp -lSafeStringRelease
 ifneq "$(debug)" "1"
 	strip -s $(LIB)/libvrtmchannel.so
 endif
