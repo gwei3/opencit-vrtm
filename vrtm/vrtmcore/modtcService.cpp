@@ -22,12 +22,13 @@
 #include "logging.h"
 #include "modtcService.h"
 #include "channelcoding.h"
-#include <stdlib.h>
+#include "base64.h"
 #ifdef __linux__
 #include <sys/wait.h> /* for wait */
 #include <sys/un.h>
 #include <unistd.h>
 #endif
+#include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -38,7 +39,6 @@
 
 #ifdef LINUX
 #include <linux/un.h>
-#else
 #endif
 #include <errno.h>
 
@@ -46,6 +46,14 @@
 #include "tcpchan.h"
 #include "vrtm_api_code.h"
 
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+#include <openssl/pem.h>
+#include <openssl/sha.h>
+#include <openssl/x509.h>
+#include <openssl/buffer.h>
+
+#include <libxml/c14n.h>
 #include <libxml/xmlreader.h>
 #include <map>
 
@@ -406,16 +414,183 @@ TCSERVICE_RESULT tcServiceInterface::IsVerified(char *vm_uuid, int* verification
 	return TCSERVICE_RESULT_FAILED;
 }
 
+
+int GetProperty(char *propertiesFile, char *reqProperty, char **storeProperty)
+{
+	char *line;
+	int line_size = 512;
+	char *key;
+	char *value;
+
+	std:: map<std::string, std::string> properties_map;
+
+	FILE *fp = fopen(propertiesFile,"r");
+	LOG_TRACE("Loading properties file %s", propertiesFile);
+	if(fp == NULL)
+	{
+		LOG_ERROR("Failed to load properties file %s", propertiesFile);
+		return -1;
+	}
+	while(true)
+	{
+		line = (char *)calloc(1,sizeof(char) * 512);
+		if(line != NULL) {
+			fgets(line,line_size,fp);
+			if(feof(fp)) {
+				free(line);
+				break;
+			}
+			LOG_TRACE("Line read from properties file: %s", line);
+			if( line[0] == '#' ) {
+				LOG_DEBUG("Comment in properties file : %s", &line[1]);
+				free(line);
+				continue;
+			}
+			key=strtok(line,"=");
+			value=strtok(NULL,"=");
+			if(key != NULL && value != NULL) {
+				std::string map_key (key);
+				std::string map_value (value);
+				LOG_TRACE("Parsed Key=%s and Value=%s", map_key.c_str(), map_value.c_str());
+				std::pair<std::string, std::string> properties_pair (trim_copy(map_key," \t\n"),trim_copy(map_value," \t\n"));
+				properties_map.insert(properties_pair);
+			}
+			free(line);
+		}
+		else {
+			LOG_ERROR("Can't allocate memory to read a line");
+			properties_map.clear();
+			fclose(fp);
+			return -1;
+		}
+	}
+
+	fclose(fp);
+	std::string reqValue;
+	reqValue = properties_map[reqProperty];
+	properties_map.clear();
+
+	*storeProperty = (char *)reqValue.c_str();
+	return 0;
+}
+
+int extractCert(char *certBuffer) {
+	char *line;
+	int line_size = 512;
+
+	FILE *fp = fopen("temp.txt", "r");
+	if(fp < 0) {
+		LOG_ERROR("Unable to open temp.txt file\n");
+	    return -1;
+	}
+
+	while(true)
+	{
+		line = (char *)calloc(1,sizeof(char) * line_size);
+		if(line != NULL) {
+			fgets(line,line_size,fp);
+			if(feof(fp)) {
+				free(line);
+				break;
+			}
+
+			if( strstr(line, "BEGIN") || strstr(line, "END")) {
+				free(line);
+				continue;
+			}
+
+			strcat(certBuffer, line);
+			free(line);
+		}
+		else {
+			LOG_ERROR("Can't allocate memory to read a line");
+			fclose(fp);
+			return -1;
+		}
+	}
+	fclose(fp);
+	return 0;
+}
+
+int appendCert(char *certBuffer) {
+	X509 *cert;
+	BIO *inbio, *outbio;
+
+	inbio = BIO_new_file("/opt/trustagent/configuration/signingkey.pem", "r");
+	outbio = BIO_new_file("temp.txt", "w");
+
+	if(!(cert = PEM_read_bio_X509(inbio, NULL, 0, NULL))) {
+		LOG_ERROR("Error loading certificate into memory");
+		return -1;
+	}
+
+	if(!PEM_write_bio_X509(outbio, cert)) {
+		LOG_ERROR("Error writing certificate data in PEM format");
+		return -1;
+	}
+
+	X509_free(cert);
+	BIO_free_all(inbio);
+	BIO_free_all(outbio);
+
+	if(extractCert(certBuffer) == -1) {
+		LOG_ERROR("Unable to extract Certificate from signingkey.pem");
+		return -1;
+	}
+	return 0;
+}
+
+int calculateHash(char *xml_file, char *hash_str) {
+	int len;
+	char buf[256] = {0};
+	unsigned char hash[SHA_DIGEST_LENGTH + 1] = {0};
+
+	FILE *fd = fopen(xml_file, "rb");
+  	if(fd < 0){
+      	LOG_ERROR("Unable to open file '%s'\n",xml_file);
+      	return -1;
+  	}
+	SHA_CTX sha1;
+	SHA1_Init(&sha1);
+	while ((len = fread(buf, 1, 256, fd)))
+      		SHA1_Update(&sha1, buf, len);
+	SHA1_Final(hash, &sha1);
+
+	strcpy(hash_str, (char *)hash);
+	fclose(fd);
+	return 0;
+}
+
+int canonicalizeXml(char *infile, char *outfile) {
+	xmlDocPtr Doc;
+	Doc = xmlParseFile(infile);
+	int nbytes = xmlC14NDocSave(Doc, NULL, 0, NULL, 0, outfile, -1);
+	if(nbytes < 0) {
+		LOG_ERROR("Unable to canonicalize file '%s'\n",infile);
+		return -1;
+	}
+	xmlFreeDoc(Doc);
+	return 0;
+}
+
+
 // Need to get nonce also as input
 TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *nonce, char* vm_manifest_dir)
 {
-    
+	char *b64_str;
+	char *tpm_str;
+	char cert[2048]={0};
 	char xmlstr[8192]={0};
-	char tpm_signkey_passwd[100]={0};
+	char outfile[200]={0};
 	char tempfile[200]={0};
 	char filepath[200]={0};
 	char command0[400]={0};
+	char hash_str[512]={0};
+	char signature[1024]={0};
+	char reqProperty[100]={0};
 	char manifest_dir[400]={0};
+	char propertiesFile[100]={0};
+	char tpm_signkey_passwd[100]={0};
 	FILE * fp = NULL;
 	FILE * fp1 = NULL;
 	
@@ -433,69 +608,101 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 		//TODO
 		return TCSERVICE_RESULT_FAILED;
 	}
+
 	sprintf(vm_manifest_dir, "%s%s/", g_trust_report_dir,vm_uuid); 
 	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
-	
-		
 	strcpy(manifest_dir,vm_manifest_dir);
+	sprintf(outfile, "%stemp.xml", manifest_dir);
 
 	// Generate Signed  XML  in same vm_manifest_dir
 	//sprintf(manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
 	sprintf(filepath,"%ssigned_report.xml",manifest_dir);					
-
-
 	fp1 = fopen(filepath,"w");
+	if (fp1 == NULL) {
+		LOG_ERROR("Can't write report in signed_report.xml file");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	sprintf(xmlstr,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
 
 	sprintf(xmlstr,"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
 	fprintf(fp1,"%s",xmlstr);
-	fclose(fp1);
+	//fclose(fp1);
     LOG_DEBUG("XML content : %s", xmlstr);
 
+
 	// Calculate the Digest Value       
-
-
 	sprintf(xmlstr,"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
 	sprintf(tempfile,"%sus_xml.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
+	if (fp == NULL) {
+		LOG_ERROR("can't open the file us_xml.xml");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
 
+
+	if(canonicalizeXml(tempfile, outfile) == -1) {
+		return TCSERVICE_RESULT_FAILED;
+	}
+	if(calculateHash(outfile, hash_str) == -1) {
+		LOG_ERROR("Unable to calculate hash of file '%s'\n", infile);
+		return TCSERVICE_RESULT_FAILED;
+	}
+	LOG_DEBUG("Calculated Hash : %s", hash_str);
+	if(Base64Encode(hash_str, &b64_str) != 0) {
+		LOG_ERROR("Unable to encode the calculated hash");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	LOG_DEBUG("Encoded Hash : %s", b64_str);
+	fprintf(fp1,"%s", b64_str);
+/*
 	sprintf(command0,"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n >> %ssigned_report.xml", manifest_dir,manifest_dir);
 	LOG_DEBUG("command generated to calculate hash: %s", command0);
 	system(command0);
-						
+*/
 
-	fp1 = fopen(filepath,"a");
+	//fp1 = fopen(filepath,"a");
 	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo><SignatureValue>");
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
-						
-						
-	// Calculate the Signature Value
+    fclose(fp1);
 
 
+    // Calculate the Signature Value
 	sprintf(tempfile,"%sus_can.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
+	if (fp == NULL) {
+		LOG_ERROR("can't open the file us_can.xml");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	sprintf(xmlstr,"<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod><DigestValue>");
-
 	fprintf(fp,"%s",xmlstr); 
-	fclose(fp1);
-	fclose(fp);
-							  
+	//fclose(fp);
+
+	fprintf(fp,"%s", b64_str);
+/*
 	sprintf(command0,"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
 	system(command0);
-				 
+*/
+	//fp = fopen(tempfile,"a");
 	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo>");
-	fp = fopen(tempfile,"a");
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
 
 
-
-	// Store the TPM signing key password          
+	// Store the TPM signing key password
+	strcpy(reqProperty, "signing.key.secret");
+	strcpy(propertiesFile, "/opt/trustagent/configuration/trustagent.properties");
+	if(GetProperty(propertiesFile, reqProperty, &tpm_str) == -1) {
+		LOG_ERROR("Unable to get tpm_signkey_passwd");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	strcpy(tpm_signkey_passwd, tpm_str);
+	LOG_DEBUG("Signing Key : %s", tpm_signkey_passwd);
+/*
 	sprintf(command0,"cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2 | xargs echo -n > %ssign_key_passwd", manifest_dir);
 	LOG_DEBUG("TPM signing key password :%s \n", command0);
 	system(command0); 
@@ -504,38 +711,86 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	fp = fopen(tempfile,"r"); 
 	fscanf(fp, "%s", tpm_signkey_passwd);
 	fclose(fp);                
-
-
+*/
 				 
 	// Sign the XML
+	if(canonicalizeXml(infile, outfile) == -1) {
+		return TCSERVICE_RESULT_FAILED;
+	}
+	if(calculateHash(outfile, hash_str) == -1) {
+		LOG_ERROR("Unable to calculate hash of file '%s'\n", infile);
+		return TCSERVICE_RESULT_FAILED;
+	}
+	LOG_DEBUG("Calculated Hash : %s", hash_str);
+/*
 	sprintf(command0,"xmlstarlet c14n %sus_can.xml | openssl dgst -sha1 -binary -out %shash.input",manifest_dir,manifest_dir);
 	system(command0);
+*/
+
+	sprintf(tempfile,"%shash.input",manifest_dir);
+	fp = fopen(tempfile,"wb");
+	if ( fp == NULL) {
+		LOG_ERROR("can't open the file hash.input");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	fprintf(fp, "%s", hash_str);
+	fclose(fp);
+
 
 	sprintf(command0,"/opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
 	LOG_DEBUG("Signing Command : %s", command0);
 	system(command0);
 
-	sprintf(command0,"openssl enc -base64 -in %shash.sig |xargs echo -n >> %ssigned_report.xml",manifest_dir,manifest_dir); 
-	system(command0);
 
-					   
+	sprintf(tempfile,"%shash.sig",manifest_dir);
+	fp = fopen(tempfile, "rb");
+	if ( fp == NULL) {
+		LOG_ERROR("can't open the file hash.sig");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	fgets(signature, 1024, fp);
+	fclose(fp);
+
+
+	if(Base64Encode(signature, &b64_str) != 0) {
+		LOG_ERROR("Unable to encode the calculated hash");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	LOG_DEBUG("Encoded Signature : %s", b64_str);
 
 	fp1 = fopen(filepath,"a");
+	if (fp1 == NULL) {
+		LOG_ERROR("can't open the file signed_report.xml");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	fprintf(fp1,"%s", b64_str);
+/*
+	sprintf(command0,"openssl enc -base64 -in %shash.sig |xargs echo -n >> %ssigned_report.xml",manifest_dir,manifest_dir); 
+	system(command0);
+*/
+
+	//fp1 = fopen(filepath,"a");
 	sprintf(xmlstr,"</SignatureValue><KeyInfo><X509Data><X509Certificate>");
 	LOG_DEBUG("XML content : %s", xmlstr);
 	fprintf(fp1,"%s",xmlstr);
-	fclose(fp1);
+	//fclose(fp1);
 					
 
-				 
 	// Append the X.509 certificate
+	if(appendCert(cert) == -1) {
+		LOG_ERROR("Unable to append Certificate");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	LOG_DEBUG("Extracted Certificate : %s", cert);
+/*
 	sprintf(command0,"openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
 	LOG_DEBUG("Command to generate certificate : %s", command0);
 	system(command0);
-					
+*/
 					   
 
-	fp1 = fopen(filepath,"a");
+	//fp1 = fopen(filepath,"a");
+	fprintf(fp1, "%s", cert);
 	sprintf(xmlstr,"</X509Certificate></X509Data></KeyInfo></Signature></VMQuote>");
 	fprintf(fp1,"%s",xmlstr);
 	fclose(fp1);
@@ -673,6 +928,41 @@ char* tagEntry (char* line){
         return start;
 }
 
+int extractDigAlg(char *file, char *extension) {
+	char *line;
+	int line_size = 512;
+
+	FILE *fp = fopen(file, "r");
+	if(fp < 0) {
+		LOG_ERROR("ERROR: Unable to open file %s\n", file);
+	    return -1;
+	}
+
+	while (true) {
+		line = (char *)calloc(1,sizeof(char) * line_size);
+		if(line != NULL) {
+			fgets(line,line_size,fp);
+
+			if (feof(fp)) {
+				free(line);
+				break;
+			}
+
+			if (strstr(line, "DigestAlg=") != NULL){
+				tagEntry(strstr(line, "DigestAlg="));
+				return 0;
+			}
+			free(line);
+		}
+		else {
+			LOG_ERROR("Can't allocate memory to read a line");
+			fclose(fp);
+			return -1;
+		}
+	}
+	fclose(fp);
+	return -1;
+}
 
 TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int* poutsize, byte* out)
 {
@@ -776,19 +1066,28 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
 				
 				//Read the digest algorithm from manifestlist.xml
-				sprintf(popen_command,"%s%s",xml_command,nohash_manifest_file);
+				//sprintf(popen_command,"%s%s",xml_command,nohash_manifest_file);
+				if(extractDigAlg(nohash_manifest_file, extension) == -1) {
+					LOG_ERROR("Unable to retrieve Digest Algorithm");
+					return TCSERVICE_RESULT_FAILED;
+				}
+				strcpy(extension, NodeValue);
+/*
 #ifdef __linux__
 				fp1=popen(popen_command,"r");
 #elif _WIN32
 				fp1 = _popen(popen_command, "r");
 #endif
-				fgets(extension, sizeof(extension)-1, fp1);
+*/
+				//fgets(extension, sizeof(extension)-1, fp1);
 				sprintf(measurement_file,"%s.%s","/measurement",extension);
+/*
 #ifdef __linux__
 				pclose(fp1);
 #elif _WIN32
 				_pclose(fp1);
 #endif
+*/
 				if(measurement_file[strlen(measurement_file) - 1] == '\n') 
 					measurement_file[strlen(measurement_file) - 1] = '\0';
 				LOG_DEBUG("Extension : %s",extension);

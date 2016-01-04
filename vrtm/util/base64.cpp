@@ -6,8 +6,10 @@
  */
 
 #include <stdio.h>
+#ifdef __linux__
 #include <openssl/bio.h>
 #include <openssl/evp.h>
+#endif
 #include <string.h>
 #include <math.h>
 #include "logging.h"
@@ -124,7 +126,7 @@ int Base64Encode(char* message, char** buffer) {
 int main() {
 	//Encode To Base64
 	char* base64EncodeOutput;
-	Base64Encode("Hello Worl", &base64EncodeOutput);
+	Base64Encode("Hello World", &base64EncodeOutput);
 	printf("Output (base64): %s\n", base64EncodeOutput);
 
 	//Decode From Base64
