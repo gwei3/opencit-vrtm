@@ -719,11 +719,11 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(unsigned long entry_max_age
 TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries) {
 	FILE *fp = NULL;
 	*deleted_entries = 0;
-	char command[48] = {0};
+	char command[65] = {0};
 	char *line;
-	int line_size = 42;
+	int line_size = 65;
 
-	snprintf(command, sizeof(command), "docker ps --format \"{{.Names}}\"");
+	snprintf(command, sizeof(command), "docker ps -q --no-trunc");
 	LOG_DEBUG("Docker command : %s", command);
 	fp=popen(command,"r");
 	if (fp != NULL) {
@@ -736,7 +736,7 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uui
 			}
 			if(line[0] != '\n') {
 				LOG_DEBUG("Running Docker container Id : %s",line);
-				uuid_list.erase(std::string(strchr(line,'-')+1));
+				uuid_list.erase(std::string(line));
 			}
 			free(line);
 		}
@@ -744,9 +744,9 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uui
 	}
 
 	for(std::set<std::string>::iterator iter = uuid_list.begin() ; iter != uuid_list.end(); iter++) {
-		strncpy(command, (*iter).c_str(), sizeof(command)-1);
+		snprintf(command, sizeof(command), "%s", (*iter).c_str());
 		LOG_DEBUG("Entry to be removed : %s", command);
-		if(m_procTable.removeprocEntry(command));
+		if(m_procTable.removeprocEntry(command))
 			(*deleted_entries)++;
 	}
 	return TCSERVICE_RESULT_SUCCESS;
@@ -926,12 +926,6 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
             LOG_DEBUG("Disk : %s",disk_file );
         }
 
-        if( av[i] && strcmp(av[i], "-manifest") == 0 ){
-            strncpy(manifest_file, av[++i], sizeof(manifest_file) - 1);
-            manifest_file[ sizeof(manifest_file) - 1] = '\0';
-            LOG_DEBUG( "Manifest file : %s", manifest_file);
-        }
-
         if ( av[i] && strcmp(av[i], "-docker_instance") == 0) {
         	instance_type = INSTANCE_TYPE_DOCKER;
         	LOG_DEBUG("Instance type : Docker instance, %d", instance_type);
@@ -942,8 +936,8 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         }
     }
 
-	if(manifest_file[0] == 0 || vm_uuid[0] == 0) {
-		LOG_ERROR("Either manifest file or uuid is not present");
+	if(vm_uuid[0] == 0) {
+		LOG_ERROR("uuid is not present");
 		return TCSERVICE_RESULT_FAILED;
 	}
 
@@ -970,6 +964,18 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		LOG_DEBUG("Manifest path %s ", manifest_file);
 		snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", vm_manifest_dir, "/manifest.xml");
 		LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
+
+		if(access(manifest_file, F_OK)!=0){
+			LOG_ERROR("trustpolicy.xml doesn't exist at  %s", manifest_file);
+			LOG_ERROR( "cant continue with reading trustpolicy values");
+			return TCSERVICE_RESULT_FAILED;
+		}
+
+		if(access(nohash_manifest_file, F_OK)!=0){
+			LOG_ERROR("manifestlist.xml doesn't exist at  %s", nohash_manifest_file);
+			LOG_ERROR( "cant continue with reading digest algorithm");
+			return TCSERVICE_RESULT_FAILED;
+		}
 
 		//Read the digest algorithm from manifestlist.xml
 		snprintf(popen_command, sizeof(popen_command), "%s%s",xml_command,nohash_manifest_file);

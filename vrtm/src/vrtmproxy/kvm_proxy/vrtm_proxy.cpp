@@ -20,12 +20,14 @@ VRTM-proxy will call qemu with VM launch options after the VM image measurement 
 #include <time.h>
 #include <errno.h>
 #include <unistd.h>
+
 #include "tcpchan.h"
 #include "channelcoding.h"
 #include "parser.h"
 #include "vrtm_api_code.h"
 #include "logging.h"
 #include "log_vrtmchannel.h"
+#include "loadconfig.h"
 
 #define QEMU_SYSTEM_PATH            "/usr/bin/qemu-system-x86_64_orig"
 #define VRTMCORE_DEFAULT_IP_ADDR    "127.0.0.1"
@@ -35,14 +37,16 @@ VRTM-proxy will call qemu with VM launch options after the VM image measurement 
 #define VRTM_LISTENER_IP_ADDR       "127.0.0.1"
 #define VRTM_LISTENER_SERVICE_PORT  16004
 #define VM_NAME_MAXLEN              2048
+#define g_config_file "/opt/vrtm/configuration/vRTM.cfg"
 #define log_properties_file "/opt/vrtm/configuration/vrtm_proxylog.properties"
 #ifndef byte
 typedef unsigned char byte;
 #endif
 
+std:: map<std::string, std::string> config_map;
+
 int rp_fd = -1;
 //int rp_listener_fd = -1;
-
 
 
 int channel_open() {
@@ -84,7 +88,7 @@ int conn_open() {
  Extract dom id from the response
 */
 int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path, 
-                        char* manifest_path) {
+                        char* uuid) {
     
     int         err = -1;
     int         retval = -1;
@@ -95,8 +99,6 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
     char*       av[20] = {0};
     int response_size;
     byte response[1024] = {'\0'};
-    char    	trustpolicy_parent_dir[2048] ={0};
-    char		uuid[65];
 
     LOG_TRACE("Prepare request to send to vRTM");
     av[an++] = "-kernel";
@@ -105,19 +107,10 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
     av[an++] = ramdisk_path;
     av[an++] = "-disk";
     av[an++] = disk_path;
-    av[an++] = "-manifest";
-    av[an++] = manifest_path;
-
-    //Extract UUID of VM
-    strncpy(trustpolicy_parent_dir, manifest_path, strlen(manifest_path)-strlen("/trustpolicy.xml"));
-	char *uuid_ptr = strrchr(trustpolicy_parent_dir, '/');
-	strcpy(uuid, uuid_ptr + 1);
-	LOG_TRACE("Extracted UUID : %s", uuid);
-
-    av[an++] = "-config";
-    av[an++] = "config";
     av[an++] = "-uuid";
     av[an++] = uuid;
+    av[an++] = "-config";
+    av[an++] = "config";
  
     size = sizeof(tcBuffer);
     size = encodeVM2RP_STARTAPP("foo", an, av, PARAMSIZE -size, &rgBuf[size]);
@@ -187,6 +180,8 @@ int main(int argc, char** argv) {
     char    *kernel_path = NULL, *initrd_path = NULL, *vm_name;
     char    *disk_start_ptr, *disk_end_ptr;
     char    *drive_data, disk_path[PATH_MAX], manifest_path[PATH_MAX];
+    char    trust_report_dir[1024] ={0};
+    char	uuid[65];
 
     char    kernel_args[4096] = {0};
     int     rp_domid = -1;
@@ -231,7 +226,6 @@ int main(int argc, char** argv) {
         // the type for each drive and pass the drive that is the disk
         if ( argv[i] && (strcmp(argv[i], "-drive") == 0) && (strstr(argv[i+1], "/disk.config") == NULL) ) {
             has_drive = true;
-
             drive_data = argv[i+1];
             LOG_DEBUG("has drive : %d drive data : %s",has_drive, drive_data);
         }
@@ -267,7 +261,7 @@ int main(int argc, char** argv) {
         closeLog();
         return 0;
     }
-    // Parse the command line request and extract the disk path and manifest path
+    // Parse the command line request and extract the disk path
     disk_start_ptr = strstr(drive_data, "file=") + strlen("file=");
     disk_end_ptr = strstr(drive_data, ",if=none");
     int disk_path_len = disk_end_ptr-disk_start_ptr;
@@ -275,13 +269,25 @@ int main(int argc, char** argv) {
     memset(disk_path, '\0', sizeof(disk_path));
     strncpy(disk_path, disk_start_ptr, disk_path_len);
 	LOG_DEBUG("Disk Path: %s", disk_path);
+
+    //Extract UUID of VM
+    strncpy(trust_report_dir, disk_path, disk_path_len-strlen("/disk"));
+    char *uuid_ptr = strrchr(trust_report_dir, '/');
+    strcpy(uuid, uuid_ptr + 1);
+    LOG_TRACE("Extracted UUID : %s", uuid);
+
+    // Parse the config file and extract the manifest path
+    if(LoadConfig(g_config_file, config_map) < 0) {
+    	LOG_ERROR("Can't load config file %s", g_config_file);
+		return EXIT_FAILURE;
+	}
+
+    std::string reqValue = config_map["trust_report_dir"];
+    config_map.clear();
+    strcpy(trust_report_dir, reqValue.c_str());
     memset(manifest_path, '\0', sizeof(manifest_path));
-    strncpy(manifest_path, disk_path, disk_path_len-strlen("/disk"));
-	LOG_DEBUG("Manfest paht : %s", manifest_path);
-	strncat(manifest_path, "/trustpolicy.xml", (sizeof(manifest_path) - strlen(manifest_path) - 1));
-	manifest_path[sizeof(manifest_path) - 1] = '\0';
-    //snprintf(manifest_path, sizeof(manifest_path), "%s%s", manifest_path, "/trustpolicy.xml");
-    LOG_DEBUG("Path of trust policy: %s", manifest_path);
+	snprintf(manifest_path, sizeof(manifest_path), "%s%s%s", trust_report_dir, uuid, "/trustpolicy.xml");
+	LOG_DEBUG("Path of trust policy: %s", manifest_path);
 
 // If not measured launch then execute command without calling vRTM
     if(access(manifest_path, F_OK)!=0){
@@ -301,8 +307,8 @@ int main(int argc, char** argv) {
     initrd_path = (initrd_path == NULL) ? "" : initrd_path;
 
     //LOG_DEBUG( "VM name: %s\n", vm_name);
-    LOG_DEBUG("kernel_path=%s, ramdisk_path=%s, disk_path=%s, trustpolicy_path=%s\n",
-                kernel_path, initrd_path, disk_path, manifest_path);
+    LOG_DEBUG("kernel_path=%s, ramdisk_path=%s, disk_path=%s, vm_uuid=%s\n",
+                kernel_path, initrd_path, disk_path, uuid);
     vrtmcore_ip = getenv("VRTMCORE_IPADDR");
     if (!vrtmcore_ip)
         vrtmcore_ip = VRTMCORE_DEFAULT_IP_ADDR;
@@ -319,7 +325,7 @@ int main(int argc, char** argv) {
     */
 
     LOG_TRACE("Calling vRTM to measure VM image");
-    rp_domid = get_rpcore_response(kernel_path, initrd_path, disk_path, manifest_path);
+    rp_domid = get_rpcore_response(kernel_path, initrd_path, disk_path, uuid);
 
 
     LOG_DEBUG( "Response from vrtmcore is : %d\n", rp_domid);

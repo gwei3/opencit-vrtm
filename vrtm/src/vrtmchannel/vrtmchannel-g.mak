@@ -26,8 +26,7 @@ O1CFLAGS=    -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D __FLUSHIO__ $(O1RELEASE_
 CC=         g++
 LINK=       g++
 
-sobjs=     $(OBJ)/channelcoding.o $(OBJ)/parser.o $(OBJ)/tcpchan.o $(OBJ)/logging.o $(OBJ)/base64.o $(OBJ)/log_vrtmchannel.o $(OBJ)/xpathparser.o
-
+sobjs=     $(OBJ)/channelcoding.o $(OBJ)/parser.o $(OBJ)/tcpchan.o $(OBJ)/logging.o $(OBJ)/base64.o $(OBJ)/log_vrtmchannel.o $(OBJ)/xpathparser.o $(OBJ)/loadconfig.o
 
 all: $(LIB)/libvrtmchannel-g.so 
 
@@ -38,7 +37,7 @@ $(OBJ)/log_vrtmchannel.o: $(TM)/log_vrtmchannel.cpp $(TM)/log_vrtmchannel.h
 	$(CC) $(CFLAGS) -I$(LOG4CPP) -I$(S) -c -o $(OBJ)/log_vrtmchannel.o $(TM)/log_vrtmchannel.cpp
 	
 $(OBJ)/channelcoding.o: $(TM)/channelcoding.cpp $(TM)/channelcoding.h
-	gcc $(CFLAGS) -I$(TM) -I$(S) -I$(LOG4CPP) -c -o $(OBJ)/channelcoding.o $(TM)/channelcoding.cpp
+	$(CC) $(CFLAGS) -I$(TM) -I$(S) -I$(LOG4CPP) -c -o $(OBJ)/channelcoding.o $(TM)/channelcoding.cpp
 
 $(OBJ)/base64.o: $(S)/base64.cpp $(S)/base64.h
 	$(CC) $(CFLAGS) -I$(OPENSSL) -I$(LOG4CPP) -c -o $(OBJ)/base64.o $(S)/base64.cpp
@@ -52,10 +51,14 @@ $(OBJ)/tcpchan.o: $(TM)/tcpchan.cpp $(TM)/tcpchan.h
 $(OBJ)/xpathparser.o: $(TM)/xpathparser.cpp $(TM)/xpathparser.h
 	$(CC) $(CFLAGS) -I$(S) -I$(LXML) -I$(LOG4CPP) -c -o $(OBJ)/xpathparser.o $(TM)/xpathparser.cpp -lxml2
 
-
+$(OBJ)/loadconfig.o: $(S)/loadconfig.cpp $(S)/loadconfig.h
+	$(CC) $(CFLAGS) -I$(S) -I$(LOG4CPP) -c -o $(OBJ)/loadconfig.o $(S)/loadconfig.cpp
+	
+	
 $(LIB)/libvrtmchannel-g.so: $(sobjs)
 	@echo "Building libvrtmchannel-g.so ..."
-	$(LINK) -shared  -o  $(LIB)/libvrtmchannel-g.so  $(sobjs)  -L/usr/lib -L/usr/local/lib/ -lpthread -lxml2 -lssl -lcrypto -llog4cpp
+	$(LINK) -shared  -o  $(LIB)/libvrtmchannel-g.so  $(sobjs) $(LDFLAGS) -L/usr/lib -L/usr/local/lib/ -lpthread -lxml2 -lssl -lcrypto -llog4cpp
 ifneq "$(debug)" "1"
 	strip -s $(LIB)/libvrtmchannel-g.so
 endif
+

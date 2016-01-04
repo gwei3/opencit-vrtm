@@ -1,8 +1,6 @@
 #ifndef _TCCONFIGH_
 #define _TCCONFIGH_
 
-int LoadConfig(const char* szInFile );
-
 
 extern char g_vrtmcore_ip [];
 extern int  g_vrtmcore_port ;

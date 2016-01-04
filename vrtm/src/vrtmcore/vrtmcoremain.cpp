@@ -44,9 +44,7 @@
 #include "log_vrtmchannel.h"
 #include "tcconfig.h"
 #include "vrtminterface.h"
-
-#define    g_config_file "../configuration/vRTM.cfg"
-#define	   log_properties_file "../configuration/vrtm_log.properties"
+#include "loadconfig.h"
 
 char    g_vrtmcore_ip [64]        = "127.0.0.1";
 int     g_vrtmcore_port 		= 16005;
@@ -58,6 +56,7 @@ long 	g_entry_cleanup_interval = 30;
 //long 	g_delete_vm_max_age = 3600;
 long 	g_cancelled_vm_max_age = 86400;
 //long	g_stopped_vm_max_age = 864000;
+std:: map<std::string, std::string> config_map;
 
 //default signal handlers function pointers
 //__sighandler_t default_handle;
@@ -71,76 +70,9 @@ void ( * default_handler_fpe) (int );
 void ( * default_handler_bus) (int );
 void ( * default_handler_tstp) (int );
 
-std:: map<std::string, std::string> config_map;
-
 int  g_quit = 0;
 
 int g_fdLock;
-
-inline std::string trim_right_copy(const std::string &s, const std::string &delimiters)
-{
-	return s.substr(0,s.find_last_not_of(delimiters) +1 );
-}
-
-inline std::string trim_left_copy(const std::string &s, const std::string &delimiters)
-{
-	return s.substr(s.find_first_not_of(delimiters));
-}
-
-inline std::string trim_copy(const std::string &s, const std::string delimiters)
-{
-	return trim_left_copy(trim_right_copy(s,delimiters),delimiters);
-}
-
-int LoadConfig(const char * configFile)
-{
-	FILE *fp = fopen(configFile,"r");
-	char *line;
-	int line_size = 512;
-	char *key;
-	char *value;
-	LOG_TRACE("Loading vRTM config file %s", configFile);
-	if(fp == NULL)
-	{
-		LOG_ERROR("Failed to load vRTM config file");
-		return -1;
-	}
-	while(true)
-	{
-		line = (char *) calloc(1,sizeof(char) * line_size);
-		if(line != NULL) {
-			fgets(line,line_size,fp);
-			if(feof(fp)) {
-				free(line);
-				break;
-			}
-			LOG_TRACE("Line read from config file: %s", line);
-			if( line[0] == '#' ) {
-				LOG_DEBUG("Comment in configuration file : %s", &line[1]);
-				free(line);
-				continue;
-			}
-			key=strtok(line,"=");
-			value=strtok(NULL,"=");
-			if(key != NULL && value != NULL) {
-				std::string map_key (key);
-				std::string map_value (value);
-				LOG_TRACE("Parsed Key=%s and Value=%s", map_key.c_str(), map_value.c_str());
-				std::pair<std::string, std::string> config_pair (trim_copy(map_key," \t\n"),trim_copy(map_value," \t\n"));
-				config_map.insert(config_pair);
-			}
-			free(line);
-		}
-		else {
-			LOG_ERROR("Can't allocate memory to read a line");
-			config_map.clear();
-			fclose(fp);
-			return -1;
-		}
-	}
-	fclose(fp);
-	return config_map.size();
-}
 
 int read_config()
 {
@@ -390,7 +322,7 @@ int main(int an, char** av)
     //default_handler_tstp = signal(SIGTSTP, vrtm_signal_handler); //to handle interactive stop signal ctrl-z and ctrl-y, don't need to clean, process can be resumed again
 
     LOG_TRACE("Load config file %s", g_config_file);
-	if ( LoadConfig(g_config_file) < 0 ) {
+	if ( LoadConfig(g_config_file, config_map) < 0 ) {
 		LOG_ERROR("Can't load config file %s", g_config_file);
 		goto cleanup;
 	}

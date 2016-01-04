@@ -1,4 +1,4 @@
-#!/bin/bash
+
 
 #This script installs vrtmCore, vrtmProxy, vrtmListener, and openstack patches
 
@@ -15,7 +15,7 @@ BUILD_LIBVIRT="FALSE"
 KVM_BINARY=""
 LOG_DIR="/var/log/vrtm"
 VERSION_INFO_FILE=vrtm.version
-DEFAULT_VRTM_MODE="VM"
+DEFAULT_DEPLOYMENT_TYPE="vm"
 
 # This function returns either rhel fedora ubuntu suse
 # TODO : This function can be moved out to some common file
@@ -102,7 +102,7 @@ function installKVMPackages_rhel()
                 echo "enabled epel-testing repo"
         fi
         echo "Installing Required Packages ....."
-	if [ $VRTM_MODE == "VM" ]
+	if [ $DEPLOYMENT_TYPE == "vm" ]
 	then
 		#install guestmount only in VM mode
 		yum install -y libguestfs-tools-c  kpartx lvm2
@@ -134,11 +134,10 @@ function installKVMPackages_rhel()
 function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
-	if [ "$VRTM_MODE" == "VM" ]
+	if [ "$DEPLOYMENT_TYPE" == "vm" ]
 	then
 		apt-get -y install libguestfs-tools qemu-utils kpartx lvm2
-	elif [ "$VRTM_MODE" == "DOCKER" ]
-	then
+	else
 		return
 	fi
 	if [ $? -ne 0 ]; then
@@ -151,7 +150,7 @@ function installKVMPackages_ubuntu()
 
 function installKVMPackages_suse()
 {
-	if [ $VRTM_MODE == "VM" ]
+	if [ $DEPLOYMENT_TYPE == "vm" ]
 	then
 		zypper -n in libguestfs-tools-c kpartx lvm2
 		if [ $? -ne 0 ]
@@ -210,9 +209,6 @@ function installvrtmProxyAndListner()
 
 	chmod +x "$QEMU_INSTALL_LOCATION"
 	
-	echo "Updating ldconfig for vRTM library"
-	echo "$INSTALL_DIR/vrtm/lib" > /etc/ld.so.conf.d/vrtm.conf
-	ldconfig
         if [ $FLAVOUR == "ubuntu" ]; then
 		LIBVIRT_QEMU_FILE="/etc/apparmor.d/abstractions/libvirt-qemu"           
                 if [ -e $LIBVIRT_QEMU_FILE ] ; then
@@ -320,7 +316,7 @@ function startNonTPMRpCore()
 	then
 		/usr/local/bin/vrtmlistener stop
 	fi
-	if [ "$VRTM_MODE" == "VM" ]
+	if [ "$DEPLOYMENT_TYPE" == "vm" ]
 	then
 		echo "Starting vrtm_listener...."
 		/usr/local/bin/vrtmlistener start
@@ -355,7 +351,7 @@ function createvRTMStartScript()
 
 	startVrtm()
 	{" > "$VRTM_SCRIPT"
-	if [ "$VRTM_MODE" == "VM" ]
+	if [ "$DEPLOYMENT_TYPE" == "vm" ]
 	then
 		echo "		chown -R nova:nova /var/run/libvirt/"  >> "$VRTM_SCRIPT"
 	fi
@@ -390,7 +386,7 @@ function createvRTMStartScript()
 	rm -rf /usr/local/bin/vrtm
 	ln -s "$VRTM_SCRIPT" /usr/local/bin/vrtm
 	
-	if [ "$VRTM_MODE" != "VM" ]
+	if [ "$DEPLOYMENT_TYPE" != "vm" ]
 	then
 		#only vrtmcore is needed to be installed in DOCKER mode
 		return;
@@ -554,9 +550,9 @@ function install_log4cpp()
 
 function main_default()
 {
-	if [ -z "$VRTM_MODE" ]
+	if [ -z "$DEPLOYMENT_TYPE" ]
 	then
-		VRTM_MODE=$DEFAULT_VRTM_MODE
+		DEPLOYMENT_TYPE=$DEFAULT_DEPLOYMENT_TYPE
 	fi
   if [ -z "$INSTALL_DIR" ]; then
     INSTALL_DIR="$DEFAULT_INSTALL_DIR"
@@ -573,7 +569,7 @@ function main_default()
 	echo "Untarring Resources ..."
         untarResources
 
-	if [ "$VRTM_MODE" == "VM" ]
+	if [ "$DEPLOYMENT_TYPE" == "vm" ]
 	then
 		echo "Validating installation ... "
 		validate
@@ -591,7 +587,11 @@ function main_default()
 
 	echo "Installing vrtmcore ..."
 
-	if [ "$VRTM_MODE" == "VM" ]
+        echo "Updating ldconfig for vRTM library"
+        echo "$INSTALL_DIR/vrtm/lib" > /etc/ld.so.conf.d/vrtm.conf
+	ldconfig
+
+	if [ "$DEPLOYMENT_TYPE" == "vm" ]
 	then
 		echo "Installing vrtmProxy and vrtmListener..."
 		installvrtmProxyAndListner
