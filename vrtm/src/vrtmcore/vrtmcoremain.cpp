@@ -46,6 +46,9 @@
 #include "vrtminterface.h"
 #include "loadconfig.h"
 
+#define    g_config_file "../configuration/vRTM.cfg"
+#define	   log_properties_file "../configuration/vrtm_log.properties"
+
 char    g_vrtmcore_ip [64]        = "127.0.0.1";
 int     g_vrtmcore_port 		= 16005;
 int     g_max_thread_limit 	= 64;
@@ -322,7 +325,7 @@ int main(int an, char** av)
     //default_handler_tstp = signal(SIGTSTP, vrtm_signal_handler); //to handle interactive stop signal ctrl-z and ctrl-y, don't need to clean, process can be resumed again
 
     LOG_TRACE("Load config file %s", g_config_file);
-	if ( LoadConfig(g_config_file, config_map) < 0 ) {
+	if ( load_config(g_config_file, config_map) < 0 ) {
 		LOG_ERROR("Can't load config file %s", g_config_file);
 		goto cleanup;
 	}
@@ -333,6 +336,8 @@ int main(int an, char** av)
 		LOG_ERROR("tcService main : cant't find required values in config file");
 		goto cleanup;
 	}
+
+	clear_config(config_map);
 
     LOG_TRACE("Starting vRTM interface");
 	if(!start_vrtm_interface(NULL)) {

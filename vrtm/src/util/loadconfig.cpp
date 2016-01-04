@@ -6,7 +6,7 @@
 #include "logging.h"
 #include "loadconfig.h"
 
-int LoadConfig(const char * configFile, std:: map<std::string, std::string> & config_map)
+int load_config(const char * configFile, std:: map<std::string, std::string> & config_map)
 {
 	char *line;
 	int line_size = 512;
@@ -55,4 +55,9 @@ int LoadConfig(const char * configFile, std:: map<std::string, std::string> & co
 	}
 	fclose(fp);
 	return config_map.size();
+}
+
+void clear_config(std:: map<std::string, std::string> & config_map)
+{
+	config_map.clear();
 }

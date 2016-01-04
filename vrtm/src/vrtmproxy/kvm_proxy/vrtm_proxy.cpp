@@ -43,7 +43,6 @@ VRTM-proxy will call qemu with VM launch options after the VM image measurement 
 typedef unsigned char byte;
 #endif
 
-std:: map<std::string, std::string> config_map;
 
 int rp_fd = -1;
 //int rp_listener_fd = -1;
@@ -182,6 +181,7 @@ int main(int argc, char** argv) {
     char    *drive_data, disk_path[PATH_MAX], manifest_path[PATH_MAX];
     char    trust_report_dir[1024] ={0};
     char	uuid[65];
+    std:: map<std::string, std::string> config_map;
 
     char    kernel_args[4096] = {0};
     int     rp_domid = -1;
@@ -277,13 +277,13 @@ int main(int argc, char** argv) {
     LOG_TRACE("Extracted UUID : %s", uuid);
 
     // Parse the config file and extract the manifest path
-    if(LoadConfig(g_config_file, config_map) < 0) {
+    if(load_config(g_config_file, config_map) < 0) {
     	LOG_ERROR("Can't load config file %s", g_config_file);
 		return EXIT_FAILURE;
 	}
 
     std::string reqValue = config_map["trust_report_dir"];
-    config_map.clear();
+    clear_config(config_map);
     strcpy(trust_report_dir, reqValue.c_str());
     memset(manifest_path, '\0', sizeof(manifest_path));
 	snprintf(manifest_path, sizeof(manifest_path), "%s%s%s", trust_report_dir, uuid, "/trustpolicy.xml");
