@@ -57,7 +57,7 @@ $(OBJ)/loadconfig.o: $(S)/loadconfig.cpp $(S)/loadconfig.h
 	
 $(LIB)/libvrtmchannel-g.so: $(sobjs)
 	@echo "Building libvrtmchannel-g.so ..."
-	$(LINK) -shared  -o  $(LIB)/libvrtmchannel-g.so  $(sobjs) $(LDFLAGS) -L/usr/lib -L/usr/local/lib/ -lpthread -lxml2 -lssl -lcrypto -llog4cpp
+	$(LINK) -shared  -o  $(LIB)/libvrtmchannel-g.so  $(sobjs) $(LDFLAGS) -L/usr/lib -L/usr/local/lib/ -L/usr/local/ssl/lib -lpthread -lxml2 -lssl -lcrypto -llog4cpp
 ifneq "$(debug)" "1"
 	strip -s $(LIB)/libvrtmchannel-g.so
 endif
