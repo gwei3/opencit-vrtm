@@ -30,7 +30,7 @@ function getFlavour()
                 flavour="rhel"
         fi
         grep -c -i fedora /etc/*-release > /dev/null
-        if [ $? -eq 0 ] ; then
+        if [ $? -eq 0 ] && [ $flavour == "" ] ; then
                 flavour="fedora"
         fi
         grep -c -i suse /etc/*-release > /dev/null
@@ -91,37 +91,56 @@ function untarResources()
 
 function installKVMPackages_rhel()
 {
-        echo "Installing Required Packages ....."
-        yum install -y "kernel-devel-uname-r == $(uname -r)"
-        if [ $FLAVOUR == "rhel" ]; then
-          yum install -y yum-utils
-          yum-config-manager --enable rhel-6-server-optional-rpms
+        echo "Enabling epel-testing repo for log4cpp"
+        yum-config-manager --enable epel-testing > /dev/null
+        if [ $? -ne 0 ]
+        then
+                echo "can't enable the epel-testing repo"
+                echo "log4cpp might not get installed on RHEL-7"
+        else
+                echo "enabled epel-testing repo"
         fi
-        yum install -y libguestfs-tools-c
-        #Libs required for compiling libvirt
-        yum install -y openssh-server
-	yum install -y tar procps binutils
+        echo "Installing Required Packages ....."
+        yum install -y libguestfs-tools-c tar procps binutils kpartx lvm2
+	if [ $? -ne 0 ]; then
+                echo "Failed to install pre-requisite packages"
+                exit -1
+        else
+                echo "Pre-requisite packages installed successfully"
+	fi
 	selinuxenabled
 	if [ $? -eq 0 ] ; then
 		yum install -y policycoreutils-python
+		if [ $? -ne 0 ]; then
+                	echo "Failed to install pre-requisite packages"
+                	exit -1
+        	else
+                	echo "Pre-requisite packages installed successfully"
+		fi
 	fi
-
 }
 
 function installKVMPackages_ubuntu()
 {
 	echo "Installing Required Packages ....."
-	apt-get -y install libvirt-bin qemu-kvm libguestfs-tools openssh-server
-	echo "Starting ntp service ....."
-	service ntp start
+	apt-get -y install libguestfs-tools qemu-utils kpartx lvm2
+	if [ $? -ne 0 ]; then
+                echo "Failed to install pre-requisite packages"
+                exit -1
+        else
+                echo "Pre-requisite packages installed successfully"
+        fi
 }
 
 function installKVMPackages_suse()
 {
-	zypper addrepo -f obs://Cloud:OpenStack:Icehouse/openSUSE_13.1 Icehouse
-	zypper -n refresh
-        zypper -n in bridge-utils dnsmasq pm-utils ebtables ntp wget
-        zypper -n in openssh dos2unix
+        zypper -n in libguestfs-tools-c wget kpartx lvm2
+	if [ $? -ne 0 ]; then
+                echo "Failed to install pre-requisite packages"
+                exit -1
+        else
+                echo "Pre-requisite packages installed successfully"
+        fi
 }
 
 function installKVMPackages()
@@ -172,13 +191,15 @@ function installvrtmProxyAndListner()
 		LIBVIRT_QEMU_FILE="/etc/apparmor.d/abstractions/libvirt-qemu"           
                 if [ -e $LIBVIRT_QEMU_FILE ] ; then
 		        vrtm_comment="#Intel CIT vrtm"
+                        vrtm_end_comment="#End Intel CIT vrtm"
                         grep "$vrtm_comment" $LIBVIRT_QEMU_FILE > /dev/null
                         if [ $? -eq 1 ] ; then
                             echo "$vrtm_comment" >> $LIBVIRT_QEMU_FILE
-                            echo "$INSTALL_DIR/vrtm/lib/libvrtmchannel-g.so r," >> $LIBVIRT_QEMU_FILE
+                            echo "$INSTALL_DIR/vrtm/lib/libvrtmchannel.so r," >> $LIBVIRT_QEMU_FILE
                             echo "$INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties r," >> $LIBVIRT_QEMU_FILE
                             echo "$LOG_DIR/vrtm_proxy.log w," >> $LIBVIRT_QEMU_FILE
                             echo "/usr/bin/qemu-system-x86_64_orig rmix," >> $LIBVIRT_QEMU_FILE
+                            echo "$vrtm_end_comment" >> $LIBVIRT_QEMU_FILE	
                         fi
                         echo "Appended libvirt apparmour policy"
                 elif [ -e /etc/apparmor.d/disable/usr.sbin.libvirtd ] ; then
@@ -193,7 +214,14 @@ function installvrtmProxyAndListner()
 
 	if [ $FLAVOUR == "rhel" -o $FLAVOUR == "fedora" ]; then
 		if [ $FLAVOUR == "rhel" ] ; then
-			SELINUX_TYPE="svirt_t"
+			rhel7_version=""
+			rhel7_version=`cat /etc/redhat-release | grep -o "7\.."`
+			if [ ! -z "$rhel7_version" ]
+			then
+				SELINUX_TYPE="svirt_tcg_t"
+			else
+				SELINUX_TYPE="svirt_t"
+			fi
 		else
 			SELINUX_TYPE="svirt_tcg_t"
 		fi
@@ -206,19 +234,45 @@ function installvrtmProxyAndListner()
 		         restorecon -v $INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties
 			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
 			 restorecon -v "$QEMU_INSTALL_LOCATION"
-			 semanage fcontext -a -t qemu_exec_t $INSTALL_DIR/vrtm/lib/libvrtmchannel-g.so
-			 restorecon -v $INSTALL_DIR/vrtm/lib/libvrtmchannel-g.so  
+			 semanage fcontext -a -t qemu_exec_t $INSTALL_DIR/vrtm/lib/libvrtmchannel.so
+			 restorecon -v $INSTALL_DIR/vrtm/lib/libvrtmchannel.so  
                          echo " 
                                module svirt_for_links 1.0;
                                 
                                require {
                                type nova_var_lib_t;
                                type $SELINUX_TYPE;
+			 " > svirt_for_links.te
+			 if [ ! -z "$rhel7_version" ]
+			 then
+			 
+			 echo "
+			       type var_log_t;
+			 " >> svirt_for_links.te
+			 fi
+			 echo "
                                class lnk_file read;
+			 " >> svirt_for_links.te
+			 if [ ! -z "$rhel7_version" ]
+			 then
+			 
+			 echo "
+			       class file read;
+			       class file write;
+			       class file open;
+			 " >> svirt_for_links.te
+			 fi 
+			 echo "
                                }
                                #============= svirt_t ==============
                                allow $SELINUX_TYPE nova_var_lib_t:lnk_file read;
-                          " > svirt_for_links.te
+			  " >> svirt_for_links.te
+			  if [ ! -z "$rhel7_version" ]
+			  then
+			  echo "
+			       allow svirt_tcg_t var_log_t:file { read write open };
+                          " >> svirt_for_links.te
+			  fi
                           /usr/bin/checkmodule -M -m -o svirt_for_links.mod svirt_for_links.te
                           /usr/bin/semodule_package -o svirt_for_links.pp -m svirt_for_links.mod
                           /usr/sbin/semodule -i svirt_for_links.pp
@@ -271,7 +325,8 @@ function createvRTMStartScript()
 
 	startVrtm()
 	{
-		chown -R nova:nova /var/run/libvirt/
+		#chown -R nova:nova /var/run/libvirt/
+		ldconfig
         	cd \"$INSTALL_DIR/vrtm/bin\"
         	nohup ./vrtmcore > /var/log/vrtm/vrtm_crash.log 2>&1 &
 	}
@@ -288,7 +343,7 @@ function createvRTMStartScript()
 	   ;;
 	 stop)
 	        echo \"Stopping all vrtm processes (if any ) ...\"
-	        pkill -9 vrtmcore
+	        pkill vrtmcore
 	   ;;
 	 version)
 		cat \"$INSTALL_DIR/vrtm/$VERSION_INFO_FILE\"
@@ -324,6 +379,7 @@ function createvRTMStartScript()
 
     startRpListner()
     {
+    	ldconfig
         cd \"$INSTALL_DIR/vrtm/bin\"
         nohup ./vrtm_listener > /var/log/vrtm/vrtm_listener_crash.log 2>&1 &
 	echo \$! > \$RPLISTENER_PID_FILE
@@ -382,7 +438,6 @@ function validate()
 	# Validate the following 
 	# qemu-kvm is libvirt 1.2.2 is installed
 	# nova-compute is installed
-	# checks for xenbr0 interface
 
 	# Validate qemu-kmv installation	
 	if [ ! -e $QEMU_INSTALL_LOCATION ] ; then
@@ -534,7 +589,7 @@ elif [ "$1" == "--with-libvirt" ] ; then
 	BUILD_LIBVIRT="TRUE"
 	main_default
 else
-	echo "Installing vrtmCore components and applies patch for Openstack compute"
+	echo "Installing vrtmCore components"
 	main_default
 fi
 

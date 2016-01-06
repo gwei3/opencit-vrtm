@@ -122,10 +122,10 @@ echo "export VRTM_BIN=$VRTM_BIN" >> $VRTM_ENV/vrtm-layout
 echo "export VRTM_LOGS=$VRTM_LOGS" >> $VRTM_ENV/vrtm-layout
 
 # install prerequisites
-VRTM_YUM_PACKAGES="zip unzip"
-VRTM_APT_PACKAGES="zip unzip"
-VRTM_YAST_PACKAGES="zip unzip"
-VRTM_ZYPPER_PACKAGES="zip unzip"
+VRTM_YUM_PACKAGES="zip unzip xmlstarlet"
+VRTM_APT_PACKAGES="zip unzip xmlstarlet"
+VRTM_YAST_PACKAGES="zip unzip xmlstarlet"
+VRTM_ZYPPER_PACKAGES="zip unzip xmlstarlet"
 auto_install "Installer requirements" "VRTM"
 if [ $? -ne 0 ]; then echo_failure "Failed to install prerequisites through package installer"; exit -1; fi
 
@@ -167,5 +167,8 @@ register_startup_script /usr/local/bin/vrtmlistener vrtmlistener
 #  rm -f "$vrtmVerifier"
 #fi
 #ln -s "$tbootxmVerifier" "$vrtmVerifier"
+
+ldconfig
+if [ $? -ne 0 ]; then echo_warning "Failed to load ldconfig. Please run command "ldconfig" after installation completes. And start vrtm & vrtmlistener services again"; fi
 
 echo_success "VRTM Installation complete"

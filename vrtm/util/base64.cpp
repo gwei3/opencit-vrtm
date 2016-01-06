@@ -15,10 +15,17 @@
 #include "logging.h"
 #include "win_headers.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 int calcDecodeLength(const char* b64input) {
 	//calculates the length of decoded base64input
-	int len = strlen(b64input);
+	int len = strnlen_s(b64input, MAX_LEN);
 	LOG_TRACE("Message Length : %d", len);
 	int padding = 0;
 	//TODO check the length input first
@@ -53,31 +60,42 @@ int Base64Decode(char* b64message, char** buffer) {
 		return 1;//error
 #elif __linux__
 	BIO *bio, *b64;
-	int decodeLen = calcDecodeLength(b64message);
-	LOG_DEBUG("Possible Message length after decoding : %d", decodeLen);
-	*buffer = (char *)malloc(decodeLen + 1);
-	if (decodeLen == 0) {
-		*buffer[0] = '\0';
-		return 0;
+	if ( buffer != NULL && b64message != NULL) {
+		int decodeLen = calcDecodeLength(b64message), len = 0;
+		LOG_DEBUG("Possible Message length after decoding : %d", decodeLen);
+		*buffer = (char*) malloc(decodeLen + 1);
+		if ( *buffer != NULL) {
+			if(decodeLen == 0 ) {
+				*buffer[0] = '\0';
+				return 0;
+			}
+			FILE* stream = fmemopen(b64message, strnlen_s(b64message, MAX_LEN), "r");
+
+			b64 = BIO_new(BIO_f_base64());
+			bio = BIO_new_fp(stream, BIO_NOCLOSE);
+			bio = BIO_push(b64, bio);
+			BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL); //Do not use newlines to flush buffer
+			len = BIO_read(bio, *buffer, strnlen_s(b64message, MAX_LEN));
+			if(len != decodeLen) {
+				free(*buffer);
+				LOG_DEBUG("Anticiipated decode len and actual decode len doesn't match");
+				return 1;//error
+			}
+			(*buffer)[len] = '\0';
+
+			BIO_free_all(bio);
+			fclose(stream);
+		}
+		else {
+			LOG_ERROR("Can't allocate memory for buffer");
+			return 1;
+		}
+
+		return (0); //success
 	}
-	FILE* stream = fmemopen(b64message, strlen(b64message), "r");
-
-	b64 = BIO_new(BIO_f_base64());
-	bio = BIO_new_fp(stream, BIO_NOCLOSE);
-	bio = BIO_push(b64, bio);
-	BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL); //Do not use newlines to flush buffer
-	len = BIO_read(bio, *buffer, strlen(b64message));
-	if(len != decodeLen) {
-		free(*buffer);
-		LOG_DEBUG("Anticiipated decode len and actual decode len doesn't match");
-		return 1;//error
+	else {
+		return 1;
 	}
-	(*buffer)[len] = '\0';
-
-	BIO_free_all(bio);
-	fclose(stream);
-
-	return (0); //success
 #endif
 }
 
@@ -105,7 +123,7 @@ int Base64Encode(char* message, char** buffer) {
 #elif __linux__
 	  BIO *bio, *b64;
 	  FILE* stream;
-	  int encodedSize = 4*ceil((double)strlen(message)/3);
+	  int encodedSize = 4*ceil((double)strnlen_s(message, MAX_LEN)/3);
 	  LOG_DEBUG("Possible encoded length : %d", encodedSize);
 	  *buffer = (char *)malloc(encodedSize+1);
 
@@ -114,7 +132,7 @@ int Base64Encode(char* message, char** buffer) {
 	  bio = BIO_new_fp(stream, BIO_NOCLOSE);
 	  bio = BIO_push(b64, bio);
 	  BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL); //Ignore newlines - write everything in one line
-	  BIO_write(bio, message, strlen(message));
+	  BIO_write(bio, message, strnlen_s(message, MAX_LEN));
 	  BIO_flush(bio);
 	  BIO_free_all(bio);
 	  fclose(stream);

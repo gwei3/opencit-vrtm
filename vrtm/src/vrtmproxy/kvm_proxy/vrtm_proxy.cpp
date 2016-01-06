@@ -27,6 +27,14 @@ RP-proxy will call qemu with VM launch options after the VM image measurement is
 #include "logging.h"
 #include "log_vrtmchannel.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 #define QEMU_SYSTEM_PATH            "/usr/bin/qemu-system-x86_64_orig"
 #define RPCORE_DEFAULT_IP_ADDR      "127.0.0.1"
 #define PARAMSIZE                   8192
@@ -127,7 +135,7 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
         goto fail;
     }
 
-    memset(rgBuf, 0, sizeof(rgBuf));
+    memset_s(rgBuf, sizeof(rgBuf), 0);
     LOG_TRACE("Request sent successfully");
     
 again:  
@@ -173,12 +181,12 @@ fail:
 
 
 int main(int argc, char** argv) {
-    int     i, index;
+    int     i, index = -1;
     char    *kernel_path = NULL, *initrd_path = NULL, *vm_name;
     char    *disk_start_ptr, *disk_end_ptr;
     char    *drive_data, disk_path[PATH_MAX], manifest_path[PATH_MAX];
 
-    char    kernel_args[4096];
+    char    kernel_args[4096] = {0};
     int     rp_domid = -1;
     char    *rpcore_ip, *s_rpcore_port;
     int     rpcore_port;
@@ -258,13 +266,18 @@ int main(int argc, char** argv) {
         return 0;
     }
     // Parse the command line request and extract the disk path and manifest path
-    disk_start_ptr = strstr(drive_data, "file=") + strlen("file=");
+    disk_start_ptr = strstr(drive_data, "file=") + strnlen_s("file=", sizeof("file="));
     disk_end_ptr = strstr(drive_data, ",if=none");
-    memset(disk_path, '\0', sizeof(disk_path));
-    strncpy(disk_path, disk_start_ptr, disk_end_ptr-disk_start_ptr);
-    memset(manifest_path, '\0', sizeof(manifest_path));
-    strncpy(manifest_path, disk_path, strlen(disk_path)-strlen("/disk"));
-    sprintf(manifest_path, "%s%s", manifest_path, "/trustpolicy.xml");
+    int disk_path_len = disk_end_ptr-disk_start_ptr;
+	LOG_DEBUG("Disk path length: %d", disk_path_len);
+    memset_s(disk_path, sizeof(disk_path), '\0');
+    strncpy_s(disk_path, PATH_MAX, disk_start_ptr, disk_path_len);
+	LOG_DEBUG("Disk Path: %s", disk_path);
+    memset_s(manifest_path, sizeof(manifest_path), '\0');
+    strncpy_s(manifest_path, PATH_MAX, disk_path, disk_path_len-strnlen_s("/disk", sizeof("/disk")));
+	LOG_DEBUG("Manfest paht : %s", manifest_path);
+	strcat_s(manifest_path, sizeof(manifest_path), "/trustpolicy.xml");
+    //snprintf(manifest_path, sizeof(manifest_path), "%s%s", manifest_path, "/trustpolicy.xml");
     LOG_DEBUG("Path of trust policy: %s", manifest_path);
 
 // If not measured launch then execute command without calling vRTM
@@ -284,7 +297,7 @@ int main(int argc, char** argv) {
     kernel_path = (kernel_path == NULL) ? "" : kernel_path;
     initrd_path = (initrd_path == NULL) ? "" : initrd_path;
 
-    LOG_DEBUG( "VM name: %s\n", vm_name);
+    //LOG_DEBUG( "VM name: %s\n", vm_name);
     LOG_DEBUG("kernel_path=%s, ramdisk_path=%s, disk_path=%s, trustpolicy_path=%s\n",
                 kernel_path, initrd_path, disk_path, manifest_path);
     rpcore_ip = getenv("RPCORE_IPADDR");
@@ -314,11 +327,18 @@ int main(int argc, char** argv) {
     }
 
     // add RPCore ip and port in kernel arguments for the VM. The VM can use it to contact RPCore
-    if(kernel_provided) {
+    if(kernel_provided && index != -1) {
         index++;
-        sprintf(kernel_args, "%s", argv[index]);
-        sprintf(kernel_args, "%s rpcore_ip=%s", kernel_args, rpcore_ip);
-        sprintf(kernel_args, "%s rp_port=%d", kernel_args, rpcore_port);
+		strcat_s(kernel_args, sizeof(kernel_args), argv[index]);
+        //snprintf(kernel_args, sizeof(kernel_args), "%s", argv[index]);
+		strcat_s(kernel_args, sizeof(kernel_args), " rpcore_ip=");
+		strcat_s(kernel_args, sizeof(kernel_args), rpcore_ip);
+        //snprintf(kernel_args, sizeof(kernel_args), "%s rpcore_ip=%s", kernel_args, rpcore_ip);
+		strcat_s(kernel_args, sizeof(kernel_args), " rp_port=");
+		char vrtm_port_buff[32] = {'\0'};
+		snprintf(vrtm_port_buff, sizeof(vrtm_port_buff), "%d", rpcore_port);
+		strcat_s(kernel_args, sizeof(kernel_args), vrtm_port_buff);
+        //snprintf(kernel_args, sizeof(kernel_args), "%s rp_port=%d", kernel_args, rpcore_port);
         argv[index] = kernel_args;
         
         LOG_DEBUG( "Modified kernel args: %s", kernel_args);

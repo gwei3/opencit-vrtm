@@ -2,21 +2,21 @@
     <modelVersion>4.0.0</modelVersion>
     
     <groupId>com.intel.mtwilson.vrtm.packages</groupId>
-    <artifactId>vrtm-linux-makeself</artifactId>
+    <artifactId>vrtm</artifactId>
     <version>0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
     <description>Self-extracting executable that installs VRTM</description>
 
     <parent>
         <groupId>com.intel.mtwilson.maven</groupId>
-        <artifactId>mtwilson-maven-package-makeself</artifactId>
+        <artifactId>mtwilson-maven-package-makeself-distro</artifactId>
         <version>3.0-SNAPSHOT</version>
         <relativePath/>
     </parent>
   
     <properties>
         <!-- this becomes the installer filename, like ${makeself.name}.bin -->
-        <makeself.name>vrtm-${project.version}</makeself.name>
+        <makeself.name>${project.artifactId}-${project.version}</makeself.name>
     </properties>
   
     <dependencies>

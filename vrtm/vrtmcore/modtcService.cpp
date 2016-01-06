@@ -1,27 +1,9 @@
-//
-//  File: tcService.cpp
-//  Description: tcService implementation
-//
-//  Copyright (c) 2012, John Manferdelli.  All rights reserved.
-//     Some contributions Copyright (c) 2012, Intel Corporation. 
-//
-// Use, duplication and disclosure of this file and derived works of
-// this file are subject to and licensed under the Apache License dated
-// January, 2004, (the "License").  This License is contained in the
-// top level directory originally provided with the CloudProxy Project.
-// Your right to use or distribute this file, or derived works thereof,
-// is subject to your being bound by those terms and your use indicates
-// consent to those terms.
-//
-// If you distribute this file (or portions derived therefrom), you must
-// include License in or with the file and, in the event you do not include
-// the entire License in the file, the file must contain a reference
-// to the location of the License.
 
 
 #include "logging.h"
 #include "modtcService.h"
 #include "channelcoding.h"
+#include "xpathparser.h"
 #include "base64.h"
 #ifdef __linux__
 #include <sys/wait.h> /* for wait */
@@ -46,6 +28,13 @@
 #include "tcpchan.h"
 #include "vrtm_api_code.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
 #include <openssl/bio.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -67,7 +56,9 @@ byte                    g_servicehash[32]= {
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                         };
-
+#define mount_script "../scripts/mount_vm_image.sh"
+#define ma_log "/measurement.log"
+#define stripped_manifest_file "manifest.xml"
 uint32_t	g_rpdomid = 1000;
 static int g_cleanup_service_status = 0;
 
@@ -118,8 +109,8 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
     proc_ent.m_szexeFile = strdup(file);
     proc_ent.m_sizeHash = sizeHash;
     proc_ent.m_vm_status = VM_STATUS_STOPPED;
-    strcpy(proc_ent.m_uuid, av[0]);
-    memcpy(proc_ent.m_rgHash,hash,sizeHash);
+    strcpy_s(proc_ent.m_uuid, sizeof(proc_ent.m_uuid), av[0]);
+    memcpy_s(proc_ent.m_rgHash,RG_HASH_SIZE,hash,sizeHash);
     proc_table.insert(std::pair<int, serviceprocEnt>(procid, proc_ent));
     pthread_mutex_unlock(&loc_proc_table);
     LOG_INFO("Entry added for vRTM id %d\n",procid);
@@ -146,7 +137,7 @@ bool serviceprocTable::removeprocEntry(int procid)
 		table_it->second.m_szexeFile = NULL;
 	}
 	char file_to_del[1024] = {'\0'};
-	sprintf(file_to_del, "rm -rf %s", table_it->second.m_vm_manifest_dir);
+	snprintf(file_to_del, sizeof(file_to_del), "rm -rf %s", table_it->second.m_vm_manifest_dir);
 	system(file_to_del);
 	proc_table.erase(table_it);
 	pthread_mutex_unlock(&loc_proc_table);
@@ -177,10 +168,10 @@ bool serviceprocTable::updateprocEntry(int procid, char* uuid, char *vdi_uuid)
 		LOG_ERROR("UUID %s can't be registered with vRTM, given rpid %d doesn't exist", uuid, procid);
 		return false;
 	}
-    memset(table_it->second.m_uuid, 0, g_max_uuid);
-    memset(table_it->second.m_vdi_uuid, 0, g_max_uuid);
-    memcpy(table_it->second.m_uuid, uuid, g_sz_uuid);
-    memcpy(table_it->second.m_vdi_uuid, vdi_uuid, g_sz_uuid);
+    memset_s(table_it->second.m_uuid, g_max_uuid, 0);
+    memset_s(table_it->second.m_vdi_uuid, g_max_uuid, 0);
+    memcpy_s(table_it->second.m_uuid, g_max_uuid, uuid, g_sz_uuid);
+    memcpy_s(table_it->second.m_vdi_uuid, g_max_uuid, vdi_uuid, g_sz_uuid);
     pthread_mutex_unlock(&loc_proc_table);
     LOG_INFO("UUID : %s is registered with vRTM successfully\n",table_it->second.m_uuid);
     return true;
@@ -199,18 +190,18 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 		LOG_ERROR("Couldn't update the given data in table, rpid %d doesn't exist", procid);
 		return false;
 	}
-	strcpy(table_it->second.m_vm_image_id,vm_image_id);
-	table_it->second.m_size_vm_image_id = strlen(table_it->second.m_vm_image_id);
-	strcpy(table_it->second.m_vm_customer_id, vm_customer_id);
-	table_it->second.m_size_vm_customer_id = strlen(table_it->second.m_vm_customer_id);
-	strcpy(table_it->second.m_vm_manifest_signature, vm_manifest_signature);
-	table_it->second.m_size_vm_manifest_signature = strlen(table_it->second.m_vm_manifest_signature);
-	strcpy(table_it->second.m_vm_manifest_hash, vm_manifest_hash);
-	table_it->second.m_size_vm_manifest_hash = strlen(table_it->second.m_vm_manifest_hash);
-	strcpy(table_it->second.m_vm_manifest_dir, vm_manifest_dir);
-	table_it->second.m_size_vm_manifest_dir = strlen(table_it->second.m_vm_manifest_dir);
-	strcpy(table_it->second.m_vm_launch_policy, launch_policy);
-	table_it->second.m_size_vm_launch_policy = strlen(table_it->second.m_vm_launch_policy);
+	strcpy_s(table_it->second.m_vm_image_id, IMAGE_ID_SIZE, vm_image_id);
+	table_it->second.m_size_vm_image_id = strnlen_s(table_it->second.m_vm_image_id, IMAGE_ID_SIZE);
+	strcpy_s(table_it->second.m_vm_customer_id, CUSTOMER_ID_SIZE, vm_customer_id);
+	table_it->second.m_size_vm_customer_id = strnlen_s(table_it->second.m_vm_customer_id, CUSTOMER_ID_SIZE);
+	strcpy_s(table_it->second.m_vm_manifest_signature, MANIFEST_SIGNATURE_SIZE, vm_manifest_signature);
+	table_it->second.m_size_vm_manifest_signature = strnlen_s(table_it->second.m_vm_manifest_signature, MANIFEST_SIGNATURE_SIZE);
+	strcpy_s(table_it->second.m_vm_manifest_hash, MANIFEST_HASH_SIZE, vm_manifest_hash);
+	table_it->second.m_size_vm_manifest_hash = strnlen_s(table_it->second.m_vm_manifest_hash, MANIFEST_HASH_SIZE);
+	strcpy_s(table_it->second.m_vm_manifest_dir, MANIFEST_DIR_SIZE, vm_manifest_dir);
+	table_it->second.m_size_vm_manifest_dir = strnlen_s(table_it->second.m_vm_manifest_dir, MANIFEST_DIR_SIZE);
+	strcpy_s(table_it->second.m_vm_launch_policy, LAUNCH_POLICY_SIZE, launch_policy);
+	table_it->second.m_size_vm_launch_policy = strnlen_s(table_it->second.m_vm_launch_policy, LAUNCH_POLICY_SIZE);
 	table_it->second.m_vm_verfication_status = verification_status;
 	if (verification_status == false && (strcmp(launch_policy, "Enforce") == 0)) {
 		LOG_DEBUG("Updated the VM status to : %d ", VM_STATUS_CANCELLED);
@@ -362,8 +353,8 @@ TCSERVICE_RESULT tcServiceInterface::GetRpId(char *vm_uuid, byte * rpidbuf, int 
 	}
 
     LOG_INFO("match found for UUID %s", vm_uuid);
-	sprintf((char *)rpidbuf,"%d",proc_id);
-	*rpidsize = strlen((char *)rpidbuf);
+	snprintf((char *)rpidbuf,MAX_LEN,"%d",proc_id);
+	*rpidsize = strnlen_s((char *)rpidbuf, MAX_LEN);
 	return TCSERVICE_RESULT_SUCCESS;
 }
 
@@ -381,16 +372,16 @@ TCSERVICE_RESULT tcServiceInterface::GetVmMeta(int procId, byte *vm_imageId, int
     }
 	LOG_DEBUG("Match found for given RPid");
 	LOG_TRACE("VM image id : %s",pEnt->m_vm_image_id);
-	memcpy(vm_imageId,pEnt->m_vm_image_id,pEnt->m_size_vm_image_id + 1);
+	memcpy_s(vm_imageId,IMAGE_ID_SIZE,pEnt->m_vm_image_id,pEnt->m_size_vm_image_id + 1);
 	LOG_TRACE("VM image id copied : %s",vm_imageId);
 	*vm_imageIdsize = pEnt->m_size_vm_image_id ;
-	memcpy(vm_customerId,pEnt->m_vm_customer_id,pEnt->m_size_vm_customer_id + 1);
+	memcpy_s(vm_customerId,CUSTOMER_ID_SIZE,pEnt->m_vm_customer_id,pEnt->m_size_vm_customer_id + 1);
     LOG_TRACE("Customer ID: %s", pEnt->m_vm_customer_id);
 	*vm_customerIdsize = pEnt->m_size_vm_customer_id ;
-	memcpy(vm_manifestHash,pEnt->m_vm_manifest_hash, pEnt->m_size_vm_manifest_hash + 1);
+	memcpy_s(vm_manifestHash,MANIFEST_HASH_SIZE,pEnt->m_vm_manifest_hash, pEnt->m_size_vm_manifest_hash + 1);
     LOG_TRACE("Manifest Hash: %s", pEnt->m_vm_manifest_hash);
 	*vm_manifestHashsize = pEnt->m_size_vm_manifest_hash ;
-	memcpy(vm_manifestSignature,pEnt->m_vm_manifest_signature,pEnt->m_size_vm_manifest_signature + 1);
+	memcpy_s(vm_manifestSignature,MANIFEST_SIGNATURE_SIZE,pEnt->m_vm_manifest_signature,pEnt->m_size_vm_manifest_signature + 1);
     LOG_TRACE("Manifest Signature: %s", pEnt->m_vm_manifest_signature);
 	*vm_manifestSignaturesize = pEnt->m_size_vm_manifest_signature ;
 	return TCSERVICE_RESULT_SUCCESS;
@@ -582,13 +573,13 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	char cert[2048]={0};
 	char xmlstr[8192]={0};
 	char outfile[200]={0};
-	char tempfile[200]={0};
-	char filepath[200]={0};
-	char command0[400]={0};
+	char tempfile[1048]={0};
+	char filepath[1048]={0};
+	char command0[2304]={0};
+	char manifest_dir[1024]={0};
 	char hash_str[512]={0};
 	char signature[1024]={0};
 	char reqProperty[100]={0};
-	char manifest_dir[400]={0};
 	char propertiesFile[100]={0};
 	char tpm_signkey_passwd[100]={0};
 	FILE * fp = NULL;
@@ -602,39 +593,40 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 		return TCSERVICE_RESULT_FAILED;
 	}
 	serviceprocEnt * pEnt = m_procTable.getEntfromprocId(proc_id);
-	LOG_INFO("Match found for given UUID \n");
-	if( pEnt->m_vm_status == VM_STATUS_STOPPED) {
-		LOG_INFO("Can't generate report. VM with UUID : %s is in stopped state.");
-		//TODO
-		return TCSERVICE_RESULT_FAILED;
+	if ( pEnt != NULL) {
+		LOG_INFO("Match found for given UUID \n");
+		if( pEnt->m_vm_status == VM_STATUS_STOPPED) {
+			LOG_INFO("Can't generate report. VM with UUID : %s is in stopped state.");
+			//TODO
+			return TCSERVICE_RESULT_FAILED;
+		}
 	}
-
-	sprintf(vm_manifest_dir, "%s%s/", g_trust_report_dir,vm_uuid); 
+	snprintf(vm_manifest_dir, MANIFEST_DIR_SIZE, "%s%s/", g_trust_report_dir, vm_uuid); 
 	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
-	strcpy(manifest_dir,vm_manifest_dir);
+	strcpy_s(manifest_dir, sizeof(manifest_dir), vm_manifest_dir);
 	sprintf(outfile, "%stemp.xml", manifest_dir);
 
 	// Generate Signed  XML  in same vm_manifest_dir
-	//sprintf(manifest_dir,"/var/lib/nova/instances/%s/",vm_uuid);
-	sprintf(filepath,"%ssigned_report.xml",manifest_dir);					
+	//snprintf(manifest_dir,sizeof(manifest_dir),"/var/lib/nova/instances/%s/",vm_uuid);
+	snprintf(filepath, sizeof(filepath), "%ssigned_report.xml", manifest_dir);
+
 	fp1 = fopen(filepath,"w");
 	if (fp1 == NULL) {
 		LOG_ERROR("Can't write report in signed_report.xml file");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	sprintf(xmlstr,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+	snprintf(xmlstr,sizeof(xmlstr),"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
 
-	sprintf(xmlstr,"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
+	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
 	fprintf(fp1,"%s",xmlstr);
 	//fclose(fp1);
     LOG_DEBUG("XML content : %s", xmlstr);
 
-
 	// Calculate the Digest Value       
-	sprintf(xmlstr,"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
-	sprintf(tempfile,"%sus_xml.xml",manifest_dir);
+	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
+	snprintf(tempfile,sizeof(tempfile),"%sus_xml.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
 	if (fp == NULL) {
 		LOG_ERROR("can't open the file us_xml.xml");
@@ -665,33 +657,33 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 */
 
 	//fp1 = fopen(filepath,"a");
-	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo><SignatureValue>");
+	snprintf(xmlstr,sizeof(xmlstr),"</DigestValue></Reference></SignedInfo><SignatureValue>");
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
     fclose(fp1);
 
 
     // Calculate the Signature Value
-	sprintf(tempfile,"%sus_can.xml",manifest_dir);
+	snprintf(tempfile, sizeof(tempfile), "%sus_can.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
 	if (fp == NULL) {
 		LOG_ERROR("can't open the file us_can.xml");
 		return TCSERVICE_RESULT_FAILED;
 	}
+	snprintf(xmlstr,sizeof(xmlstr),"<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod><DigestValue>");
 	sprintf(xmlstr,"<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod><DigestValue>");
 	fprintf(fp,"%s",xmlstr); 
 	//fclose(fp);
 
 	fprintf(fp,"%s", b64_str);
 /*
-	sprintf(command0,"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
+	snprintf(command0,sizeof(command0),"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
 	system(command0);
 */
 	//fp = fopen(tempfile,"a");
-	sprintf(xmlstr,"</DigestValue></Reference></SignedInfo>");
+	snprintf(xmlstr,sizeof(xmlstr),"</DigestValue></Reference></SignedInfo>");
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
-
 
 	// Store the TPM signing key password
 	strcpy(reqProperty, "signing.key.secret");
@@ -703,13 +695,19 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	strcpy(tpm_signkey_passwd, tpm_str);
 	LOG_DEBUG("Signing Key : %s", tpm_signkey_passwd);
 /*
-	sprintf(command0,"cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2 | xargs echo -n > %ssign_key_passwd", manifest_dir);
+	snprintf(command0,sizeof(command0),"cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2 | xargs echo -n > %ssign_key_passwd", manifest_dir);
 	LOG_DEBUG("TPM signing key password :%s \n", command0);
 	system(command0); 
 					   
-	sprintf(tempfile,"%ssign_key_passwd",manifest_dir);
-	fp = fopen(tempfile,"r"); 
-	fscanf(fp, "%s", tpm_signkey_passwd);
+	snprintf(tempfile, sizeof(tempfile), "%ssign_key_passwd",manifest_dir);
+	fp = fopen(tempfile,"r");
+	if ( fp == NULL) {
+		LOG_ERROR("can't open the file sign_key_passwd");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	//fscanf(fp, "%%%ds", sizeof(tpm_signkey_passwd),tpm_signkey_passwd);
+	fread( tpm_signkey_passwd, 1, sizeof(tpm_signkey_passwd), fp);
+	tpm_signkey_passwd[ sizeof(tpm_signkey_passwd) - 1 ] = '\0';
 	fclose(fp);                
 */
 				 
@@ -736,8 +734,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	fprintf(fp, "%s", hash_str);
 	fclose(fp);
 
-
-	sprintf(command0,"/opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
+	snprintf(command0,sizeof(command0),"/opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
 	LOG_DEBUG("Signing Command : %s", command0);
 	system(command0);
 
@@ -770,13 +767,14 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 */
 
 	//fp1 = fopen(filepath,"a");
-	sprintf(xmlstr,"</SignatureValue><KeyInfo><X509Data><X509Certificate>");
+	snprintf(xmlstr,sizeof(xmlstr),"</SignatureValue><KeyInfo><X509Data><X509Certificate>");
 	LOG_DEBUG("XML content : %s", xmlstr);
 	fprintf(fp1,"%s",xmlstr);
 	//fclose(fp1);
 					
 
 	// Append the X.509 certificate
+	snprintf(command0,sizeof(command0),"openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
 	if(appendCert(cert) == -1) {
 		LOG_ERROR("Unable to append Certificate");
 		return TCSERVICE_RESULT_FAILED;
@@ -791,12 +789,14 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 	//fp1 = fopen(filepath,"a");
 	fprintf(fp1, "%s", cert);
-	sprintf(xmlstr,"</X509Certificate></X509Data></KeyInfo></Signature></VMQuote>");
+	snprintf(xmlstr,sizeof(xmlstr),"</X509Certificate></X509Data></KeyInfo></Signature></VMQuote>");
 	fprintf(fp1,"%s",xmlstr);
 	fclose(fp1);
 					
 	return TCSERVICE_RESULT_SUCCESS;
 }
+
+
 TCSERVICE_RESULT tcServiceInterface::TerminateApp(char* uuid, int* psizeOut, byte* out)
 {
 	//remove entry from table.
@@ -825,12 +825,12 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
  		return TCSERVICE_RESULT_FAILED;
 	}
 	rp_id = atoi(str_rp_id);
-	int inuuid_len = strlen(in_uuid);
-	int invdiuuid_len = strlen(vdi_uuid);
-	memset(uuid, 0, g_max_uuid);
-    memcpy(uuid, in_uuid, inuuid_len);
-	memset(vuuid, 0, g_max_uuid);	
-	memcpy(vuuid, vdi_uuid, invdiuuid_len);
+	int inuuid_len = strnlen_s(in_uuid, g_max_uuid);
+	int invdiuuid_len = strnlen_s(vdi_uuid, g_max_uuid);
+	memset_s(uuid, g_max_uuid, 0);
+    memcpy_s(uuid, g_max_uuid, in_uuid, inuuid_len);
+	memset_s(vuuid, g_max_uuid, 0);	
+	memcpy_s(vuuid, g_max_uuid, vdi_uuid, invdiuuid_len);
 	if ( !g_myService.m_procTable.updateprocEntry(rp_id, uuid, vuuid) ) {
 		return TCSERVICE_RESULT_FAILED;
 	}
@@ -847,25 +847,34 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppStatus(char *uuid, int status) {
 		return TCSERVICE_RESULT_FAILED;
 	}
 	serviceprocEnt *procEnt = g_myService.m_procTable.getEntfromprocId(procid);
-	if (procEnt->m_vm_status == VM_STATUS_CANCELLED) {
-		LOG_INFO("Not updating VM status since VM is in cancelled status");
-		return TCSERVICE_RESULT_SUCCESS;
-	}
-	if (status == VM_STATUS_DELETED) {
-		if (g_myService.m_procTable.removeprocEntry(uuid)) {
+	if ( procEnt != NULL ) {
+		if (procEnt->m_vm_status == VM_STATUS_CANCELLED) {
+			LOG_INFO("Not updating VM status since VM is in cancelled status");
 			return TCSERVICE_RESULT_SUCCESS;
 		}
-		else
+		if (status == VM_STATUS_DELETED) {
+			if (g_myService.m_procTable.removeprocEntry(uuid)) {
+				return TCSERVICE_RESULT_SUCCESS;
+			}
+			else
+				return TCSERVICE_RESULT_FAILED;
+		}
+		LOG_INFO("Current VM status : %d", procEnt->m_vm_status);
+		procEnt->m_status_upadation_time = time(NULL);
+		struct tm * cur_time_ptr = localtime(&(procEnt->m_status_upadation_time));
+		if ( cur_time_ptr != NULL ) {
+			struct tm cur_time = *cur_time_ptr;
+			LOG_DEBUG("Status updation time = %d : %d : %d : %d : %d : %d", cur_time.tm_year, cur_time.tm_mon,
+					cur_time.tm_mday, cur_time.tm_hour, cur_time.tm_min, cur_time.tm_sec);
+		}
+		else {
 			return TCSERVICE_RESULT_FAILED;
+		}
+		procEnt->m_vm_status = status;
+		LOG_INFO("Successfully updated the VM with UUID : %s status to %d", uuid, status);
+		return TCSERVICE_RESULT_SUCCESS;
 	}
-	procEnt->m_vm_status = status;
-	LOG_INFO("Current VM status : %d", procEnt->m_vm_status);
-	procEnt->m_status_upadation_time = time(NULL);
-	struct tm cur_time = *localtime(&(procEnt->m_status_upadation_time));
-	LOG_DEBUG("Status updation time = %d : %d : %d : %d : %d : %d", cur_time.tm_year, cur_time.tm_mon,
-			cur_time.tm_mday, cur_time.tm_hour, cur_time.tm_min, cur_time.tm_sec);
-	LOG_INFO("Successfully updated the VM with UUID : %s status to %d", uuid, status);
-	return TCSERVICE_RESULT_SUCCESS;
+	return TCSERVICE_RESULT_FAILED;
 }
 
 
@@ -900,7 +909,7 @@ so <File Path = "a.txt" .....> returns a.txt
 include="*.out" ....> returns *.out and so on..
 */
 char NodeValue[500];
-char* tagEntry (char* line){
+void tagEntry (char* line){
 
         char key[500];
                 /*We use a local string 'key' here so that we dont make any changes
@@ -909,7 +918,7 @@ char* tagEntry (char* line){
                 E.g :<Dir Path="/etc" include="*.bin" exclude="*.conf">
                 */
         int i =0;
-        strcpy(key,line);
+        strcpy_s(key,sizeof(key),line);
         char  *start,*end;
 
                 while(key[i] != '>')
@@ -923,10 +932,63 @@ char* tagEntry (char* line){
                 at a given point of time.
                 Its contents are copied after its new value addition immediately
                 */
-                strcpy(NodeValue,start);
+                strcpy_s(NodeValue,sizeof(NodeValue),start);
         LOG_TRACE("Current Node value : %s", NodeValue);
-        return start;
+        //return start;
 }
+
+TCSERVICE_RESULT tcServiceInterface::get_xpath_values(std::map<unsigned char *, char *> xpath_map, xmlChar* namespace_list, char* xml_file) {
+	int p_size = 0;
+	int parser_status = 0;
+	xmlDocPtr Doc = NULL;
+	xmlXPathContextPtr xpathCtx = NULL;
+	char* elements_buf[1]; //array of one char * because we are passing exact xpath of element
+	std::map<xmlChar *, char *>::iterator xpath_map_it;
+	// Initialize xpath parser
+	if (setup_xpath_parser(&Doc, &xpathCtx, xml_file) < 0 ) {
+		LOG_ERROR("Couldn't setup xpath parser for file : \"%s\"", xml_file);
+		parser_status = 1;
+		goto return_parser_status;
+	}
+	LOG_TRACE("xpath parser is ready");
+
+	for (xpath_map_it = xpath_map.begin(); xpath_map_it != xpath_map.end() ; xpath_map_it++) {
+		p_size = 0;
+		//check number of elements present with the xpath
+		p_size = parse_xpath(xpathCtx, xpath_map_it->first, namespace_list, NULL, p_size );
+		if (p_size  < 0) {
+			LOG_ERROR("Error occured in parsing the xpath : \"%s\" in file : %s", xpath_map_it->first,xml_file);
+			parser_status = 1;
+			goto return_parser_status;
+		}
+		else if(p_size > 1) {
+			LOG_ERROR("xpath : \"%s\" have more than one value in file : \"%s\"", xpath_map_it->first, xml_file);
+			parser_status = 1;
+			goto return_parser_status;
+		}
+		else {
+			elements_buf[0] = xpath_map_it->second;
+			p_size = parse_xpath(xpathCtx, xpath_map_it->first, namespace_list, elements_buf, 1);
+			if (p_size < 0) {
+				LOG_ERROR("Error occured while parsing the xpath : %s in file : %s", xpath_map_it->first, xml_file);
+				parser_status = 1;
+				goto return_parser_status;
+			}
+			else {
+				LOG_DEBUG("Successfully parsed xpath : \"%s\" in file : \"%s\"", xpath_map_it->first, xml_file);
+				LOG_DEBUG("Number of values returned for xpath : %d", p_size);
+			}
+		}
+	}
+	return_parser_status:
+		teardown_xpath_parser(Doc, xpathCtx);
+		LOG_TRACE("xpath parser destroyed");
+		if (parser_status)
+			return TCSERVICE_RESULT_FAILED;
+		else
+			return TCSERVICE_RESULT_SUCCESS;
+}
+
 
 int extractDigAlg(char *file, char *extension) {
 	char *line;
@@ -942,7 +1004,6 @@ int extractDigAlg(char *file, char *extension) {
 		line = (char *)calloc(1,sizeof(char) * line_size);
 		if(line != NULL) {
 			fgets(line,line_size,fp);
-
 			if (feof(fp)) {
 				free(line);
 				break;
@@ -974,25 +1035,43 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char    ramdisk_file[1024] = {0};
     char    disk_file[1024] = {0};
     char    manifest_file[1024] = {0};
-    char    formatted_manifest_file[1024] = {0};
-    char    nohash_manifest_file[2048] = {0};
-    char    cumulativehash_file[2048] = {0};
+    char    nohash_manifest_file[1024] = {0};
+    char    cumulativehash_file[1024] = {0};
     char*   config_file = NULL;
-    char *  vm_image_id;
-    char*   vm_customer_id;
-    char*   vm_manifest_hash;
-    char*   vm_manifest_signature;
-    char    vm_manifest_dir[2048] ={0};
+    char *  vm_image_id = NULL;
+    char*   vm_customer_id = NULL;
+    char*   vm_manifest_hash = NULL;
+    char*   vm_manifest_signature = NULL;
+    char    vm_manifest_dir[1024] ={0};
     bool 	verification_status = false;
-    char	vm_uuid[UUID_SIZE];
+    char	vm_uuid[UUID_SIZE] = {'\0'};
     int 	start_app_status = 0;
-    char 	command[512]={0};
+    char 	command[2304]={0};
 	FILE*   fp1=NULL;
 	char    extension[20]={0};
-	char    popen_command[250]={0};
+	char    popen_command[1048]={0};
 	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
 	char    measurement_file[2048]={0};
-	std::string line_str;
+	char 	mount_path[64];
+	bool	keep_measurement_log = false;
+	int	verifier_exit_status=1;
+   //create domain process shall check the whitelist
+	child = procid;
+
+//	char * nohash_manifest_file ="/root/nohash_manifest.xml"; // Need to be passed by policy agent
+	char launchPolicy[10] = {'\0'};
+	char goldenImageHash[65] = {'\0'};
+	FILE *fq ;
+
+	xmlChar namespace_list[] =			"a=mtwilson:trustdirector:policy:1.1 b=http://www.w3.org/2000/09/xmldsig#";
+	xmlChar xpath_customer_id[] = 		"/a:TrustPolicy/a:Director/a:CustomerId";
+	xmlChar xpath_launch_policy[] = 	"/a:TrustPolicy/a:LaunchControlPolicy";
+	xmlChar xpath_image_id[] = 			"/a:TrustPolicy/a:Image/a:ImageId";
+	xmlChar xpath_image_hash[] = 		"/a:TrustPolicy/a:Image/a:ImageHash";
+	xmlChar xpath_image_signature[] = 	"/a:TrustPolicy/b:Signature/b:SignatureValue";
+	char* launch_policy_buff = NULL;
+	std::map<xmlChar *, char *> xpath_map;
+
     LOG_TRACE("Start VM App");
     if(an>30) {
     	LOG_ERROR("Number of arguments passed are more than limit 30");
@@ -1004,12 +1083,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 
         LOG_TRACE( "arg parsing %d \n", i);
         if( av[i] && strcmp(av[i], "-kernel") == 0 ){
-            strcpy(kernel_file, av[++i]);
+            strcpy_s(kernel_file, sizeof(kernel_file), av[++i]);
             LOG_DEBUG("Kernel File Name : %s", kernel_file);
         }
 
         if( av[i] && strcmp(av[i], "-ramdisk") == 0 ){
-            strcpy(ramdisk_file, av[++i]);
+            strcpy_s(ramdisk_file, sizeof(ramdisk_file), av[++i]);
             LOG_DEBUG("RAM disk : %s", ramdisk_file);
         }
 
@@ -1019,27 +1098,28 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         }
 
         if( av[i] && strcmp(av[i], "-disk") == 0 ){
-        	strcpy(disk_file, av[++i]);
+        	strcpy_s(disk_file, sizeof(disk_file), av[++i]);
             LOG_DEBUG("Disk : %s",disk_file );
         }
         if( av[i] && strcmp(av[i], "-manifest") == 0 ){
-                        strcpy(manifest_file, av[++i]);
+                strcpy_s(manifest_file, sizeof(manifest_file), av[++i]);
 			//Create path for just list of files to be passes to verifier
         		LOG_DEBUG( "Manifest file : %s\n", manifest_file);
-		        strncpy(nohash_manifest_file, manifest_file, strlen(manifest_file)-strlen("/trustpolicy.xml"));
+		        strncpy_s(nohash_manifest_file, sizeof(nohash_manifest_file), manifest_file, strnlen_s(manifest_file,sizeof(manifest_file))-strnlen_s("/trustpolicy.xml", sizeof("/trustpolicy.xml")));
         		LOG_DEBUG( "Manifest list path %s\n", nohash_manifest_file);
-        		strcpy(vm_manifest_dir, nohash_manifest_file);
+        		strcpy_s(vm_manifest_dir, sizeof(vm_manifest_dir), nohash_manifest_file);
         		//Extract UUID of VM
         		char *uuid_ptr = strrchr(vm_manifest_dir, '/');
-        		strcpy(vm_uuid, uuid_ptr + 1);
+        		strcpy_s(vm_uuid, UUID_SIZE, uuid_ptr + 1);
         		LOG_TRACE("Extracted UUID : %s", vm_uuid);
 
-        		sprintf(nohash_manifest_file, "%s%s", nohash_manifest_file, "/manifestlist.xml");
+        		//snprintf(nohash_manifest_file, sizeof(nohash_manifest_file),"%s%s", nohash_manifest_file, "/manifestlist.xml");
+        		strcat_s(nohash_manifest_file, sizeof(nohash_manifest_file), "/" stripped_manifest_file);
         		//Create Trust Report directory and copy relevant files
 				char trust_report_dir[1024];
-				strcpy(trust_report_dir, g_trust_report_dir);
-				strcat(trust_report_dir, vm_uuid);
-				strcat(trust_report_dir, "/");
+				strcpy_s(trust_report_dir, sizeof(trust_report_dir), g_trust_report_dir);
+				strcat_s(trust_report_dir, sizeof(trust_report_dir), vm_uuid);
+				strcat_s(trust_report_dir, sizeof(trust_report_dir), "/");
 #ifdef __linux__
 				mkdir(trust_report_dir, 0766);
 #elif _WIN32
@@ -1052,17 +1132,17 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 					}
 				}
 #endif
-				char cmd[2048];
-				sprintf(cmd,"cp -p %s %s/",manifest_file, trust_report_dir );
-				system(cmd);
-				memset(cmd,0, 2048);
-				sprintf(cmd, "cp -p %s %s/", nohash_manifest_file, trust_report_dir);
-				system(cmd);
-        		strcpy(vm_manifest_dir, trust_report_dir);
+				//char cmd[2304];
+				snprintf(command, sizeof(command), "cp -p %s %s/",manifest_file, trust_report_dir );
+				system(command);
+				memset_s(command, sizeof(command), 0);
+				snprintf(command, sizeof(command), "cp -p %s %s/", nohash_manifest_file, trust_report_dir);
+				system(command);
+        		strcpy_s(vm_manifest_dir, sizeof(vm_manifest_dir), trust_report_dir);
         		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
-				sprintf(manifest_file,"%s%s", trust_report_dir, "/trustpolicy.xml");
+				snprintf(manifest_file, sizeof(manifest_file), "%s%s", trust_report_dir, "/trustpolicy.xml");
 				LOG_DEBUG("Manifest path %s ", manifest_file);
-				sprintf(nohash_manifest_file, "%s%s", trust_report_dir, "/manifestlist.xml");
+				snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s/%s", trust_report_dir, stripped_manifest_file);
 				LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
 				
 				//Read the digest algorithm from manifestlist.xml
@@ -1100,223 +1180,189 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         }
     }
 
-    //v: this code will be replaced by IMVM call flow
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-       //create domain process shall check the whitelist
-		child = procid;
-    // There will be two input files now, one the manifest and other just the list of files to be passed to verifier
-	// Could be moved to separate function
-	// Paths to 2nd manifest and output are hardcoded	
 
-//	char * nohash_manifest_file ="/root/nohash_manifest.xml"; // Need to be passed by policy agent
-        char launchPolicy[10];
-        char goldenImageHash[65];
-        FILE *fq ;
-        char * line = NULL;
-    	char * temp;
-    	char * end;
-    	size_t length = 0;
-
-   //Open Manifest to get list of files to hash
-    	xmlDocPtr Doc;
-    	Doc = xmlParseFile(manifest_file);
-
-        /*This will save the XML file in a correct format, as desired by our parser.
-        We dont use libxml tools to parse but our own pointer legerdemain for the time being
-        Main advantage is simplicity and speed ~O(n) provided space isn't an issue */
-
-    	xmlSaveFormatFile (formatted_manifest_file, Doc, 1); /*This would render even inline XML perfect for line by line parsing*/
-    	xmlFreeDoc(Doc);
-        //fp=fopen(formatted_manifest_file,"r");
-		std::ifstream fp(formatted_manifest_file);
-		if (!fp) {
-			start_app_status = 1;
-			goto return_response;
-		}		
-		
-		while (getline(fp, line_str))  //same as getline(fp, line_str).good() or fp.good()
-		{
-			line = (char *)malloc(sizeof(char)*line_str.length());
-			memset(line, 0, line_str.length());
-			strcpy(line, line_str.c_str());			
-       		LOG_TRACE("Reading a line");
-        	if(strstr(line,"<LaunchControlPolicy")!= NULL){
-        		LOG_DEBUG("Found tag");
-        		temp = tagEntry(line);
-        		LOG_DEBUG("<Policy=\"%s\">",NodeValue);
-        		if (strcmp(NodeValue, "MeasureOnly") == 0) {
-                    strcpy(launchPolicy, "Audit");
-                }
-                else if (strcmp(NodeValue, "MeasureAndEnforce") ==0) {
-                    strcpy(launchPolicy, "Enforce");
-                }
-        	if (strcmp(launchPolicy, "Audit") != 0 && strcmp(launchPolicy, "Enforce") !=0) {
-        		//fclose(fp);
-        		LOG_INFO("Launch policy is neither Audit nor Enforce so vm verification is not not carried out");
-        		//return TCSERVICE_RESULT_SUCCESS;
-        		char remove_file[1024] = {'\0'};
-				sprintf(remove_file,"rm -rf %s", vm_manifest_dir);
+    	/*
+    	 * extract Launch Policy, CustomerId, ImageId, VM hash, and Manifest signature value from formatted manifestlist.xml
+    	 * by specifying fixed xpaths with namespaces
+    	 */
+    	launch_policy_buff = (char *)calloc(1, sizeof(char)* 64);
+    	vm_customer_id = (char *)calloc(1, sizeof(char) * CUSTOMER_ID_SIZE);
+    	vm_image_id = (char *) calloc(1, sizeof(char) * IMAGE_ID_SIZE);
+    	vm_manifest_hash = (char *) calloc(1, sizeof(char)* MANIFEST_HASH_SIZE);
+    	vm_manifest_signature = (char *) calloc(1, sizeof(char) * MANIFEST_SIGNATURE_SIZE);
+    	if ( launch_policy_buff && vm_customer_id && vm_image_id && vm_manifest_hash && vm_manifest_signature) {
+    		xpath_map.insert(std::pair<xmlChar *, char *>(xpath_launch_policy, launch_policy_buff));
+    		xpath_map.insert(std::pair<xmlChar*, char *>(xpath_customer_id, vm_customer_id));
+    		xpath_map.insert(std::pair<xmlChar*, char *>(xpath_image_id, vm_image_id));
+    		xpath_map.insert(std::pair<xmlChar*, char *>(xpath_image_hash, vm_manifest_hash));
+    		xpath_map.insert(std::pair<xmlChar*, char *>(xpath_image_signature, vm_manifest_signature));
+			if (TCSERVICE_RESULT_FAILED == get_xpath_values(xpath_map, namespace_list, manifest_file)) {
+				//TODO write a remove directory function using dirint.h header file
+				start_app_status = 1;
+				goto return_response;
+			}
+			if (strcmp(launch_policy_buff, "MeasureOnly") == 0) {
+				strcpy_s(launchPolicy, sizeof(launchPolicy), "Audit");
+			}
+			else if (strcmp(launch_policy_buff, "MeasureAndEnforce") ==0) {
+				strcpy_s(launchPolicy, sizeof(launchPolicy), "Enforce");
+			}
+			free(launch_policy_buff);
+			if (strcmp(launchPolicy, "Audit") != 0 && strcmp(launchPolicy, "Enforce") !=0) {
+				LOG_INFO("Launch policy is neither Audit nor Enforce so vm verification is not not carried out");
+				char remove_file[2048] = {'\0'};
+				snprintf(remove_file, sizeof(remove_file), "rm -rf %s", vm_manifest_dir);
 				system(remove_file);
-        		start_app_status = 0;
-        		goto return_response;
-        	}
-        }
+				start_app_status = 0;
+				goto return_response;
+			}
+			strcpy_s(goldenImageHash, sizeof(goldenImageHash), vm_manifest_hash);
 
-        if(strstr(line,"<ImageHash")!= NULL){
-        	LOG_DEBUG( "Found tag imagehash ");
-            temp = tagEntry(line);
-            LOG_DEBUG("<Image Hash=\"%s\"> ",NodeValue);
-            strcpy(goldenImageHash, NodeValue);
-            vm_manifest_hash = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
-			if(vm_manifest_hash == NULL) {
-				LOG_ERROR("StartApp : Error in allocating memory for vm_manifest_hash");
-				//return TCSERVICE_RESULT_FAILED;
+			//mount the disk, then pass the path and manifest file for measurement to MA(Measurement Agent)
+			snprintf(mount_path, sizeof(mount_path), "%s%s-%d", g_mount_path, vm_uuid, child);
+			//create a directory under /mnt/vrtm/VM_UUID to mount the VM disk
+			LOG_DEBUG("Mount location : %s", mount_path);
+			if ( mkdir(mount_path,766) != 0 && errno != EEXIST ) {
+				LOG_ERROR("can't create directory to mount the image ");
 				start_app_status = 1;
 				goto return_response;
 			}
-			strcpy(vm_manifest_hash,NodeValue);
-        }
-
-
-        if(strstr(line,"<ImageId")!= NULL){
-        	LOG_DEBUG("Found image  id tag");
-            temp = tagEntry(line);
-            LOG_DEBUG("<Image Id =\"%s\">",NodeValue);
-            vm_image_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
-            if(vm_image_id == NULL) {
-            	LOG_ERROR("StartApp : Error in allocating memory for vm_image_id");
-                //return TCSERVICE_RESULT_FAILED;
-            	start_app_status = 1;
-            	goto return_response;
-           }
-           strcpy(vm_image_id,NodeValue);
-        }
-
-        if(strstr(line,"<CustomerId")!= NULL){
-        	LOG_DEBUG("found custoimer id tag");
-        	temp = tagEntry(line);
-        	LOG_DEBUG("Processed custoimer id tag");
-        	LOG_DEBUG("<Customer Id =\"%s\">\n",NodeValue);
-        	vm_customer_id = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
-			if(vm_customer_id == NULL) {
-				LOG_DEBUG(" StartApp : Error in allocating memory for vm_customer_id");
-				//return TCSERVICE_RESULT_FAILED;
+			/*
+			 * call mount script to mount the VM disk as :
+			 * <ID> is mount LVMs
+			 * ../scripts/mount_vm_image.sh <disk> <mount_path> <ID>
+			 */
+			snprintf(command, sizeof(command), mount_script " %s %s %d > %s/%s-%d 2>&1", disk_file, mount_path, child, vm_manifest_dir, ma_log, child);
+			LOG_DEBUG("Command to mount the image : %s", command);
+			i = system(command);
+			LOG_DEBUG("system call to mount image exit status : %d", i);
+			keep_measurement_log = true;
+			if ( i != 0) {
+				LOG_ERROR("Error in mounting the image for measurement. For more info please look into file %s/%s-%d", vm_manifest_dir, ma_log, child);
 				start_app_status = 1;
 				goto return_response;
 			}
-				strcpy(vm_customer_id,NodeValue);
-          }
-		if(strstr(line,"SignatureValue")!= NULL){
-				temp = tagEntry(line);
-				LOG_DEBUG("<Manifest Signature  =\"%s\">",NodeValue);
-				vm_manifest_signature = (char *)malloc(sizeof(char)*(strlen(NodeValue) + 1));
-				if(vm_manifest_signature == NULL) {
-					LOG_ERROR("StartApp : Error in allocating memory for vm_manifest_hash");
-					//return TCSERVICE_RESULT_FAILED;
-					start_app_status = 1;
-					goto return_response;
+			LOG_DEBUG("Image Mounted successfully");
+			/*
+			 * call MA to measure the VM as :
+			 * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
+			 */
+			snprintf(command, sizeof(command), "./verifier %s %s/mount/ IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
+			LOG_DEBUG("Command to launch MA : %s", command);
+			verifier_exit_status = system(command);
+			LOG_DEBUG("system call to verifier exit status : %d", verifier_exit_status);
+			if ( verifier_exit_status != 0 ) {
+				LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement log in file %s/%s-%d", vm_manifest_dir, ma_log, child);
+			}
+			/*
+			 * unmount image by calling mount script with UN_MOUNT mode after the measurement as :
+			 * ../scripts/mount_vm_image.sh MOUNT_PATH
+			 */
+			snprintf(command, sizeof(command), mount_script " %s >> %s/%s-%d 2>&1", mount_path, vm_manifest_dir, ma_log, child);
+			LOG_DEBUG("Command to unmount the image : %s", command);
+			i = system(command);
+			LOG_DEBUG("system call for unmounting exit status : %d", i);
+			if ( i != 0 ) {
+				LOG_ERROR("Error in unmounting the vm image. Please check log file : %s/%s", vm_manifest_dir, ma_log, child);
+				start_app_status = 1;
+				goto return_response;
+			}
+			LOG_DEBUG("Unmount of image Successfull");
+			if ( verifier_exit_status != 0 ) {
+				start_app_status = 1;
+				goto return_response;
+			}
+			LOG_DEBUG("MA executed successfully");
+			// Only call verfier when measurement is required
+	// Open measurement log file at a specified location
+			fq = fopen(cumulativehash_file, "rb");
+			if(!fq)
+			{
+				LOG_ERROR("Error returned by verifer in generating cumulative hash, please check Measurement log in file %s/%s-%d\n", vm_manifest_dir, ma_log, child);
+				//return TCSERVICE_RESULT_FAILED; // measurement failed  (verifier failed to measure)
+				start_app_status = 1;
+				goto return_response;
+			}
+
+			char imageHash[65] = {'\0'};
+			//int flag=0;
+
+			if (fq != NULL) {
+				char line[1000];
+				if(fgets(line,sizeof(line),fq)!= NULL)  {
+					strcpy_s(imageHash, sizeof(imageHash), line);
 				}
-			   strcpy(vm_manifest_signature,NodeValue);
-			  }
-		} // end of file parsing
-        free(line);
-        line = NULL;
-        //fclose(fp);
-		fp.close();
-// Only call verfier when measurement is required
-        // append rpid to /tmp/imvm-result_"rpid".out
-        sprintf(command,"./verifier %s %s IMVM  > /tmp/imvm-result_%d.out 2>&1", nohash_manifest_file, disk_file,child);
-        LOG_DEBUG("Command to execute verifier binary : %s", command);
-        system(command);
-// Open measurement log file at a specified location
-        fq = fopen(cumulativehash_file, "rb");
-        if(!fq) 
-		{
-        	LOG_ERROR("Error returned by verifer in generating cumulative hash, please check imvm-result.out for more logs\n");
-        	free(vm_image_id);
-			free(vm_customer_id);
-			free(vm_manifest_hash);
-			free(vm_manifest_signature);
-        	//return TCSERVICE_RESULT_FAILED; // measurement failed  (verifier failed to measure)
-			start_app_status = 1;
-			goto return_response;
-		}
+			}
+			fclose(fq);
+			LOG_DEBUG("Calculated hash : %s and Golden Hash : %s",imageHash, goldenImageHash);
+			if (strcmp(imageHash, goldenImageHash) ==0) {
+				LOG_INFO("IMVM Verification Successfull");
+				verification_status = true;
+				//flag=1;
+			}
+			else if ((strcmp(launchPolicy, "Audit") == 0)) {
+				LOG_INFO("IMVM Verification Failed, but continuing with VM launch as MeasureOnly launch policy is used");
+				verification_status = false;
+				//flag=1;
+			}
+			else {
+				LOG_ERROR("IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used");
+				verification_status = false;
+				//flag=0;
+			}
 
-        char imageHash[65];
-        //int flag=0;
+		//////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        if (fq != NULL) {
-            char line[1000];
-            if(fgets(line,sizeof(line),fq)!= NULL)  {
-                //line[strlen ( line ) - 1] = '\0';
-                strcpy(imageHash, line);
-            }
-        }
-        fclose(fq);
-        LOG_DEBUG("Calculated hash : %s and Golden Hash : %s",imageHash, goldenImageHash);
-        if (strcmp(imageHash, goldenImageHash) ==0) {
-        	LOG_INFO("IMVM Verification Successfull");
-            verification_status = true;
-            //flag=1;
-        }
-		else if ((strcmp(launchPolicy, "Audit") == 0)) {
-			LOG_INFO("IMVM Verification Failed, but continuing with VM launch as MeasureOnly launch policy is used");
-			verification_status = false;
-			//flag=1;
-		}
-		else {
-			LOG_ERROR("IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used");
-			verification_status = false;
-			//flag=0;
-		}
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-
-    //The code below does the work of converting 64 byte hex (imageHash) to 32 byte binary (rgHash)
-    //same as in rpchannel/channelcoding.cpp:ascii2bin(),
-    {
-		int c = 0;
-		strcpy(vm_manifest_hash, imageHash);
-		int len = strlen(imageHash);
-		int iSize = 0;
-		for (c= 0; c < len; c = c+2) {
-			sscanf(&imageHash[c], "%02x", &rgHash[c/2]);
-			iSize++;
-		}
-		LOG_TRACE("Adding proc table entry for measured VM");
-		int temp_proc_id = g_myService.m_procTable.getprocIdfromuuid(vm_uuid);
-		int vm_data_size = 0;
-		char* vm_data[1];
-		vm_data[0] = vm_uuid;
-		vm_data_size++;
-		if ( temp_proc_id == NULL) {
-			if(!g_myService.m_procTable.addprocEntry(child, kernel_file, vm_data_size, vm_data, size, rgHash)) {
-				LOG_ERROR( "StartApp: cant add to vRTM Map\n");
+			//The code below does the work of converting 64 byte hex (imageHash) to 32 byte binary (rgHash)
+			//same as in rpchannel/channelcoding.cpp:ascii2bin(),
+			{
+				int c = 0;
+				strcpy_s(vm_manifest_hash, MANIFEST_HASH_SIZE, imageHash);
+				int len = strnlen_s(imageHash,sizeof(imageHash));
+				int iSize = 0;
+				for (c= 0; c < len; c = c+2) {
+					sscanf(&imageHash[c], "%02x", (unsigned int *)&rgHash[c/2]);
+					iSize++;
+				}
+				LOG_TRACE("Adding proc table entry for measured VM");
+				int temp_proc_id = g_myService.m_procTable.getprocIdfromuuid(vm_uuid);
+				int vm_data_size = 0;
+				char* vm_data[1];
+				vm_data[0] = vm_uuid;
+				vm_data_size++;
+				if ( temp_proc_id == NULL) {
+					if(!g_myService.m_procTable.addprocEntry(child, kernel_file, vm_data_size, vm_data, size, rgHash)) {
+						LOG_ERROR( "StartApp: cant add to vRTM Map\n");
+						//return TCSERVICE_RESULT_FAILED;
+						start_app_status = 1;
+						goto return_response;
+					}
+				}
+				else {
+					child = temp_proc_id;
+				}
+			}
+			LOG_TRACE("Updating proc table entry");
+		   if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir)) {
+				LOG_ERROR("SartApp : can't update proc table entry\n");
 				//return TCSERVICE_RESULT_FAILED;
 				start_app_status = 1;
 				goto return_response;
 			}
-		}
-		else {
-			child = temp_proc_id;
-		}
-    }
-    LOG_TRACE("Updating proc table entry");
-   if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir)) {
-	   	LOG_ERROR("SartApp : can't update proc table entry\n");
-        //return TCSERVICE_RESULT_FAILED;
-	   	start_app_status = 1;
-	   	goto return_response;
-    }
+    	}
+    	else {
+    		start_app_status = 1;
+    		goto return_response;
+    	}
+
 
     // free all allocated variable
-    free(vm_image_id);
-    free(vm_customer_id);
-    free(vm_manifest_hash);
-    free(vm_manifest_signature);
     
-
     return_response :
+    	if ( !vm_image_id ) free(vm_image_id);
+        if ( !vm_customer_id ) free(vm_customer_id);
+        if ( !vm_manifest_hash ) free(vm_manifest_hash);
+        if ( !vm_manifest_signature ) free(vm_manifest_signature);
 		for ( i = 0; i < an; i++) {
 			if( av[i] ) {
 				free (av[i]);
@@ -1324,9 +1370,16 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			}
 		}
     	if (start_app_status) {
-			char remove_file[1024] = {'\0'};
-			sprintf(remove_file,"rm -rf %s", vm_manifest_dir);
-			system(remove_file);
+			if ( keep_measurement_log == false ) {
+				//TODO write a remove directory function using dirint.h header file
+				LOG_TRACE("will remove reports directory %s", vm_manifest_dir);
+				char remove_file[2048] = {'\0'};
+				snprintf(remove_file, sizeof(remove_file), "rm -rf %s", vm_manifest_dir);
+				system(remove_file);
+			}
+			else {
+				LOG_TRACE("will not remove reports directory %s", vm_manifest_dir);
+			}
 			*poutsize = sizeof(int);
 			*((int*)out) = -1;
     		return TCSERVICE_RESULT_FAILED;
@@ -1384,11 +1437,11 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
         else {
         	//response = *((int *)outparams);
         	//memcpy(response, outparams, response_size);
-        	sprintf(response, "%d", *((int *)outparams));
-        	response_size = strlen(response);
+        	snprintf(response, sizeof(response), "%d", *((int *)outparams));
+        	response_size = strnlen_s(response,sizeof(response));
 
         	*outparamsize = PARAMSIZE;
-        	memset(outparams, 0, *outparamsize);
+        	memset_s(outparams, *outparamsize, 0);
         }
         *outparamsize = encodeRP2VM_STARTAPP((byte *)response, response_size, *outparamsize, outparams);
         LOG_DEBUG("Encoded resonse : %s", outparams);
@@ -1420,14 +1473,14 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 			LOG_ERROR( "Updating status of VM for UUID : %s failed", av[0]);
 			//response = -1;
 			//*((int *)response) = -1;
-			sprintf(response,"%d", -1);
+			snprintf(response, sizeof(response), "%d", -1);
 		}
 		else {
 			//response = 0;
 			//*((int *) response) = 0;
-			sprintf(response,"%d", 0);
+			snprintf(response, sizeof(response), "%d", 0);
 		}
-		response_size = strlen(response);
+		response_size = strnlen_s(response,sizeof(response));
 		LOG_DEBUG("Response : %s response size : %d", response, response_size);
 		*outparamsize = encodeRP2VM_SETVM_STATUS((byte *)response, response_size, *outparamsize, outparams);
 		LOG_INFO("Encoded Response : %s", outparams);
@@ -1571,8 +1624,8 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
                 ret_val = false;
                 goto cleanup;
             }
-            sprintf(verificationstat,"%d",verification_status);
-            verificationstatsize = strlen((char *)verificationstat);
+            snprintf(verificationstat, verificationstatsize, "%d",verification_status);
+            verificationstatsize = strnlen_s((char *)verificationstat, verificationstatsize);
             *outparamsize = PARAMSIZE;
 
             *outparamsize = encodeRP2VM_ISVERIFIED(verificationstatsize, (byte *)verificationstat, *outparamsize, outparams);
@@ -1608,7 +1661,7 @@ bool  serviceRequest(int procid, u32 uReq, int inparamsize, byte* inparams, int 
 					goto cleanup;
 			}
 
-			int vm_manifest_dir_size = strlen(vm_manifest_dir);
+			int vm_manifest_dir_size = strnlen_s(vm_manifest_dir,sizeof(vm_manifest_dir));
 			*outparamsize = encodeRP2VM_GETVMREPORT(vm_manifest_dir_size, (byte *)vm_manifest_dir, *outparamsize, outparams);
 			if(outparamsize<0) {
 				LOG_ERROR("Failed to Send VM Report and manifest Dir, Encoded data to small");
@@ -1671,11 +1724,13 @@ int cleanupService() {
 		pthread_create(&tid, &attr, clean_vrtm_table, (void *)NULL);
 		LOG_INFO("Successfully created the thread for entries cleanup");
 		g_cleanup_service_status = 1;
+		pthread_attr_destroy(&attr);
 		return 0;
 	}
 	else {
 		LOG_ERROR("Can't set cleanup thread attribute to detatchstate");
 		LOG_ERROR("Failed to spawn the vRTM entry clean up thread");
+		pthread_attr_destroy(&attr);
 		return 1;
 	}
 }

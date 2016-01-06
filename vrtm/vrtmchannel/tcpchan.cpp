@@ -17,6 +17,14 @@
 #include "vrtmsockets.h"
 #include "win_headers.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 #define g_logFile stdout
 
 int ch_read(int fd, void* buf, int bufsize){
@@ -92,7 +100,7 @@ int ch_write(int fd, void* buf, int len) {
 }
 
 
-int ch_register(int fd)
+void ch_register(int fd)
 {
     char rpid[64]={0};
     //pid_t rpproxyid;
@@ -100,7 +108,6 @@ int ch_register(int fd)
     //sprintf(rpid,"%d",rpproxyid);
     //fprintf(g_logFile,"\nregisteration of rp_id %s", rpid);
     //ch_write(fd, rpid, strlen(rpid) +1 );
-	return 0;
 }
 
 int ch_open(char* serverip, int port) {
@@ -119,12 +126,12 @@ int ch_open(char* serverip, int port) {
 	}
 #ifdef _WIN32
 	WSADATA wsData;	
-#endif
 	iResult = initialise_lib(&wsData);
 	if (iResult != 0) {
 		LOG_ERROR("Error in initialising library : %d", iResult);
 		return -1;
 	}
+#endif
 	struct addrinfo hints, *result;
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
@@ -146,7 +153,7 @@ int ch_open(char* serverip, int port) {
 		return -1;
 	}
 	/*
-	memset((void*) &server_addr, 0, sizeof(struct sockaddr_in));
+	memset_s((void*) &server_addr, sizeof(struct sockaddr_in), 0);
 
 	server_addr.sin_family= AF_INET;
 	inet_aton(serverip, &server_addr.sin_addr);

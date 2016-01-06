@@ -22,6 +22,7 @@ VM’s UUID to clean up the VM’s record in RPCore.
 #include <pthread.h>
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
+#include <fcntl.h>
 #include <map>
 #include <iostream>
 #include "tcpchan.h"
@@ -31,6 +32,14 @@ VM’s UUID to clean up the VM’s record in RPCore.
 
 #include "logging.h"
 #include "log_vrtmchannel.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 #define UUID_LENGTH         36
 #define TCP_REQUEST_SIZE    512
@@ -65,6 +74,7 @@ int update_vm_status(char*, int);
 //std::map<std::string, int> rp_id_map;
 static int exit_status = 1;
 static int sleep_duration_sec = 5;
+int g_fdLock;
 
 int channel_open() {
     int fd = -1;
@@ -167,7 +177,7 @@ static void stopOnSignal(int sig) {
 void* listen_libvirt_events( void* input) {
 
     struct sigaction action_stop;
-    memset(&action_stop, 0, sizeof(action_stop));
+    memset_s(&action_stop, sizeof(action_stop), 0);
     action_stop.sa_handler = stopOnSignal;
     LOG_TRACE("Registering for listening to Libvirt events");
 
@@ -238,7 +248,7 @@ int update_vm_status(char* uuid, int vm_status) {
     
     int fd1 = 0;
     int err = -1;
-    int retval;
+    int retval = -1;
     
     int         size= PARAMSIZE;
     byte        rgBuf[PARAMSIZE];
@@ -272,11 +282,10 @@ int update_vm_status(char* uuid, int vm_status) {
     err = ch_write(fd1, rgBuf, size + sizeof(tcBuffer) );
     if (err < 0){
         LOG_ERROR( "Socket write error: %s", strerror(errno));
-        retval = -1;
         goto fail;
     }
 
-    memset(rgBuf, 0, sizeof(rgBuf));
+    memset_s(rgBuf, sizeof(rgBuf), 0);
     LOG_TRACE( "Request sent successfully");
     LOG_TRACE( "Reading from socket for response");
     
@@ -291,7 +300,6 @@ again:
         }
 
         LOG_ERROR("Read error: %d  %s\n", errno, strerror(errno));
-        retval = -1;
         goto fail;
     }
 
@@ -311,7 +319,6 @@ again:
     	}
     else {
         LOG_ERROR( "Error occurred in vRTM in processing updating VM status for VM uuid %s\n", uuid);
-        retval = -1;
         goto fail;
     }
     retval = atoi( (char *)response);
@@ -325,28 +332,50 @@ fail:
     return retval;
 }
 
-int main() {
+int singleInstance_vrtm_listener()
+{
+    const char *lockFile="/tmp/vrtm_listener_lock";
 
-    struct sigaction sigAct;
-    memset(&sigAct, 0, sizeof(sigAct));
-    sigAct.sa_handler = SIG_DFL;
-    sigAct.sa_flags = SA_NOCLDWAIT;
-//    const char * log_properties_file = "../../config/rp_listenerlog.properties";
+    struct flock rpcsFlock;
+
+    rpcsFlock.l_type = F_WRLCK;
+    rpcsFlock.l_whence = SEEK_SET;
+    rpcsFlock.l_start = 0;
+    rpcsFlock.l_len = 1;
+
+    if( ( g_fdLock = open(lockFile, O_WRONLY | O_CREAT, 0666)) == -1)
+    {
+    	LOG_ERROR("Can't open vrtm_listener service lock file \n");
+        return -1;
+     }
+
+     chmod(lockFile, 0666); // Just in case umask is not set properly.
+
+     if ( fcntl(g_fdLock, F_SETLK, &rpcsFlock) == -1) {
+    	LOG_ERROR( "Already locked - rpcoreservice lock file \n");
+		return -2;
+     }
+
+    return 1;
+}
+
+int main() {
+	int instanceValid = 0;
+    //set same logger instance in rp_channel
     if( initLog(log_properties_file, "listener") ){
 		return 1;
 	}
-
-    //set same logger instance in rp_channel
     set_logger_vrtmchannel(rootLogger);
-
     LOG_TRACE("Logger initialized");
-    int sigRv = sigaction(SIGCHLD, &sigAct, NULL);
 
-    if (sigRv < 0) {
-        LOG_INFO( "Failed to set signal disposition for SIGCHLD");
-    } else {
-        LOG_INFO( "Set SIGCHLD to avoid zombies");
-    }
+	if ((instanceValid = singleInstance_vrtm_listener()) == -2) {
+		LOG_ERROR("Process(vrtm_listener service) already running\n");
+		return 1;
+	}
+	if(instanceValid == -1) {
+		LOG_ERROR( "Process (vrtm_listener service) could not open lock file\n");
+		return 1;
+	}
 
     pthread_t th2;
 

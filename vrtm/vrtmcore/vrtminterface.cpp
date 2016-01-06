@@ -1,23 +1,3 @@
-//
-//  File: vrtminterface.cpp
-//  Description: tcIO implementation
-//
-//  Copyright (c) 2012, Intel Corporation. 
-//
-// Use, duplication and disclosure of this file and derived works of
-// this file are subject to and licensed under the Apache License dated
-// January, 2004, (the "License").  This License is contained in the
-// top level directory originally provided with the CloudProxy Project.
-// Your right to use or distribute this file, or derived works thereof,
-// is subject to your being bound by those terms and your use indicates
-// consent to those terms.
-//
-// If you distribute this file (or portions derived therefrom), you must
-// include License in or with the file and, in the event you do not include
-// the entire License in the file, the file must contain a reference
-// to the location of the License.
-
-// -------------------------------------------------------------------
 
 #define __STDC_LIMIT_MACROS
 #include "logging.h"
@@ -53,6 +33,16 @@
 #include "modtcService.h"
 #include "vrtminterface.h"
 #include "vrtmsockets.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
+
 /*************************************************************************************************************/
 //tcChannel   g_reqChannel;
 //#if 1
@@ -114,7 +104,6 @@ bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     int                 slen= 0;
     int                 iQsize= 5;
     int                 iError= 0;
-    int                 l;
 
     LOG_TRACE("Open Server");
 //    fprintf(g_logFile, "open server FILE: %s\n", szunixPath);
@@ -122,18 +111,20 @@ bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     if((fd=socket(AF_UNIX, SOCK_STREAM, 0))==(-1))
         return false;
 
-    slen= strlen(szunixPath)+sizeof(psrv->sa_family)+1;
-    memset((void*) psrv, 0, slen);
+    slen= strnlen_s(szunixPath, MAX_LEN)+sizeof(psrv->sa_family)+1;
+    memset_s((void*) psrv, slen, 0);
     psrv->sa_family= AF_UNIX;
-    strcpy(psrv->sa_data, szunixPath);
+    strcpy_s(psrv->sa_data, sizeof(psrv->sa_data), szunixPath);
 
     iError= bind(fd, psrv, slen);
     if(iError<0) {
         LOG_ERROR("openserver:bind error %s\n", strerror(errno));
+		close(fd);
         return false;
     }
     if(listen(fd, iQsize)==(-1)) {
         LOG_ERROR("listen error in server init");
+		close(fd);
         return false;
     }
 
@@ -154,9 +145,9 @@ bool openclient(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     if((fd=socket(AF_UNIX, SOCK_STREAM, 0))==(-1))
         return false;
 
-    memset((void*) psrv, 0, slen);
+    memset_s((void*) psrv, slen, 0);
     psrv->sa_family= AF_UNIX;
-    strcpy(psrv->sa_data, szunixPath);
+    strcpy_s(psrv->sa_data, sizeof(psrv->sa_data), szunixPath);
 
     iError= connect(fd, psrv, slen);
     if(iError<0) {
@@ -205,6 +196,10 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 		return -1;
 	}
 	outparams = (char *) calloc(1,sizeof(byte)*PARAMSIZE);
+	if ( outparams == NULL ) {
+		LOG_ERROR("couldn't allocate memory for output buffer");
+		return -1;
+	}
 	if(!serviceRequest(req_id, uReq, payload_size, (byte *)buf + tcBuffer_size, &outparams_size, (byte *)outparams)) {
 		LOG_ERROR("Error in serving the request");
 	}
@@ -214,7 +209,7 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 		return -1;
 	}
         LOG_TRACE("Prepare response payload");
-	memset(buf,0,PADDEDREQ);
+	memset_s(buf, PADDEDREQ, 0);
 	tcBuffer* send_tc_buff = (tcBuffer *) buf;
 	send_tc_buff->m_reqID = uReq;
 	send_tc_buff->m_reqSize = outparams_size;
@@ -227,7 +222,7 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 	LOG_DEBUG("Response tcbuffer Attributes API Request No. : %d payload size : %d response status : %d",
 			send_tc_buff->m_reqID, send_tc_buff->m_reqSize, send_tc_buff->m_ustatus);
 	int res_buf_size = tcBuffer_size + outparams_size;
-	memcpy(&buf[tcBuffer_size], outparams, outparams_size);
+	memcpy_s(&buf[tcBuffer_size], PARAMSIZE, outparams, PARAMSIZE - tcBuffer_size - 1);
 	free(outparams);
 	int data_send_size = -1;
         LOG_TRACE("Sending response");
@@ -249,8 +244,11 @@ void* handle_session(void* p) {
 	int sz_data = 0;
 	int err = -1;
 	int domid = -1;
-	//int fd1 = ps->fd;
-	int fd1 = *(int *)p;
+	int fd1 = -1;
+	if ( p!= NULL) {
+		fd1 = *(int *)p;
+		free(p);
+	}
 	LOG_TRACE("Entered handle_session() with fd as %d",fd1);
 	//fprintf(g_logFile, "handle_session(): Client connection from domid %d\n", domid);
 	
@@ -260,7 +258,7 @@ void* handle_session(void* p) {
 	
 	sz_data = sz_buf;
 	err = 0;
-	memset(buf, 0, sz_buf);
+	memset_s(buf, sz_buf, 0);
 	LOG_TRACE("Reading data from socket");
 
 	//read command from the client
@@ -314,20 +312,21 @@ void* dom_listener_main ( void* p)
     LOG_TRACE("Entered dom_listener_main()");
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	
+#ifdef _WIN32	
 	iResult = initialise_lib(&wsData);
 	if (iResult != 0) {
 		LOG_ERROR("Error in intialising library");
 		return false;
 	}
+#endif
 
-    memset(&hints, 0, sizeof hints);
+    memset_s(&hints, sizeof hints, 0);
     hints.ai_family = AF_INET; // use IPv4 or IPv6, whichever
     hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
     hints.ai_flags = AI_PASSIVE; // fill in my IP for me , I will use this IP to for binding 
 
-    sprintf(vrtm_port,"%d", g_rpcore_port);
+    snprintf(vrtm_port, sizeof(vrtm_port), "%d", g_rpcore_port);
 	iResult = getaddrinfo(g_rpcore_ip, vrtm_port, &hints, &vrtm_addr);
 	if (iResult != 0) {
 		LOG_ERROR("getaddrinfo failed!!!");
@@ -342,6 +341,9 @@ void* dom_listener_main ( void* p)
     fd = socket(vrtm_addr->ai_family, vrtm_addr->ai_socktype, vrtm_addr->ai_protocol);
     if(fd<0) {
         LOG_ERROR("Can't open socket");
+        g_ifc_status = IFC_ERR;
+        freeaddrinfo(vrtm_addr);
+        pthread_attr_destroy(&attr);
 		g_ifc_status = IFC_ERR;
 		clean_lib();
         return false;		
@@ -363,8 +365,8 @@ void* dom_listener_main ( void* p)
 	}
 #ifdef __linux__
     // set the signal disposition of SIGCHLD to not create zombies
-    struct sigaction sigAct;
-    memset(&sigAct, 0, sizeof(sigAct));
+    /*struct sigaction sigAct;
+    memset_s(&sigAct, sizeof(sigAct), 0);
     sigAct.sa_handler = SIG_DFL;
     sigAct.sa_flags = SA_NOCLDWAIT; // don't zombify child processes
    
@@ -373,7 +375,7 @@ void* dom_listener_main ( void* p)
         LOG_INFO( "Failed to set signal disposition for SIGCHLD");
     } else {
         LOG_INFO( "Set SIGCHLD to avoid zombies");
-    }
+    }*/
 #endif
 	g_ifc_status = IFC_UP;
     
@@ -397,24 +399,33 @@ void* dom_listener_main ( void* p)
         }
 		
 		LOG_INFO( "Client connection from %s ", inet_ntoa(client_addr.sin_addr));
-		if (g_quit)
+		if (g_quit) {
+			close(newfd);
 			continue;
+		}
 		thread_fd = (int *)malloc(sizeof(int));
-		*thread_fd=newfd;
-        LOG_DEBUG("Creating separate thread to handle session");
-		pthread_create(&tid, &attr, handle_session, (void*)thread_fd);
-
+		if(thread_fd != NULL) {
+			*thread_fd=newfd;
+        	LOG_DEBUG("Creating separate thread to handle session");
+			pthread_create(&tid, &attr, handle_session, (void*)thread_fd);
+		}
+		else {
+			LOG_ERROR("Couldn't allocate memory for fd of this request");
+		}
     }
     //close(fd);
 	
 
 fail:
 	close_connection(fd);
+	freeaddrinfo(vrtm_addr);
+    pthread_attr_destroy(&attr);	
 	if (iResult < 0) {
 		clean_lib();
 		g_ifc_status = IFC_ERR;
 		return false;
-	}	
+	}
+    
     return NULL;
 }
 

@@ -12,6 +12,14 @@
 #include "base64.h"
 #include "logging.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 int cbuf_to_xmlrpc(const char* func, const char* method, int size, const byte* data, int bufsize, byte* buf) {
 
 	xmlDocPtr doc;
@@ -33,7 +41,7 @@ int cbuf_to_xmlrpc(const char* func, const char* method, int size, const byte* d
 		value_type = xmlNewChild(param_value, NULL, BAD_CAST "string", BAD_CAST encoded_data);
 		xmlChar * xmlbuf;
 		xmlDocDumpFormatMemory(doc, &xmlbuf, &bufsize, 0);
-		memcpy(buf, xmlbuf, bufsize + 1);
+		memcpy_s(buf, MAX_LEN, xmlbuf, bufsize + 1);
 		LOG_DEBUG("XML Data : %s", buf);
 		free(xmlbuf);
 		free(encoded_data);
@@ -65,7 +73,7 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 		// TODO base64encode the input data make param_value child
 		if (Base64Encode(args[i], &encoded_data) == 0) {
 			LOG_DEBUG("Encoded Parameter : %s", encoded_data);
-			xmlNewChild(param_value, NULL, BAD_CAST "string", BAD_CAST encoded_data);
+			value_type = xmlNewChild(param_value, NULL, BAD_CAST "string", BAD_CAST encoded_data);
 			free(encoded_data);
 		}
 		else {
@@ -79,7 +87,7 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 
 	xmlChar * xmlbuf;
 	xmlDocDumpFormatMemory(doc, &xmlbuf, &bufsize, 0);
-	memcpy(buf,xmlbuf, bufsize + 1);
+	memcpy_s(buf, MAX_LEN, xmlbuf, bufsize + 1);
 	free(xmlbuf);
 	xmlFreeDoc(doc);
 	//xmlCleanupParser();
@@ -90,21 +98,20 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf) {
 	xmlDocPtr doc;
 	xmlNode * root = NULL, *cur_node = NULL, *param_node = NULL;
-	char *method = NULL, *param;
+	char *method = NULL, *param, *decoded_data;
 	int xmldata_size = -1;
 	LOG_DEBUG("XML to be parsed : %s", buf);
-	if (strlen((char *)buf) == 0) {
+	if (strnlen_s((char *)buf, MAX_LEN) == 0) {
 		xmldata_size = *psize = 0;
 		return xmldata_size;
 	}
-	doc = xmlParseMemory((char *)buf, strlen((char *)buf));
+	doc = xmlParseMemory((char *)buf, strnlen_s((char *)buf, MAX_LEN));
 	if(doc == NULL) {
 		xmldata_size = *psize = 0;
 		return xmldata_size;
 	}
 
 	root = xmlDocGetRootElement(doc);
-	char *decoded_data;
 	for(cur_node = root->children ; cur_node != NULL ; cur_node = cur_node->next) {
 		if( cur_node->type == XML_ELEMENT_NODE && !xmlStrcmp(cur_node->name, (xmlChar *)"methodName")) {
 			method = (char *)xmlNodeGetContent(cur_node); // not used , free'd at end
@@ -123,15 +130,17 @@ int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf) {
 					break;
 				}
 				LOG_DEBUG("Decoded Node Content : %s", decoded_data);
-				*psize = strlen(decoded_data);
-				memcpy(data, decoded_data, *psize+1);
-				xmldata_size = *psize;
-				free(decoded_data);
+				if(decoded_data != NULL) {
+					*psize = strnlen_s(decoded_data, MAX_LEN);
+					memcpy_s(data, MAX_LEN, decoded_data, *psize+1);
+					xmldata_size = *psize;
+					free(decoded_data);
+				}
 				free(param);
 			}
 		}
 	}
-	free(method);
+	if(method != NULL)	free(method);
 	xmlFreeDoc(doc);
 	//xmlCleanupParser();
 	return xmldata_size;
@@ -141,22 +150,26 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 
 	xmlDocPtr doc;
 	xmlNode *root = NULL, *cur_node = NULL, *param_node = NULL;
-	char *method=NULL, *param, *decoded_data;
+	char *method = NULL, *param, *decoded_data;
 	int i=0, arg_count = 0, status = -1;
 	LOG_DEBUG("XML to be parsed : %s", buf);
-	if (strlen((char *)buf) == 0) {
+	if (strnlen_s((char *)buf, MAX_LEN) == 0) {
 		method = (char *)calloc(1,sizeof(char));
-		method[0] = '\0';
-		*psz = method;
+		if(method != NULL) {
+			method[0] = '\0';
+			*psz = method;
+		}
 		*pnargs = arg_count;
 		status = *pnargs;
 		return status;
 	}
-	doc = xmlParseMemory((char*)buf, strlen((char*)buf));
+	doc = xmlParseMemory((char*)buf, strnlen_s((char*)buf, MAX_LEN));
 	if(doc == NULL) {
 		method = (char *)calloc(1,sizeof(char));
-		method[0] = '\0';
-		*psz = method;
+		if(method != NULL) {
+			method[0] = '\0';
+			*psz = method;
+		}
 		*pnargs = arg_count;
 		status = *pnargs;
 		return status;
@@ -177,20 +190,21 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 				param = (char*) xmlNodeGetContent(param_node);
 				LOG_DEBUG("Encoded Node content : %s", param);
 				if(Base64Decode(param, &decoded_data) == 0 ) {
-					LOG_DEBUG("Decoded Node content : %s", decoded_data);
-					pargs[arg_count] = strdup( decoded_data);
-					free(decoded_data);
+					if(decoded_data != NULL) {
+						LOG_DEBUG("Decoded Node content : %s", decoded_data);
+						pargs[arg_count] = strdup( decoded_data);
+						free(decoded_data);
+					}
 					xmlFree((xmlChar *)param);
 					arg_count++;
 				}
 				else {
 					LOG_DEBUG("Error in Decoding the node content");
-					free(param);
 					for( i = 0 ;i < arg_count ; i++ ) {
-                                                if(pargs[i]) {
+                        if(pargs[i]) {
 						    free(pargs[i]);
-                                                    pargs[i] = NULL;
-                                                }
+                            pargs[i] = NULL;
+                        }
 					}
 					xmlFree((xmlChar *)param);
 					xmlFreeDoc (doc);
@@ -202,8 +216,8 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 	}
 	xmlFreeDoc (doc);
 	//xmlCleanupParser();
-xmlMemoryDump();
-	*psz = method;
+	xmlMemoryDump();
+	if(method != NULL)	*psz = method;
 	*pnargs = arg_count;
 	status = *pnargs;
 
@@ -271,10 +285,10 @@ int main(int argc, char **argv)
      * A simple loop that "automates" nodes creation
      */
     for (i = 5; i < 7; i++) {
-        sprintf(buff, "node%d", i);
+        snprintf(buff, sizeof(buff), "node%d", i);
         node = xmlNewChild(root_node, NULL, BAD_CAST buff, NULL);
         for (j = 1; j < 4; j++) {
-            sprintf(buff, "node%d%d", i, j);
+            snprintf(buff, sizeof(buff), "node%d%d", i, j);
             node1 = xmlNewChild(node, NULL, BAD_CAST buff, NULL);
             xmlNewProp(node1, BAD_CAST "odd", BAD_CAST((j % 2) ? "no" : "yes"));
         }
