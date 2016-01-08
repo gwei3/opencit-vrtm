@@ -524,7 +524,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 
 	// Store the TPM signing key password          
-	snprintf(command0,sizeof(command0),"cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2 | xargs echo -n > %ssign_key_passwd", manifest_dir);
+	snprintf(command0,sizeof(command0),"tagent config \"signing.key.secret\" > %ssign_key_passwd", manifest_dir);
 	LOG_DEBUG("TPM signing key password :%s \n", command0);
 	system(command0); 
 					   
