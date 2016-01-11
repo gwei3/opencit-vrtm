@@ -20,7 +20,6 @@ VRTM-proxy will call qemu with VM launch options after the VM image measurement 
 #include <time.h>
 #include <errno.h>
 #include <unistd.h>
-
 #include "tcpchan.h"
 #include "channelcoding.h"
 #include "parser.h"
@@ -28,6 +27,14 @@ VRTM-proxy will call qemu with VM launch options after the VM image measurement 
 #include "logging.h"
 #include "log_vrtmchannel.h"
 #include "loadconfig.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
 
 #define QEMU_SYSTEM_PATH            "/usr/bin/qemu-system-x86_64_orig"
 #define VRTMCORE_DEFAULT_IP_ADDR    "127.0.0.1"
@@ -42,7 +49,6 @@ VRTM-proxy will call qemu with VM launch options after the VM image measurement 
 #ifndef byte
 typedef unsigned char byte;
 #endif
-
 
 int rp_fd = -1;
 //int rp_listener_fd = -1;
@@ -129,7 +135,7 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
         goto fail;
     }
 
-    memset(rgBuf, 0, sizeof(rgBuf));
+    memset_s(rgBuf, sizeof(rgBuf), 0);
     LOG_TRACE("Request sent successfully");
     
 again:  
@@ -262,12 +268,12 @@ int main(int argc, char** argv) {
         return 0;
     }
     // Parse the command line request and extract the disk path
-    disk_start_ptr = strstr(drive_data, "file=") + strlen("file=");
+    disk_start_ptr = strstr(drive_data, "file=") + sizeof("file=");
     disk_end_ptr = strstr(drive_data, ",if=none");
     int disk_path_len = disk_end_ptr-disk_start_ptr;
 	LOG_DEBUG("Disk path length: %d", disk_path_len);
-    memset(disk_path, '\0', sizeof(disk_path));
-    strncpy(disk_path, disk_start_ptr, disk_path_len);
+    memset_s(disk_path, sizeof(disk_path), '\0');
+    strncpy_s(disk_path, PATH_MAX, disk_start_ptr, disk_path_len);
 	LOG_DEBUG("Disk Path: %s", disk_path);
 
     //Extract UUID of VM
@@ -284,7 +290,7 @@ int main(int argc, char** argv) {
 
     std::string reqValue = config_map["trust_report_dir"];
     clear_config(config_map);
-    strcpy(trust_report_dir, reqValue.c_str());
+    strcpy_s(trust_report_dir, sizeof(trust_report_dir), reqValue.c_str());
     memset(manifest_path, '\0', sizeof(manifest_path));
 	snprintf(manifest_path, sizeof(manifest_path), "%s%s%s", trust_report_dir, uuid, "/trustpolicy.xml");
 	LOG_DEBUG("Path of trust policy: %s", manifest_path);
@@ -338,15 +344,15 @@ int main(int argc, char** argv) {
     // add VRTMCore ip and port in kernel arguments for the VM. The VM can use it to contact VRTMCore
     if(kernel_provided && index != -1) {
         index++;
-		strncat(kernel_args, argv[index], (sizeof(kernel_args) - strlen(kernel_args) - 1));
+		strcat_s(kernel_args, sizeof(kernel_args), argv[index]);
         //snprintf(kernel_args, sizeof(kernel_args), "%s", argv[index]);
-		strncat(kernel_args, " vrtmcore_ip=", (sizeof(kernel_args) - strlen(kernel_args) - 1));
-		strncat(kernel_args, vrtmcore_ip, (sizeof(kernel_args) - strlen(kernel_args) - 1));
+		strcat_s(kernel_args, sizeof(kernel_args), " vrtmcore_ip=");
+		strcat_s(kernel_args, sizeof(kernel_args), vrtmcore_ip);
         //snprintf(kernel_args, sizeof(kernel_args), "%s rpcore_ip=%s", kernel_args, rpcore_ip);
-		strncat(kernel_args, " vrtmcore_port=", (sizeof(kernel_args) - strlen(kernel_args) - 1));
+		strncat(kernel_args, sizeof(kernel_args), " vrtmcore_port=");
 		char vrtm_port_buff[32] = {'\0'};
-		snprintf(vrtm_port_buff, sizeof(vrtm_port_buff) - 1, "%d", vrtmcore_port);
-		strncat(kernel_args, vrtm_port_buff, (sizeof(kernel_args) - strlen(kernel_args) - 1));
+		snprintf(vrtm_port_buff, sizeof(vrtm_port_buff), "%d", vrtmcore_port);
+		strcat_s(kernel_args, sizeof(kernel_args), vrtm_port_buff);
         //snprintf(kernel_args, sizeof(kernel_args), "%s rp_port=%d", kernel_args, rpcore_port);
 		kernel_args[sizeof(kernel_args) - 1] = '\0';
         argv[index] = kernel_args;

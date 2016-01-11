@@ -66,6 +66,23 @@ function unmount_vm_image() {
 		fi
 		if [ $? -eq 0 ]
 		then
+			#Get PID of guestmount process and wait till unmount completes
+			if [ -f $PID_FILE ]; then
+				timeout=10
+				pid="$(cat $PID_FILE)"
+				count=$timeout
+				while kill -0 "$pid" 2>/dev/null && [ $count -gt 0 ]; do
+					sleep 1
+					echo "Checking guestmount process status... $count"
+					((count--))
+				done
+				if [ $count -eq 0 ]; then
+					echo "WARNING: Guestmount process exit might have an issue. Continueing with launch process."
+				fi
+			else
+				echo "PID file doesn't exists."
+			fi
+
 			echo >&2 "unmounted $mnt_volume_path successfully"
 			vg_name=`lvs --noheadings $mnt_volume_path 2>/dev/null | awk '{ print $2}'`
 			#lvm_vg_name=`echo $vg_name | awk -F/ '{ print $NF}'`
@@ -421,7 +438,7 @@ function mount_disk_guestmount()
 	fi
 	## Proceed mounting with guestmount
 	export LIBGUESTFS_BACKEND=direct
-	time $guestMountBinary -a $imagePath -i --ro $mountPath
+	time $guestMountBinary -a $imagePath -i --pid-file $PID_FILE --ro $mountPath
 	retcode=$?
 	if [ $retcode -eq 0 ] ; then
 		echo >&2 "Mounted the disk image successfully"
@@ -534,6 +551,9 @@ then
 	imagePath=$1
 	FDISK_OUT="$2/fdisk.out"
 	LVS_OUT="$2/lvs.out"
+        PID_FILE="$2/guestmount.pid"
+	#delete .pid file if already exists.
+	rm -f $PID_FILE
 	mountPath="$2/mount"
 	vhdMountPath="$2/vhdmnt"
 	if [ $# -eq 3 ]
@@ -559,6 +579,7 @@ else
 		usage
 		exit 0
 	fi
+	PID_FILE="$1/guestmount.pid"
 	mountPath="$1/mount"
 	vhdMountPath="$1/vhdmnt"
 	mount_check=`mount | grep $mountPath`
@@ -568,6 +589,7 @@ else
 		exit 0
 	fi
 	unmount_vm_image
+	rm -f $PID_FILE
 	rm -rf `dirname $mountPath`
 fi
 exit 0

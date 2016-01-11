@@ -158,7 +158,7 @@ function buildvrtmcore()
 function install_kvm_packages_rhel()
 {
 	echo "Enabling epel-testing repo for log4cpp"
-	yum-config-manager --enable epel-testing > /dev/null
+	sudo -n yum-config-manager --enable epel-testing > /dev/null
 	if [ $? -ne 0 ]
 	then
 		echo "can't enable the epel-testing repo"
@@ -167,9 +167,9 @@ function install_kvm_packages_rhel()
 		echo "enabled epel-testing repo"
 	fi
 	echo "Installing Required Packages ....."
-	yum -y groupinstall -y "Development Tools" "Development Libraries"
+	sudo -n yum -y groupinstall -y "Development Tools" "Development Libraries"
 	PackageList1=`echo $?`
-	yum install -y "kernel-devel-uname-r == $(uname -r)" libvirt-devel libxml2 gcc-c++ gcc make yajl-devel device-mapper-devel libpciaccess-devel libnl-devel libxml2-devel openssl-devel libaio libaio-devel
+	sudo -n yum install -y "kernel-devel-uname-r == $(uname -r)" libvirt-devel libxml2 gcc-c++ gcc make libxml2-devel openssl-devel
         PackageList2=`echo $?`
         if [ $PackageList1 -ne 0 ] || [ $PackageList2 -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
@@ -195,7 +195,7 @@ function install_kvm_packages_ubuntu()
 function install_kvm_packages_suse()
 {
 	echo "Installing Required Packages for sue ....."
-	zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI  wget glib2-devel libvirt-devel
+	sudo -n zypper -n in make gcc gcc-c++ libxml2-devel libopenssl-devel pkg-config libgnutls-devel bzr debhelper devscripts dh-make diffutils perl-URI  wget glib2-devel libvirt-devel
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
@@ -244,7 +244,7 @@ function log4cpp_inst_ubuntu()
 function log4cpp_inst_fedora()
 {
         echo "Installing log4cpp devel for Fedora..."
-        yum install -y log4cpp-devel.x86_64
+        sudo -n yum install -y log4cpp-devel.x86_64
         if [ `echo $?` -ne 0 ]
         then
                 echo "Failed to install log4cpp devel..."
@@ -279,7 +279,7 @@ function log4cpp_inst_suse()
         echo "Installing log4cpp devel for Suse..."
         cd /tmp
         wget ftp://195.220.108.108/linux/centos/6.6/os/x86_64/Packages/log4cpp-devel-1.0-13.el6_5.1.x86_64.rpm
-        zypper -n install log4cpp-devel-1.0-13.el6_5.1.x86_64.rpm
+        sudo -n zypper -n install log4cpp-devel-1.0-13.el6_5.1.x86_64.rpm
         if [ `echo $?` -eq 0 ]
         then
                 echo "log4cpp devel is successfully installed..."

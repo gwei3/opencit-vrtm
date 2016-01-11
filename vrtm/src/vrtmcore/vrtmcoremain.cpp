@@ -1,22 +1,3 @@
-//
-//  File: vrtmcoremain.cpp
-//  Description: tcService implementation
-//
-//	Copyright (c) 2012, Intel Corporation. 
-//
-// Use, duplication and disclosure of this file and derived works of
-// this file are subject to and licensed under the Apache License dated
-// January, 2004, (the "License").  This License is contained in the
-// top level directory originally provided with the CloudProxy Project.
-// Your right to use or distribute this file, or derived works thereof,
-// is subject to your being bound by those terms and your use indicates
-// consent to those terms.
-//
-// If you distribute this file (or portions derived therefrom), you must
-// include License in or with the file and, in the event you do not include
-// the entire License in the file, the file must contain a reference
-// to the location of the License.
-
 
 
 #include <stdio.h>
@@ -45,6 +26,15 @@
 #include "tcconfig.h"
 #include "vrtminterface.h"
 #include "loadconfig.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 
 #define    g_config_file "../configuration/vRTM.cfg"
 #define	   log_properties_file "../configuration/vrtm_log.properties"
@@ -113,7 +103,7 @@ int read_config()
 	count++;
 	trust_report_dir = config_map["trust_report_dir"];
 	if (trust_report_dir == "") {
-		trust_report_dir = "/var/lib/nova/trustreports/";
+		trust_report_dir = "/var/log/trustreports/";
 		LOG_WARN("Trust Report directory is not found in vRTM.cfg. Using default location %s", trust_report_dir.c_str());
 	}
 	count++;
@@ -137,17 +127,17 @@ int read_config()
 		LOG_WARN("Stopped VM cleanup interval not found in vRTM.cfg. Using default value : %d", g_stopped_vm_max_age);
 	}
 	count++;*/
-	strcpy(g_vrtmcore_ip,vrtmcore_ip.c_str());
+	strcpy_s(g_vrtmcore_ip,sizeof(g_vrtmcore_ip), vrtmcore_ip.c_str());
 	LOG_DEBUG("vRTM IP : %s", g_vrtmcore_ip);
 	g_vrtmcore_port = atoi(vrtmcore_port.c_str());
 	LOG_DEBUG("vRTM listening port : %d", g_vrtmcore_port);
 	g_max_thread_limit = atoi(max_thread_limit.c_str());
 	LOG_DEBUG("vRTM Max concurrent request processing limit : %d", g_max_thread_limit);
-	strcpy(g_vrtm_root, vrtm_root.c_str());
+	strcpy_s(g_vrtm_root, sizeof(g_vrtm_root), vrtm_root.c_str());
 	strcat(g_vrtm_root, "/");
 	LOG_DEBUG("vRTM root : %s", g_vrtm_root);
-	strcpy(g_trust_report_dir, trust_report_dir.c_str());
-	strcat(g_trust_report_dir, "/");
+	strcpy_s(g_trust_report_dir,sizeof(g_trust_report_dir),trust_report_dir.c_str());
+	strcat_s(g_trust_report_dir,sizeof(g_trust_report_dir),"/");
 	LOG_DEBUG("vRTM trust report directory : %s", g_trust_report_dir);
 	g_entry_cleanup_interval = atoi(entry_cleanup_interval.c_str());
 	LOG_DEBUG("VM Entry cleanup interval : %d", g_entry_cleanup_interval);
@@ -182,7 +172,7 @@ int read_config()
 	}
 	// create trust report directory if not exist
 	if ( create_report_dir) {
-		ret_val = mkdir(g_trust_report_dir, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+		ret_val = mkdir(g_trust_report_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 		if (ret_val == 0 ) {
 			LOG_DEBUG("Trust report directory: %s created successfully", g_trust_report_dir);
 		}

@@ -1,23 +1,3 @@
-//
-//  File: vrtminterface.cpp
-//  Description: tcIO implementation
-//
-//  Copyright (c) 2012, Intel Corporation. 
-//
-// Use, duplication and disclosure of this file and derived works of
-// this file are subject to and licensed under the Apache License dated
-// January, 2004, (the "License").  This License is contained in the
-// top level directory originally provided with the CloudProxy Project.
-// Your right to use or distribute this file, or derived works thereof,
-// is subject to your being bound by those terms and your use indicates
-// consent to those terms.
-//
-// If you distribute this file (or portions derived therefrom), you must
-// include License in or with the file and, in the event you do not include
-// the entire License in the file, the file must contain a reference
-// to the location of the License.
-
-// -------------------------------------------------------------------
 
 #define __STDC_LIMIT_MACROS
 #include "logging.h"
@@ -56,6 +36,15 @@
 #include "tcpchan.h"
 #include "modtcService.h"
 #include "vrtminterface.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 /*************************************************************************************************************/
 //tcChannel   g_reqChannel;
 //#if 1
@@ -124,10 +113,10 @@ bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     if((fd=socket(AF_UNIX, SOCK_STREAM, 0))==(-1))
         return false;
 
-    slen= strlen(szunixPath)+sizeof(psrv->sa_family)+1;
-    memset((void*) psrv, 0, slen);
+    slen= strnlen_s(szunixPath, MAX_LEN)+sizeof(psrv->sa_family)+1;
+    memset_s((void*) psrv, slen, 0);
     psrv->sa_family= AF_UNIX;
-    strcpy(psrv->sa_data, szunixPath);
+    strcpy_s(psrv->sa_data, sizeof(psrv->sa_data), szunixPath);
 
     iError= bind(fd, psrv, slen);
     if(iError<0) {
@@ -158,9 +147,9 @@ bool openclient(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     if((fd=socket(AF_UNIX, SOCK_STREAM, 0))==(-1))
         return false;
 
-    memset((void*) psrv, 0, slen);
+    memset_s((void*) psrv, slen, 0);
     psrv->sa_family= AF_UNIX;
-    strcpy(psrv->sa_data, szunixPath);
+    strcpy_s(psrv->sa_data, sizeof(psrv->sa_data), szunixPath);
 
     iError= connect(fd, psrv, slen);
     if(iError<0) {
@@ -222,7 +211,7 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 		return -1;
 	}
         LOG_TRACE("Prepare response payload");
-	memset(buf,0,PADDEDREQ);
+	memset_s(buf, PADDEDREQ, 0);
 	tcBuffer* send_tc_buff = (tcBuffer *) buf;
 	send_tc_buff->m_reqID = uReq;
 	send_tc_buff->m_reqSize = outparams_size;
@@ -235,7 +224,7 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 	LOG_DEBUG("Response tcbuffer Attributes API Request No. : %d payload size : %d response status : %d",
 			send_tc_buff->m_reqID, send_tc_buff->m_reqSize, send_tc_buff->m_ustatus);
 	int res_buf_size = tcBuffer_size + outparams_size;
-	memcpy(&buf[tcBuffer_size], outparams, PARAMSIZE - tcBuffer_size - 1);
+	memcpy_s(&buf[tcBuffer_size], PARAMSIZE, outparams, PARAMSIZE - tcBuffer_size - 1);
 	free(outparams);
 	int data_send_size = -1;
         LOG_TRACE("Sending response");
@@ -271,7 +260,7 @@ void* handle_session(void* p) {
 	
 	sz_data = sz_buf;
 	err = 0;
-	memset(buf, 0, sz_buf);
+	memset_s(buf, sz_buf, 0);
 	LOG_TRACE("Reading data from socket");
 
 	//read command from the client
@@ -322,7 +311,7 @@ void* dom_listener_main ( void* p)
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     //sem_init(&g_sem_sess, 0, 1);
 
-    memset(&hints, 0, sizeof hints);
+    memset_s(&hints, sizeof hints, 0);
     hints.ai_family = AF_INET; // use IPv4 or IPv6, whichever
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE; // fill in my IP for me
@@ -342,7 +331,7 @@ void* dom_listener_main ( void* p)
         return false;
     }
     LOG_TRACE("Bind vRTM core socket");
-    /*memset((void*) &server_addr, 0, sizeof(struct sockaddr_in));
+    /*memset_s((void*) &server_addr, sizeof(struct sockaddr_in), 0);
     server_addr.sin_family= AF_INET;
     server_addr.sin_addr.s_addr= htonl(INADDR_ANY);     // 127.0.0.1*/
 	//ip_env = getenv("VRTMCORE_IPADDR");
@@ -367,7 +356,7 @@ void* dom_listener_main ( void* p)
 
     // set the signal disposition of SIGCHLD to not create zombies
     /*struct sigaction sigAct;
-    memset(&sigAct, 0, sizeof(sigAct));
+    memset_s(&sigAct, sizeof(sigAct), 0);
     sigAct.sa_handler = SIG_DFL;
     sigAct.sa_flags = SA_NOCLDWAIT; // don't zombify child processes
    
