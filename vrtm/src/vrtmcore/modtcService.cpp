@@ -1080,7 +1080,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 */
 			keep_measurement_log = true;
 			LOG_TRACE("Instace type docker : %d", instance_type);
-			snprintf(command, "./verifier %s %s/ IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
+			snprintf(command, sizeof(command), "./verifier %s %s/ IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to launch MA : %s", command);
 			i = system(command);
 			LOG_DEBUG("system call to verifier exit status : %d", i);
