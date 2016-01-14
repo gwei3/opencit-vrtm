@@ -219,6 +219,7 @@ function installvrtmProxyAndListner()
                             echo "$vrtm_comment" >> $LIBVIRT_QEMU_FILE
                             echo "$INSTALL_DIR/vrtm/lib/libvrtmchannel.so r," >> $LIBVIRT_QEMU_FILE
                             echo "$INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties r," >> $LIBVIRT_QEMU_FILE
+                            echo "$INSTALL_DIR/vrtm/configuration/vRTM.cfg r," >> $LIBVIRT_QEMU_FILE
                             echo "$LOG_DIR/vrtm_proxy.log w," >> $LIBVIRT_QEMU_FILE
                             echo "/usr/bin/qemu-system-x86_64_orig rmix," >> $LIBVIRT_QEMU_FILE
                             echo "$vrtm_end_comment" >> $LIBVIRT_QEMU_FILE	
@@ -254,6 +255,8 @@ function installvrtmProxyAndListner()
 			 restorecon -v $LOG_DIR
 			 semanage fcontext -a -t virt_etc_t $INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties
 		         restorecon -v $INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties
+			 semanage fcontext -a -t virt_etc_t $INSTALL_DIR/vrtm/configuration/vRTM.cfg
+		         restorecon -v $INSTALL_DIR/vrtm/configuration/vRTM.cfg
 			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
 			 restorecon -v "$QEMU_INSTALL_LOCATION"
 			 semanage fcontext -a -t qemu_exec_t $INSTALL_DIR/vrtm/lib/libvrtmchannel.so
