@@ -47,7 +47,6 @@ clean:
 	rm -rf $(RMOBJROOTR)/*
 	rm -f $(RMBIN)/*.exe
 	rm -f $(RMBIN)/*
-	rm -f $(RMLIB)/*.a
 	rm -f $(RMLIB)/*.so
 
 

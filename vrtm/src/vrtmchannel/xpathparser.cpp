@@ -11,6 +11,14 @@
 
 #include "xpathparser.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 #if defined(LIBXML_XPATH_ENABLED) && defined(LIBXML_SAX1_ENABLED)
 
 int list_elements_from_object(xmlNodeSetPtr nodes, char** elements_buf, int elements_buf_size);
@@ -185,7 +193,7 @@ int list_elements_from_object(xmlNodeSetPtr nodes, char** elements_buf, int elem
                 LOG_DEBUG( "= element node \"%s\" \t value : %s\n",
                     cur->name, node_content);
             }
-            strcpy(elements_buf[i], node_content);
+            strcpy_s(elements_buf[i], MAX_LEN, node_content);
             free(node_content);
         } else {
             cur = nodes->nodeTab[i];

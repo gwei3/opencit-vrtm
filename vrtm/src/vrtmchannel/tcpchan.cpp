@@ -16,6 +16,14 @@
 #include "logging.h"
 #include "tcpchan.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 #define g_logFile stdout
 
 int ch_read(int fd, void* buf, int bufsize){
@@ -118,7 +126,7 @@ int ch_open(char* serverip, int port) {
 	if(fd < 0) 
 		return -1;
 	
-	memset((void*) &server_addr, 0, sizeof(struct sockaddr_in));
+	memset_s((void*) &server_addr, sizeof(struct sockaddr_in), 0);
 
 	server_addr.sin_family= AF_INET;
 	inet_aton(serverip, &server_addr.sin_addr);
