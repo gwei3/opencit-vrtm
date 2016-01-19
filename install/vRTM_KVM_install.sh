@@ -353,10 +353,32 @@ function createvRTMStartScript()
 # Short-Description: VRTM
 # Description:       Virtual Root Trust Management
 ### END INIT INFO
-
+	tagent_availability()
+	{
+		tagent_bin=\"\"
+		tagent_bin=\"\`which tagent\`\"
+		if [ -z \"\$tagent_bin\" ]
+		then
+			export PATH=\"\$PATH:/usr/local/bin\"
+			tagent_bin=\"\`which tagent\`\"
+			if [ -z \"\$tagent_bin\" ]
+			then
+				return 1
+			else
+				return 0
+			fi
+		fi
+		return 0
+	}
 	startVrtm()
 	{
 		#chown -R nova:nova /var/run/libvirt/
+		if ! tagent_availability
+		then
+			echo \"tagent not found\"
+			echo \"can't start vrtm\"
+			return 1
+		fi
 		ldconfig
         	cd \"$INSTALL_DIR/vrtm/bin\"
         	nohup ./vrtmcore > /var/log/vrtm/vrtm_crash.log 2>&1 &
