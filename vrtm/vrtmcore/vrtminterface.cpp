@@ -37,7 +37,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#ifdef __linux__
 #include "safe_lib.h"
+#endif
 #ifdef __cplusplus
 }
 #endif
@@ -112,19 +114,19 @@ bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
         return false;
 
     slen= strnlen_s(szunixPath, MAX_LEN)+sizeof(psrv->sa_family)+1;
-    memset_s((void*) psrv, slen, 0);
+    memset((void*) psrv, 0, slen);
     psrv->sa_family= AF_UNIX;
     strcpy_s(psrv->sa_data, sizeof(psrv->sa_data), szunixPath);
 
     iError= bind(fd, psrv, slen);
     if(iError<0) {
         LOG_ERROR("openserver:bind error %s\n", strerror(errno));
-		close(fd);
+		close_connection(fd);
         return false;
     }
     if(listen(fd, iQsize)==(-1)) {
         LOG_ERROR("listen error in server init");
-		close(fd);
+		close_connection(fd);
         return false;
     }
 
@@ -145,14 +147,14 @@ bool openclient(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     if((fd=socket(AF_UNIX, SOCK_STREAM, 0))==(-1))
         return false;
 
-    memset_s((void*) psrv, slen, 0);
+    memset((void*) psrv, 0, slen);
     psrv->sa_family= AF_UNIX;
     strcpy_s(psrv->sa_data, sizeof(psrv->sa_data), szunixPath);
 
     iError= connect(fd, psrv, slen);
     if(iError<0) {
         LOG_ERROR( "openclient: Cant connect client, %s\n", strerror(errno));
-        close(fd);
+        close_connection(fd);
         return false;
     }
 
@@ -167,12 +169,18 @@ int g_sessId = 1;
 sem_t   g_sem_sess;
 
 int generate_req_id() {
-	int t_req_id;
+	int result, t_req_id;
 	LOG_TRACE("Generating request ID");
-	pthread_mutex_lock(&req_id_mutex);
+	result = pthread_mutex_init(&req_id_mutex, NULL);
+	LOG_DEBUG("pthread_mutex_init returns %d", result);
+	result = pthread_mutex_lock(&req_id_mutex);
+	LOG_DEBUG("pthread_mutex_lock returns %d", result);
 	req_id = (req_id + 1)%INT32_MAX;
 	t_req_id = req_id;
-	pthread_mutex_unlock(&req_id_mutex);
+	result = pthread_mutex_unlock(&req_id_mutex);
+	LOG_DEBUG("pthread_mutex_unlock returns %d", result);
+	result = pthread_mutex_destroy(&req_id_mutex);
+	LOG_DEBUG("pthread_mutex_destroy returns %d", result);
 	return t_req_id;
 }
 
@@ -209,7 +217,7 @@ int process_request(int fd, int req_id, char* buf, int data_size) {
 		return -1;
 	}
         LOG_TRACE("Prepare response payload");
-	memset_s(buf, PADDEDREQ, 0);
+	memset(buf, 0, PADDEDREQ);
 	tcBuffer* send_tc_buff = (tcBuffer *) buf;
 	send_tc_buff->m_reqID = uReq;
 	send_tc_buff->m_reqSize = outparams_size;
@@ -258,7 +266,7 @@ void* handle_session(void* p) {
 	
 	sz_data = sz_buf;
 	err = 0;
-	memset_s(buf, sz_buf, 0);
+	memset(buf, 0, sz_buf);
 	LOG_TRACE("Reading data from socket");
 
 	//read command from the client
@@ -320,7 +328,7 @@ void* dom_listener_main ( void* p)
 	}
 #endif
 
-    memset_s(&hints, sizeof hints, 0);
+    memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET; // use IPv4 or IPv6, whichever
     hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
@@ -366,7 +374,7 @@ void* dom_listener_main ( void* p)
 #ifdef __linux__
     // set the signal disposition of SIGCHLD to not create zombies
     /*struct sigaction sigAct;
-    memset_s(&sigAct, sizeof(sigAct), 0);
+    memset(&sigAct, 0, sizeof(sigAct));
     sigAct.sa_handler = SIG_DFL;
     sigAct.sa_flags = SA_NOCLDWAIT; // don't zombify child processes
    
@@ -400,7 +408,7 @@ void* dom_listener_main ( void* p)
 		
 		LOG_INFO( "Client connection from %s ", inet_ntoa(client_addr.sin_addr));
 		if (g_quit) {
-			close(newfd);
+			close_connection(newfd);
 			continue;
 		}
 		thread_fd = (int *)malloc(sizeof(int));
@@ -413,20 +421,18 @@ void* dom_listener_main ( void* p)
 			LOG_ERROR("Couldn't allocate memory for fd of this request");
 		}
     }
-    //close(fd);
+    //close_connection(fd);
 	
 
 fail:
 	close_connection(fd);
 	freeaddrinfo(vrtm_addr);
     pthread_attr_destroy(&attr);	
-	if (iResult < 0) {
+	if (iResult != 0) {
 		clean_lib();
-		g_ifc_status = IFC_ERR;
-		return false;
 	}
-    
-    return NULL;
+	g_ifc_status = IFC_ERR;
+	return false;
 }
 
 bool start_vrtm_interface(const char* name)

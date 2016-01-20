@@ -1,8 +1,8 @@
 #ifndef _TCCONFIGH_
 #define _TCCONFIGH_
 
-int LoadConfig(const char* szInFile );
-
+#define RP_MODE_OPENSTACK 	0
+#define RP_MODE_STANDALONE 	1
 
 extern char g_rpcore_ip []; 
 extern int  g_rpcore_port ;
@@ -15,8 +15,5 @@ extern long 	g_cancelled_vm_max_age;
 //extern long		g_stopped_vm_max_age;
 
 extern int  g_quit;
-
-#define RP_MODE_OPENSTACK 	0
-#define RP_MODE_STANDALONE 	1
 
 #endif

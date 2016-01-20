@@ -15,7 +15,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#ifdef __linux__
 #include "safe_lib.h"
+#endif
 #ifdef __cplusplus
 }
 #endif
@@ -43,7 +45,7 @@ int cbuf_to_xmlrpc(const char* func, const char* method, int size, const byte* d
 		xmlDocDumpFormatMemory(doc, &xmlbuf, &bufsize, 0);
 		memcpy_s(buf, MAX_LEN, xmlbuf, bufsize + 1);
 		LOG_DEBUG("XML Data : %s", buf);
-		free(xmlbuf);
+		xmlFree(xmlbuf);
 		free(encoded_data);
 	}
 	else {
@@ -88,7 +90,7 @@ int args_to_xmlrpc(const char* method, int nargs, char** args, int bufsize, byte
 	xmlChar * xmlbuf;
 	xmlDocDumpFormatMemory(doc, &xmlbuf, &bufsize, 0);
 	memcpy_s(buf, MAX_LEN, xmlbuf, bufsize + 1);
-	free(xmlbuf);
+	xmlFree(xmlbuf);
 	xmlFreeDoc(doc);
 	//xmlCleanupParser();
 	return bufsize;
@@ -126,7 +128,7 @@ int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf) {
 				if (Base64Decode(param, &decoded_data) ) {
 					LOG_DEBUG("Error! in decoding the Node content");
 					xmldata_size = *psize = -1;
-					free(param);
+					xmlFree((xmlChar *)param);
 					break;
 				}
 				LOG_DEBUG("Decoded Node Content : %s", decoded_data);
@@ -136,7 +138,7 @@ int xmlrpc_to_cbuf(const char* func, int* psize, byte* data, const byte* buf) {
 					xmldata_size = *psize;
 					free(decoded_data);
 				}
-				free(param);
+				xmlFree((xmlChar *)param);
 			}
 		}
 	}
@@ -192,7 +194,7 @@ int xmlrpc_to_args(char** psz, int* pnargs, char**pargs, const byte* buf) {
 				if(Base64Decode(param, &decoded_data) == 0 ) {
 					if(decoded_data != NULL) {
 						LOG_DEBUG("Decoded Node content : %s", decoded_data);
-						pargs[arg_count] = strdup( decoded_data);
+						pargs[arg_count] = strdup(decoded_data);
 						free(decoded_data);
 					}
 					xmlFree((xmlChar *)param);

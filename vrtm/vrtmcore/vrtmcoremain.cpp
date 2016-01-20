@@ -25,12 +25,15 @@
 #include "log_vrtmchannel.h"
 #include "tcconfig.h"
 #include "vrtminterface.h"
+#include "loadconfig.h"
 #include "win_headers.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+#ifdef __linux__
 #include "safe_lib.h"
+#endif
 #ifdef __cplusplus
 }
 #endif
@@ -38,17 +41,15 @@ extern "C" {
 
 #define    g_config_file "../configuration/vRTM.cfg"
 #define	   log_properties_file "../configuration/vrtm_log.properties"
-
-#ifdef __linux__
-char 	g_trust_report_dir[512]  = "/var/lib/nova/trustreports/";
-#elif _WIN32
-char 	g_trust_report_dir[512] = "../temp/trustreports/";
-#endif
 	
 char    g_rpcore_ip [64]        = "127.0.0.1";
 int     g_rpcore_port 		= 16005;
 int     g_max_thread_limit 	= 64;
-//char 	g_trust_report_dir[512]  = "/var/lib/nova/trustreports/";
+#ifdef __linux__
+char 	g_trust_report_dir[512] = "/var/log/trustreports/";
+#elif _WIN32
+char 	g_trust_report_dir[512] = "../temp/trustreports/";
+#endif
 char* 	g_mount_path = "/mnt/vrtm/";
 long 	g_entry_cleanup_interval = 30;
 //long 	g_delete_vm_max_age = 3600;
@@ -72,73 +73,6 @@ std:: map<std::string, std::string> config_map;
 int  g_quit = 0;
 
 int g_fdLock;
-
-inline std::string trim_right_copy(const std::string &s, const std::string &delimiters)
-{
-	return s.substr(0,s.find_last_not_of(delimiters) +1 );
-}
-
-inline std::string trim_left_copy(const std::string &s, const std::string &delimiters)
-{
-	return s.substr(s.find_first_not_of(delimiters));
-}
-
-inline std::string trim_copy(const std::string &s, const std::string delimiters)
-{
-	return trim_left_copy(trim_right_copy(s,delimiters),delimiters);
-}
-
-int LoadConfig(const char * configFile)
-{
-	FILE *fp = fopen(configFile,"r");
-	char *line;
-	int line_size = 512;
-	char *key;
-	char *value;
-	LOG_TRACE("Loading vRTM config file %s", configFile);
-	if(fp == NULL)
-	{
-		LOG_ERROR("Failed to load vRTM config file");
-		return -1;
-	}
-	while(true)
-	{
-		line = (char *) calloc(1,sizeof(char) * 512);
-		if(line != NULL) {
-			fgets(line,line_size,fp);
-			if(feof(fp)) {
-				free(line);
-				break;
-			}
-			LOG_TRACE("Line read from config file: %s", line);
-			if( line[0] == '#' ) {
-				LOG_DEBUG("Comment in configuration file : %s", &line[1]);
-				free(line);
-				continue;
-			}
-			size_t line_max = 512;
-			char *next_token;
-			key=strtok_s(line,&line_max,"=",&next_token);
-			value=strtok_s(NULL,&line_max,"=",&next_token);
-			if(key != NULL && value != NULL) {
-				std::string map_key (key);
-				std::string map_value (value);
-				LOG_TRACE("Parsed Key=%s and Value=%s", map_key.c_str(), map_value.c_str());
-				std::pair<std::string, std::string> config_pair (trim_copy(map_key," \t\n"),trim_copy(map_value," \t\n"));
-				config_map.insert(config_pair);
-			}
-			free(line);
-		}
-		else {
-			LOG_ERROR("Can't allocate memory to read a line");
-			config_map.clear();
-			fclose(fp);
-			return -1;
-		}
-	}
-	fclose(fp);
-	return config_map.size();
-}
 
 int read_config()
 {
@@ -170,7 +104,11 @@ int read_config()
 	count++;
 	trust_report_dir = config_map["trust_report_dir"];
 	if (trust_report_dir == "") {
-		trust_report_dir = "/var/lib/nova/trust_report_dir/";
+#ifdef _WIN32
+		trust_report_dir = "../temp/trustreports/";
+#elif __linux__
+		trust_report_dir = "/var/log/trustreports/";
+#endif
 		LOG_WARN("Trust Report directory is not found in vRTM.cfg. Using default location %s", trust_report_dir.c_str());
 	}
 	count++;
@@ -211,19 +149,17 @@ int read_config()
 	LOG_DEBUG("Cancelled VM cleanup interval : %d", g_cancelled_vm_max_age);
 	//g_stopped_vm_max_age = atoi(stopped_vm_max_age.c_str());
 	//LOG_DEBUG("Stopped VM cleanup interval : %d", g_stopped_vm_max_age);
-#ifdef __linux__
+
 	// clear all data in trust report directory if directory already exists
 	if( stat( g_trust_report_dir, &info ) != 0 ) {
 	    LOG_DEBUG( "cannot access %s\n", g_trust_report_dir );
 	    LOG_DEBUG( "New trust report directory %s will be created", g_trust_report_dir);
 	    create_report_dir = true;
 	}
-	else if( info.st_mode & S_IFDIR ){ // S_ISDIR() doesn't exist on my windows
+	else if( info.st_mode & S_IFDIR ) { // S_ISDIR() doesn't exist on my windows
 		LOG_DEBUG( "%s is a directory and already exists", g_trust_report_dir );
 		LOG_INFO("%s will be cleaned", g_trust_report_dir);
-		char command[512] = {'\0'};
-		snprintf(command, sizeof(command), "rm -rf %s/*", g_trust_report_dir);
-		if (system(command) == 0 ) {
+		if (remove_dir(g_trust_report_dir) == 0) {
 			LOG_INFO("Trust report directory %s, cleaned successfully", g_trust_report_dir);
 		}
 		else {
@@ -234,43 +170,17 @@ int read_config()
 	    LOG_DEBUG( "%s is present but not a directory\n", g_trust_report_dir );
 	    create_report_dir = true;
 	}
+
 	// create trust report directory if not exist
-	if ( create_report_dir) {
-		ret_val = mkdir(g_trust_report_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-		if (ret_val == 0 ) {
-			LOG_DEBUG("Trust report directory: %s created successfully", g_trust_report_dir);
-		}
-		else if (ret_val < 0 && errno == EEXIST ) {
-			LOG_DEBUG("Trust report directory: %s already exist", g_trust_report_dir);
-		}
-		else {
-			LOG_ERROR("Failed to create the Trust report directory", g_trust_report_dir);
+	if (create_report_dir) {
+		if (make_dir(g_trust_report_dir) != 0) {
 			return -1;
 		}
 	}
+#ifdef __linux__
 	// create mount location for vRTM at /mnt/vrtm
-	ret_val = mkdir(g_mount_path, 0766);
-	if (ret_val == 0 ) {
-		LOG_DEBUG("directory: %s to mount VM images for vRTM created successfully", g_mount_path);
-	}
-	else if (ret_val < 0 && errno == EEXIST ) {
-		LOG_DEBUG("directory: %s to mount VM images for vRTM already exist", g_mount_path);
-	}
-	else {
-		LOG_ERROR("Failed to create the directory: %s required for vRTM to mount VM images", g_mount_path);
+	if (make_dir(g_mount_path) != 0) {
 		return -1;
-	}
-#elif _WIN32
-	//_mkdir(g_trust_report_dir);
-	//only last mentioned directory will be get created, if intermediate directory does not exist then it will throw an error
-	if (CreateDirectory((LPCSTR)g_trust_report_dir, NULL) == 0) {
-		if (GetLastError() == ERROR_ALREADY_EXISTS) {
-			LOG_WARN("%s directory already exist, failed with error : %d", GetLastError());
-		}
-		else if (GetLastError() == ERROR_PATH_NOT_FOUND) {
-			LOG_ERROR("Error in creating directory. \n PLEASE MAKE SURE INTERMIDEIATE DIRECTORY EXIST ON MACHINE");
-			return -1;
-		}
 	}
 #endif
 	return count;
@@ -317,17 +227,9 @@ void vrtm_signal_handler(int sig_caught) {
 		signal_name = "SIGABRT";
 		signal(sig_caught, *default_handler_abrt);
 		break;
-	case SIGHUP:
-		signal_name = "SIGHUP";
-		signal(sig_caught, *default_handler_hup);
-		break;
 	case SIGINT:
 		signal_name = "SIGINT";
 		signal(sig_caught, *default_handler_int);
-		break;
-	case SIGQUIT:
-		signal_name = "SIGQUIT";
-		signal(sig_caught, *default_handler_quit);
 		break;
 	case SIGSEGV:
 		signal_name = "SIGSEGV";
@@ -341,21 +243,28 @@ void vrtm_signal_handler(int sig_caught) {
 		signal_name = "SIGFPE";
 		signal(sig_caught, *default_handler_fpe);
 		break;
+#ifdef __linux__
+	case SIGHUP:
+		signal_name = "SIGHUP";
+		signal(sig_caught, *default_handler_hup);
+		break;
+	case SIGQUIT:
+		signal_name = "SIGQUIT";
+		signal(sig_caught, *default_handler_quit);
+		break;
 	case SIGBUS:
 		signal_name = "SIGBUS";
 		signal(sig_caught, *default_handler_bus);
 		break;
+#endif
 	}
 	LOG_INFO("caught signal %s", signal_name.c_str());
 	// clean the trust report directory
-
-	std::string command = "rm -rf " + std::string(g_trust_report_dir) + "*";
-	int ret_val = system(command.c_str());
-	if (ret_val != 0) {
-		LOG_ERROR("Failed to remove the trust report directory : %s", command.c_str());
+	if (remove_dir(g_trust_report_dir) == 0) {
+		LOG_INFO("Trust report directory %s, cleaned successfully", g_trust_report_dir);
 	}
 	else {
-		LOG_DEBUG("trust report directory removed successfully");
+		LOG_ERROR("Trust report directory %s, couldn't be cleaned", g_trust_report_dir);
 	}
 	LOG_INFO("vRTM will Exit with recieved signal %d", sig_caught);
 	raise(sig_caught);
@@ -387,19 +296,21 @@ int main(int an, char** av)
 
     //Signal handling and clean our trust reports
     default_handler_abrt = signal(SIGABRT, vrtm_signal_handler); //handle abort signal , arise when program itself detect error
-    default_handler_hup = signal(SIGHUP, vrtm_signal_handler);  //handle shell session termination
     default_handler_int = signal(SIGINT, vrtm_signal_handler);  //handle signal interrupt ctrl-c
     //signal(SIGKILL, vrtm_signal_handler); //handle kill -9 but can't be handled or ignored or blocked
-    default_handler_quit = signal(SIGQUIT, vrtm_signal_handler); //handle quit command given by ctrl-\ ---
-    default_handler_segv = signal(SIGSEGV, vrtm_signal_handler); //handle segmentation fault
+	default_handler_segv = signal(SIGSEGV, vrtm_signal_handler); //handle segmentation fault
     default_handler_term = signal(SIGTERM, vrtm_signal_handler); //handle the kill command
     //signal(SIGSTOP, vrtm_signal_handler); //handle suspend signals ctrl-s -- can't be handled or ignored or blocked
     default_handler_fpe = signal(SIGFPE, vrtm_signal_handler);  //to handle divide by zero errors
-    default_handler_bus = signal(SIGBUS, vrtm_signal_handler);  //handle invalid pointer dereferencing different from sigsegv
+#ifdef __linux__
+	default_handler_hup = signal(SIGHUP, vrtm_signal_handler);  //handle shell session termination
+	default_handler_quit = signal(SIGQUIT, vrtm_signal_handler); //handle quit command given by ctrl-\ ---
+	default_handler_bus = signal(SIGBUS, vrtm_signal_handler);  //handle invalid pointer dereferencing different from sigsegv
+#endif
     //default_handler_tstp = signal(SIGTSTP, vrtm_signal_handler); //to handle interactive stop signal ctrl-z and ctrl-y, don't need to clean, process can be resumed again
 
     LOG_TRACE("Load config file %s", g_config_file);
-	if ( LoadConfig(g_config_file) < 0 ) {
+	if ( load_config(g_config_file, config_map) < 0 ) {
 		LOG_ERROR("Can't load config file %s", g_config_file);
 		goto cleanup;
 	}
@@ -410,6 +321,8 @@ int main(int an, char** av)
 		LOG_ERROR("tcService main : cant't find required values in config file");
 		goto cleanup;
 	}
+
+	clear_config(config_map);
 
     LOG_TRACE("Starting vRTM interface");
 	if(!start_vrtm_interface(NULL)) {

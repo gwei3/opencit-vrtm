@@ -16,7 +16,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#ifdef __linux__
 #include "safe_lib.h"
+#endif
 #ifdef __cplusplus
 }
 #endif
@@ -34,7 +36,7 @@ int encodeVM2RP_STARTAPP(const char* file, int nargs, char** args,
                                    int bufsize, byte* buf)
 {
 	LOG_TRACE("Encode Start App request");
-	memset_s(buf, bufsize, 0);
+	memset(buf, 0, bufsize);
    return args_to_xmlrpc((char*)file, nargs, args, bufsize, buf);
 }
 
@@ -72,7 +74,7 @@ int encodeVM2RP_SETVM_STATUS(const char* uuid, int vm_status, int bufsize, byte*
 {
    LOG_TRACE("Encode Set UUID request");
    const char* args[2];
-   memset_s(buf, bufsize, 0);
+   memset(buf, 0, bufsize);
    LOG_DEBUG("uuid : %s vm_status : %d", uuid, vm_status);
    args[0] = uuid;
    char status[64];
@@ -116,7 +118,7 @@ bool  decodeRP2VM_SETVM_STATUS(int* data_size, byte * data, const byte* buf)
 int  encodeVM2RP_TERMINATEAPP(int size, const byte* data, int bufsize, byte* buf)
 {
 	LOG_TRACE("Encode Terminate App request");
-	memset_s(buf, bufsize, 0);
+	memset(buf, 0, bufsize);
 	return 	cbuf_to_xmlrpc("encode_call", "delete_vm", size, data, bufsize, buf);
 }
 
@@ -134,7 +136,7 @@ bool  decodeVM2RP_TERMINATEAPP(char** method_name, int* pnargs,
 int  encodeRP2VM_TERMINATEAPP(int size, const byte* data, int bufsize, byte* buf)
 {
 	LOG_TRACE("");
-	memset_s(buf, bufsize, 0);
+	memset(buf, 0, bufsize);
 	return 	cbuf_to_xmlrpc("encode_response", "", size, data, bufsize, buf);
 }
 
@@ -159,7 +161,7 @@ bool  decodeRP2VM_GETRPID(char** method_name, int* pnargs, char** args, const by
 int encodeRP2VM_GETRPID(int size,byte *data, int bufsize, byte *buf)
 {
 	LOG_TRACE("Encode get RPID request");
-	memset_s(buf, bufsize, 0);
+	memset(buf, 0, bufsize);
 	return  cbuf_to_xmlrpc("encode_response", "", size, data, bufsize, buf);
 }
 
@@ -174,7 +176,7 @@ bool decodeRP2VM_GETVMMETA(char** method_name, int* pnargs, char** args, const b
 int encodeRP2VM_GETVMMETA(int numofMetadata, byte * metadata[], int bufsize, byte *buf)
 {
 	LOG_TRACE("Encode Get VM Metadata request");
-	memset_s(buf, bufsize, 0);
+	memset(buf, 0, bufsize);
 	return args_to_xmlrpc((char*)"get_vmmeta", numofMetadata, (char**)metadata, bufsize, buf);
 }
 
@@ -188,7 +190,7 @@ bool decodeRP2VM_ISVERIFIED(char** method_name, int* pnargs, char** args, const 
 int encodeRP2VM_ISVERIFIED(int size, byte *data, int bufsize, byte * buf)
 {
 	LOG_TRACE("Encode Is Verified request");
-	memset_s(buf, bufsize, 0);
+	memset(buf, 0, bufsize);
 	return  cbuf_to_xmlrpc("encode_response", "", size, data, bufsize, buf);
 }
 
@@ -204,7 +206,7 @@ bool decodeRP2VM_GETVMREPORT( char ** psz, int * pnargs,
 int encodeRP2VM_GETVMREPORT(int size, byte *data, int bufsize, byte * buf)
 {
 	LOG_TRACE("Encode Get VM Report request");
-       memset_s(buf, bufsize, 0);
+       memset(buf, 0, bufsize);
        return  cbuf_to_xmlrpc("encode_response", "", size, data, bufsize, buf);
 }
 

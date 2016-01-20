@@ -20,7 +20,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#ifdef __linux__
 #include "safe_lib.h"
+#endif
 #ifdef __cplusplus
 }
 #endif
@@ -138,7 +140,7 @@ int ch_open(char* serverip, int port) {
 	hints.ai_protocol = IPPROTO_TCP;
 	hints.ai_flags = AI_PASSIVE;
 	char server_port[10];
-	sprintf(server_port, "%d", port);
+	snprintf(server_port, sizeof(server_port), "%d", port);
 	iResult = getaddrinfo(serverip, server_port, &hints, &result);
 	if (iResult != 0) {
 		LOG_ERROR("getaddrinfo failed!!! : %d", iResult);

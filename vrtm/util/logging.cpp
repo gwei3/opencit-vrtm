@@ -7,6 +7,7 @@
 #include <unistd.h>
 #endif
 #include <stdlib.h>
+#include <string>
 
 #include "logging.h"
 
