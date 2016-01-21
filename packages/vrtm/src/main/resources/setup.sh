@@ -154,7 +154,11 @@ rm -rf /$VRTM_HOME/dist
 
 #Register vRTM start script
 register_startup_script /usr/local/bin/vrtm vrtm
-register_startup_script /usr/local/bin/vrtmlistener vrtmlistener
+
+if [ "$DEPLOYMENT_TYPE" == "vm" ]
+then
+	register_startup_script /usr/local/bin/vrtmlistener vrtmlistener
+fi
 
 ### CURRENTLY DONE IN vRTM_KVM_install.sh
 ##verifier

@@ -1,10 +1,10 @@
 /*
 rp_listener runs as a demon on the host OS, to support graceful VM termination and notifying VM UUID to
-RPCore after VM starts up. 
-Its main function is to receive the VM’s ID from RP-proxy after VM is launched and in case of successful 
-VM launch it sends request to RPCore to replace the VM’s ID in RPCore with the actual UUID of the launched VM. 
-It subscribes to libvirt events; if VM termination event is received from libvirt then it notifies RPCore with 
-VM’s UUID to clean up the VM’s record in RPCore.
+VRTMCore after VM starts up.
+Its main function is to receive the VM’s ID from VRTM-proxy after VM is launched and in case of successful
+VM launch it sends request to VRTMCore to replace the VM’s ID in VRTMCore with the actual UUID of the launched VM.
+It subscribes to libvirt events; if VM termination event is received from libvirt then it notifies VRTMCore with
+VM’s UUID to clean up the VM’s record in VRTMCore.
 */
 
 #include <stdio.h>
@@ -102,7 +102,7 @@ static int domainEventCallback(virConnectPtr conn ATTRIBUTE_UNUSED, virDomainPtr
     LOG_TRACE("Received event call back from Libvirt");
     /*
     check the event type for the event received from libvirt, if it indicated shutdown/failure/crash of the VM 
-    then send request to RPCore to delete the entry for this VM from RPCore
+    then send request to VRTMCore to delete the entry for this VM from VRTMCore
     */
     if (eventType == VIR_DOMAIN_EVENT_UNDEFINED) {
     	LOG_DEBUG("VIR_DOMAIN_EVENT_UNDEFINED");
@@ -147,7 +147,7 @@ static int domainEventCallback(virConnectPtr conn ATTRIBUTE_UNUSED, virDomainPtr
         char vm_uuid[UUID_LENGTH+1];
         LOG_TRACE( "Notifying vRTM of status update of domain %s", virDomainGetName(dom));
         virDomainGetUUIDString(dom, vm_uuid);
-        //send the request to RPCore
+        //send the request to VRTMCore
         update_vm_status(vm_uuid, vm_status);
     }
     return 0;
@@ -264,7 +264,7 @@ int update_vm_status(char* uuid, int vm_status) {
             return -1;
     }
 
-    //create and send the request to RPCore over the channel
+    //create and send the request to VRTMCore over the channel
     LOG_TRACE("Prepare request data");
     size = sizeof(tcBuffer);
     //size= encodeVM2RP_TERMINATEAPP (strlen(uuid), uuid, PARAMSIZE -size, (byte*)&rgBuf[size]);
@@ -275,7 +275,7 @@ int update_vm_status(char* uuid, int vm_status) {
     //pReq->m_origprocid= 0;
     pReq->m_reqSize= size;
 
-    LOG_DEBUG( "Requesting rpcore to update vm status for vm with uuid %s", uuid);
+    LOG_DEBUG( "Requesting vrtmcore to update vm status for vm with uuid %s", uuid);
     LOG_TRACE( "Sending request size: %d \n Payload: %s",
                 size + sizeof(tcBuffer), &rgBuf[20]);
     
@@ -352,7 +352,7 @@ int singleInstance_vrtm_listener()
      chmod(lockFile, 0666); // Just in case umask is not set properly.
 
      if ( fcntl(g_fdLock, F_SETLK, &rpcsFlock) == -1) {
-    	LOG_ERROR( "Already locked - rpcoreservice lock file \n");
+    	LOG_ERROR( "Already locked - vrtmcoreservice lock file \n");
 		return -2;
      }
 

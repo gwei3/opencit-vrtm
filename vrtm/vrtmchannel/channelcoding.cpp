@@ -28,7 +28,7 @@ extern "C" {
 #define RPC2BUF 	"xmlrpc_buf"
 #define RPC2ARGS	"xmlrpc_args"
 
- int g_max_uuid = 48;
+ int g_max_uuid = 65;
  int g_sz_uuid = 36;
  
 

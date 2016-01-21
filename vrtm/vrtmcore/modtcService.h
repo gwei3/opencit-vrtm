@@ -17,6 +17,8 @@
 #include <unistd.h>
 #endif
 #include <pthread.h>
+#include <string>
+#include <set>
 #include <map>
 #include <vrtmCommon.h>
 #include <win_headers.h>
@@ -45,8 +47,11 @@ typedef unsigned TCSERVICE_RESULT;
 #define VM_STATUS_STOPPED						2
 #define VM_STATUS_DELETED						3
 
+#define INSTANCE_TYPE_VM						0
+#define INSTANCE_TYPE_DOCKER					1
+
 #define RG_HASH_SIZE		32
-#define UUID_SIZE		48
+#define UUID_SIZE			65
 #define IMAGE_ID_SIZE  		256
 #define CUSTOMER_ID_SIZE 	256
 #define MANIFEST_HASH_SIZE	65
@@ -89,6 +94,7 @@ public:
     char                m_vm_manifest_dir[MANIFEST_DIR_SIZE];
     int					m_vm_status;
     time_t				m_status_upadation_time;
+    int					m_instance_type;
 
     serviceprocEnt() : m_rgHash(), m_uuid(), m_vdi_uuid(), m_vm_image_id(), m_vm_customer_id(),
     		m_vm_manifest_hash(), m_vm_manifest_signature(), m_vm_launch_policy(), m_vm_manifest_dir() {
@@ -101,6 +107,7 @@ public:
     	m_vm_verfication_status = false;
     	m_vm_status = VM_STATUS_STOPPED;
     	m_status_upadation_time = time(NULL);
+    	m_instance_type = INSTANCE_TYPE_VM;
     }
 };
 
@@ -117,7 +124,7 @@ public:
     ~serviceprocTable();
 
     bool                addprocEntry(int procid, const char* file, int an, char** av,
-    			int sizeHash, byte* hash);
+    			int sizeHash, byte* hash, int instance_type);
     bool 				updateprocEntry(int procid, char* uuid, char* vdi_uuid);
     bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature,char* launch_policy,bool status, char * vm_manifest_dir);
     bool                removeprocEntry(int procid);
@@ -126,6 +133,7 @@ public:
     int					getprocIdfromuuid(char* uuid);
     int					getproctablesize();
     int 				getcancelledvmcount();
+    int					getactivedockeruuid(std::set<std::string> &);
     void                print();
 
 };
@@ -158,6 +166,7 @@ public:
     TCSERVICE_RESULT	IsVerified(char *vm_uuid, int* verification_status);
     TCSERVICE_RESULT	GenerateSAMLAndGetDir(char *vm_uuid, char * nonce, char * vm_manifest_dir);
     TCSERVICE_RESULT 	CleanVrtmTable(unsigned long entry_max_age,int vm_status, int* deleted_entries);
+    TCSERVICE_RESULT	CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries);
     TCSERVICE_RESULT 	get_xpath_values(std::map<unsigned char*, char *> xpath_map, unsigned char* namespace_list, char* xml_file);
 };
 

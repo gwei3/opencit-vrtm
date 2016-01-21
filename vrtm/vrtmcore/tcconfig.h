@@ -3,10 +3,10 @@
 
 #define RP_MODE_OPENSTACK 	0
 #define RP_MODE_STANDALONE 	1
-
-extern char g_rpcore_ip []; 
-extern int  g_rpcore_port ;
+extern char g_vrtmcore_ip [];
+extern int  g_vrtmcore_port ;
 extern int  g_max_thread_limit ;
+extern char g_vrtm_root[];
 extern char 	g_trust_report_dir[];
 extern char*	g_mount_path;
 extern long 	g_entry_cleanup_interval;

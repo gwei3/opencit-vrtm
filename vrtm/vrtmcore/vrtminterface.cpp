@@ -44,12 +44,11 @@ extern "C" {
 }
 #endif
 
-
 /*************************************************************************************************************/
 //tcChannel   g_reqChannel;
 //#if 1
 
-extern char g_rpcore_ip [64];
+extern char g_vrtmcore_ip [64];
 int g_ifc_status = 0; 
 
 #define IFC_UNKNOWN		0
@@ -97,7 +96,7 @@ void tcBufferprint(tcBuffer* p)
 // -------------------------------------------------------------------
 
 
-bool g_fterminateLoop= false;
+//bool g_fterminateLoop= false;
 
 #ifndef TCIODEVICEDRIVERPRESENT
 bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)

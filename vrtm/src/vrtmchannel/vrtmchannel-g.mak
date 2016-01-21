@@ -29,8 +29,7 @@ O1CFLAGS=    -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D __FLUSHIO__ $(O1RELEASE_
 CC=         g++
 LINK=       g++
 
-sobjs=     $(OBJ)/channelcoding.o $(OBJ)/parser.o $(OBJ)/tcpchan.o $(OBJ)/logging.o $(OBJ)/base64.o $(OBJ)/log_vrtmchannel.o $(OBJ)/xpathparser.o
-
+sobjs=     $(OBJ)/channelcoding.o $(OBJ)/parser.o $(OBJ)/tcpchan.o $(OBJ)/logging.o $(OBJ)/base64.o $(OBJ)/log_vrtmchannel.o $(OBJ)/xpathparser.o $(OBJ)/loadconfig.o
 
 all: $(LIB)/libvrtmchannel.so 
 
@@ -55,7 +54,10 @@ $(OBJ)/tcpchan.o: $(TM)/tcpchan.cpp $(TM)/tcpchan.h
 $(OBJ)/xpathparser.o: $(TM)/xpathparser.cpp $(TM)/xpathparser.h
 	$(CC) $(CFLAGS) -I$(S) -I$(LXML) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/xpathparser.o $(TM)/xpathparser.cpp -lxml2
 
-
+$(OBJ)/loadconfig.o: $(S)/loadconfig.cpp $(S)/loadconfig.h
+	$(CC) $(CFLAGS) -I$(S) -I$(LOG4CPP) -c -o $(OBJ)/loadconfig.o $(S)/loadconfig.cpp
+	
+	
 $(LIB)/libvrtmchannel.so: $(sobjs)
 	@echo "Building libvrtmchannel.so ..."
 	$(LINK) -shared  -o  $(LIB)/libvrtmchannel.so  $(sobjs) $(LDFLAGS) -L$(SAFESTRING) -L/usr/lib -L/usr/local/lib/ -L/usr/local/ssl/lib -lpthread -lxml2 -lssl -lcrypto -llog4cpp -lSafeStringRelease

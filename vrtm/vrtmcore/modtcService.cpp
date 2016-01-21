@@ -28,7 +28,6 @@
 #include <time.h>
 #include <string.h>
 #include <signal.h>
-
 #ifdef LINUX
 #include <linux/un.h>
 #endif
@@ -55,7 +54,7 @@ extern "C" {
 
 tcServiceInterface      g_myService;
 int                     g_servicepid= 0;
-extern bool				g_fterminateLoop;
+//extern bool			g_fterminateLoop;
 u32                     g_fservicehashValid= false;
 u32                     g_servicehashType= 0;
 int                     g_servicehashSize= 0;
@@ -63,20 +62,19 @@ byte                    g_servicehash[32]= {
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                         };
-
 #ifdef _WIN32
 #define power_shell "powershell "
 #define power_shell_prereq_command "-noprofile -executionpolicy bypass -file "
-#define mount_script "../scripts/Mount-EXTVM.ps1"
+#define mount_script_path "scripts/Mount-EXTVM.ps1"
 #elif __linux__
-#define mount_script "../scripts/mount_vm_image.sh"
+#define mount_script_path "scripts/mount_vm_image.sh"
 #endif
 
-#define ma_log "measurement.log"
+#define ma_log "/measurement.log"
 #define stripped_manifest_file "manifest.xml"
-
 uint32_t	g_rpdomid = 1000;
 static int g_cleanup_service_status = 0;
+static int g_docker_deletion_service_status = 0;
 
 
 #define NUMPROCENTS 200
@@ -91,6 +89,7 @@ static int g_cleanup_service_status = 0;
 
 int cleanupService();
 void* clean_vrtm_table(void *p);
+void* clean_deleted_docker_instances(void *p);
 // ---------------------------------------------------------------------------
 
 // ------------------------------------------------------------------------------
@@ -116,9 +115,9 @@ serviceprocTable::~serviceprocTable()
 }
 
 bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char** av,
-                                    int sizeHash, byte* hash)
+                                    int sizeHash, byte* hash, int instance_type)
 {
-    LOG_DEBUG("vRTM id : %d file : %s hash size : %d hash : %s", procid, file, sizeHash, hash);
+    LOG_DEBUG("vRTM id : %d file : %s hash size : %d hash : %s, instance type : %d", procid, file, sizeHash, hash, instance_type);
     if(sizeHash>32) {
     	LOG_ERROR("Size of hash is more than 32 bytes. Hash size = %d", sizeHash);
         return false;
@@ -128,9 +127,13 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
     //proc_ent.m_procid = procid;
 	proc_ent.m_szexeFile = strdup(file);
     proc_ent.m_sizeHash = sizeHash;
-    proc_ent.m_vm_status = VM_STATUS_STOPPED;
+    if(instance_type == 0)
+        proc_ent.m_vm_status = VM_STATUS_STOPPED;
+    else
+        proc_ent.m_vm_status = VM_STATUS_STARTED;
     strcpy_s(proc_ent.m_uuid, sizeof(proc_ent.m_uuid), av[0]);
     memcpy_s(proc_ent.m_rgHash,RG_HASH_SIZE,hash,sizeHash);
+    proc_ent.m_instance_type = instance_type;
     proc_table.insert(std::pair<int, serviceprocEnt>(procid, proc_ent));
     pthread_mutex_unlock(&loc_proc_table);
     LOG_INFO("Entry added for vRTM id %d\n",procid);
@@ -280,6 +283,18 @@ int serviceprocTable::getcancelledvmcount() {
 	pthread_mutex_unlock(&loc_proc_table);
 	LOG_DEBUG("Number of VM with cancelled status : %d ", count);
 	return count;
+}
+
+int serviceprocTable::getactivedockeruuid(std::set<std::string> & uuid_list) {
+	pthread_mutex_lock(&loc_proc_table);
+	for( proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++) {
+		if (table_it->second.m_instance_type == INSTANCE_TYPE_DOCKER && table_it->second.m_vm_status != VM_STATUS_CANCELLED) {
+			uuid_list.insert(std::string(table_it->second.m_uuid));
+		}
+	}
+	pthread_mutex_unlock(&loc_proc_table);
+	LOG_DEBUG("Number of active docker instances in vrtm table: %d ", uuid_list.size());
+	return uuid_list.size();
 }
 
 void serviceprocTable::print()
@@ -794,22 +809,9 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
 
-	// Store the TPM signing key password
-	strcpy_s(propertiesFile, sizeof(propertiesFile), "/opt/trustagent/configuration/trustagent.properties");
-	if(load_config(propertiesFile, properties_map) < 0) {
-		LOG_ERROR("Unable to get tpm_signkey_passwd");
-		return TCSERVICE_RESULT_FAILED;
-	}
-
-	std::string reqValue = properties_map["signing.key.secret"];
-	clear_config(properties_map);
-	strcpy_s(tpm_signkey_passwd, sizeof(tpm_signkey_passwd), reqValue.c_str());
-	LOG_DEBUG("Signing Key : %s", tpm_signkey_passwd);
-/*
-	snprintf(command0,sizeof(command0),"cat /opt/trustagent/configuration/trustagent.properties | grep signing.key.secret | cut -d = -f 2 | xargs echo -n > %ssign_key_passwd", manifest_dir);
+	snprintf(command0,sizeof(command0),"tagent config \"signing.key.secret\" > %ssign_key_passwd", manifest_dir);
 	LOG_DEBUG("TPM signing key password :%s \n", command0);
-	system(command0); 
-					   
+	system(command0); 					   
 	snprintf(tempfile, sizeof(tempfile), "%ssign_key_passwd",manifest_dir);
 	fp = fopen(tempfile,"r");
 	if ( fp == NULL) {
@@ -817,11 +819,14 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		return TCSERVICE_RESULT_FAILED;
 	}
 	//fscanf(fp, "%%%ds", sizeof(tpm_signkey_passwd),tpm_signkey_passwd);
-	fread( tpm_signkey_passwd, 1, sizeof(tpm_signkey_passwd), fp);
+	fgets( tpm_signkey_passwd, sizeof(tpm_signkey_passwd), fp);
 	tpm_signkey_passwd[ sizeof(tpm_signkey_passwd) - 1 ] = '\0';
-	fclose(fp);                
-*/
-				 
+	fclose(fp);
+	// to remove the newline character at the end
+	if ( tpm_signkey_passwd[strnlen_s(tpm_signkey_passwd, sizeof(tpm_signkey_passwd)) - 1 ] == '\n' ) {
+		tpm_signkey_passwd[strnlen_s(tpm_signkey_passwd, sizeof(tpm_signkey_passwd)) - 1 ] = '\0';
+	}
+	snprintf(tempfile, sizeof(tempfile), "%sus_can.xml",manifest_dir);				 
 	// Sign the XML
 	if(canonicalizeXml(tempfile, outfile) != 0) {
 		return TCSERVICE_RESULT_FAILED;
@@ -924,8 +929,8 @@ TCSERVICE_RESULT tcServiceInterface::UpdateAppID(char* str_rp_id, char* in_uuid,
 {
 	//remove entry from table.
     LOG_TRACE("Map UUID %s and VDI UUID %s with ID %s", in_uuid, vdi_uuid, str_rp_id);
-	char uuid[48] = {0};
-	char vuuid[48] = {0};
+	char uuid[UUID_SIZE] = {0};
+	char vuuid[UUID_SIZE] = {0};
 	int  rp_id = -1; 
 	if ((str_rp_id == NULL) || (in_uuid == NULL) || (out == NULL)){
 		LOG_ERROR("Can't Register UUID with vRTM either vRTM ID or UUID is NULL");
@@ -1006,6 +1011,42 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(unsigned long entry_max_age
 	return TCSERVICE_RESULT_SUCCESS;
 }
 
+TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries) {
+	FILE *fp = NULL;
+	*deleted_entries = 0;
+	char command[65] = {0};
+	char *line;
+	int line_size = 65;
+
+	snprintf(command, sizeof(command), "docker ps -q --no-trunc");
+	LOG_DEBUG("Docker command : %s", command);
+	fp=popen(command,"r");
+	if (fp != NULL) {
+		while(true) {
+			line = (char *) calloc(1,sizeof(char) * line_size);
+			fgets(line,line_size,fp);
+			if(feof(fp)) {
+				free(line);
+				break;
+			}
+			if(line[0] != '\n') {
+				LOG_DEBUG("Running Docker container Id : %s",line);
+				uuid_list.erase(std::string(line));
+			}
+			free(line);
+		}
+		pclose(fp);
+	}
+
+	for(std::set<std::string>::iterator iter = uuid_list.begin() ; iter != uuid_list.end(); iter++) {
+		snprintf(command, sizeof(command), "%s", (*iter).c_str());
+		LOG_DEBUG("Entry to be removed : %s", command);
+		if(m_procTable.removeprocEntry(command))
+			(*deleted_entries)++;
+	}
+	return TCSERVICE_RESULT_SUCCESS;
+}
+
 TCSERVICE_RESULT tcServiceInterface::get_xpath_values(std::map<unsigned char *, char *> xpath_map, xmlChar* namespace_list, char* xml_file) {
 	int p_size = 0;
 	int parser_status = 0;
@@ -1069,9 +1110,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char    disk_file[1024] = {0};
     char    manifest_file[1024] = {0};
     char    nohash_manifest_file[1024] = {0};
-	char	trust_report_dir[1024] = {0};
     char    cumulativehash_file[1024] = {0};
-	char	formatted_manifest_file[1024] = {0};
     char*   config_file = NULL;
     char *  vm_image_id = NULL;
     char*   vm_customer_id = NULL;
@@ -1089,11 +1128,13 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	char    popen_command[1048]={0};
 	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
 	char    measurement_file[2048]={0};
-	char 	mount_path[64];
 	bool	keep_measurement_log = false;
 	int		verifier_exit_status=1;
    //create domain process shall check the whitelist
 	child = procid;
+	char 	mount_path[128];
+	char	mount_script[128];
+	int 	instance_type = INSTANCE_TYPE_VM;
 
 #ifdef _WIN32
 	STARTUPINFO si;
@@ -1126,7 +1167,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         return TCSERVICE_RESULT_FAILED;
     }
 
-    for ( i = 1; i < an; i++) {
+    for ( i = 0; i < an; i++) {
 
         LOG_TRACE( "arg parsing %d \n", i);
         if( av[i] && strcmp(av[i], "-kernel") == 0 ){
@@ -1144,55 +1185,52 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
             LOG_DEBUG("config file : %s",config_file);
         }
 
+        if( av[i] && strcmp(av[i], "-uuid") == 0 ){
+        	strcpy(vm_uuid, av[++i]);
+        	LOG_DEBUG("uuid : %s",vm_uuid);
+        }
+
         if( av[i] && strcmp(av[i], "-disk") == 0 ){
         	strcpy_s(disk_file, sizeof(disk_file), av[++i]);
             LOG_DEBUG("Disk : %s",disk_file );
         }
-        if( av[i] && strcmp(av[i], "-manifest") == 0 ){
-                strcpy_s(manifest_file, sizeof(manifest_file), av[++i]);
-			//Create path for just list of files to be passes to verifier
-        		LOG_DEBUG( "Manifest file : %s\n", manifest_file);
-		        strncpy_s(nohash_manifest_file, sizeof(nohash_manifest_file), manifest_file, strnlen_s(manifest_file,sizeof(manifest_file))-strnlen_s("/trustpolicy.xml", sizeof("/trustpolicy.xml")));
-        		LOG_DEBUG( "Manifest list path %s\n", nohash_manifest_file);
-        		strcpy_s(vm_manifest_dir, sizeof(vm_manifest_dir), nohash_manifest_file);
-        		//Extract UUID of VM
-        		char *uuid_ptr = strrchr(vm_manifest_dir, '/');
-        		strcpy_s(vm_uuid, UUID_SIZE, uuid_ptr + 1);
-        		LOG_TRACE("Extracted UUID : %s", vm_uuid);
 
-        		//snprintf(nohash_manifest_file, sizeof(nohash_manifest_file),"%s%s", nohash_manifest_file, "/manifestlist.xml");
-        		strcat_s(nohash_manifest_file, sizeof(nohash_manifest_file), "/" stripped_manifest_file);
-        		//Create Trust Report directory and copy relevant files
-				strcpy_s(trust_report_dir, sizeof(trust_report_dir), g_trust_report_dir);
-				strcat_s(trust_report_dir, sizeof(trust_report_dir), vm_uuid);
-				strcat_s(trust_report_dir, sizeof(trust_report_dir), "/");
-				if (make_dir(trust_report_dir) != 0) {
-					start_app_status = 1;
-					goto return_response;
-				}
-#ifdef _WIN32
-				snprintf(command, sizeof(command), "copy /y %s %s/", manifest_file, trust_report_dir);
-				system(command);
-				memset(command, 0, sizeof(command));
-				snprintf(command, sizeof(command), "copy /y %s %s/", nohash_manifest_file, trust_report_dir);
-				system(command);
-#elif __linux__
-				snprintf(command, sizeof(command), "cp -p %s %s/", manifest_file, trust_report_dir );
-				system(command);
-				memset(command, 0, sizeof(command));
-				snprintf(command, sizeof(command), "cp -p %s %s/", nohash_manifest_file, trust_report_dir);
-				system(command);
-#endif
-        		strcpy_s(vm_manifest_dir, sizeof(vm_manifest_dir), trust_report_dir);
-        		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
-				snprintf(manifest_file, sizeof(manifest_file), "%s/%s", trust_report_dir, "trustpolicy.xml");
-				LOG_DEBUG("Manifest path %s ", manifest_file);
-				snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s/%s", trust_report_dir, stripped_manifest_file);
-				LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
+        if ( av[i] && strcmp(av[i], "-docker_instance") == 0) {
+        	instance_type = INSTANCE_TYPE_DOCKER;
+        	LOG_DEBUG("Instance type : Docker instance, %d", instance_type);
+        }
+        if ( av[i] && strcmp(av[i], "-mount_path") == 0) {
+        	strcpy(mount_path, av[++i]);
+        	LOG_DEBUG("Mounted image path : %s", mount_path);
         }
     }
 
+	if(vm_uuid[0] == 0) {
+		LOG_ERROR("uuid is not present");
+		return TCSERVICE_RESULT_FAILED;
+	}
 
+
+        snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s%s/", g_trust_report_dir, vm_uuid);
+		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
+		snprintf(manifest_file, sizeof(manifest_file), "%s%s", vm_manifest_dir, "/trustpolicy.xml");
+		LOG_DEBUG("Manifest path %s ", manifest_file);
+		snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", vm_manifest_dir, "/manifest.xml");
+		LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
+
+		if(access(manifest_file, F_OK)!=0){
+			LOG_ERROR("trustpolicy.xml doesn't exist at  %s", manifest_file);
+			LOG_ERROR( "cant continue without reading trustpolicy values");
+			start_app_status = 1;
+			goto return_response;
+		}
+
+		if(access(nohash_manifest_file, F_OK)!=0){
+			LOG_ERROR("manifestlist.xml doesn't exist at  %s", nohash_manifest_file);
+			LOG_ERROR( "cant continue without reading digest algorithm");
+			start_app_status = 1;
+			goto return_response;
+		}
     	/*
     	 * extract Launch Policy, CustomerId, ImageId, VM hash, and Manifest signature value from formatted manifestlist.xml
     	 * by specifying fixed xpaths with namespaces
@@ -1212,6 +1250,8 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     		xpath_map.insert(std::pair<xmlChar*, char *>(xpath_image_signature, vm_manifest_signature));
 			xpath_map.insert(std::pair<xmlChar*, char *>(xpath_digest_alg, digest_alg_buff));
 			if (TCSERVICE_RESULT_FAILED == get_xpath_values(xpath_map, namespace_list, manifest_file)) {
+	    		LOG_ERROR("Function get_xpath_values failed");
+				//TODO write a remove directory function using dirint.h header file
 				start_app_status = 1;
 				goto return_response;
 			}
@@ -1228,25 +1268,15 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				start_app_status = 0;
 				goto return_response;
 			}
-			
+			strcpy_s(goldenImageHash, sizeof(goldenImageHash), vm_manifest_hash);			
 			strcpy_s(extension, sizeof(extension), digest_alg_buff);
 			free(digest_alg_buff);
 			LOG_DEBUG("Extension : %s", extension);
-			snprintf(measurement_file, sizeof(measurement_file), "%s.%s", "/measurement", extension);
-			if (measurement_file[strnlen_s(measurement_file, sizeof(measurement_file)) - 1] == '\n')
-				measurement_file[strnlen_s(measurement_file, sizeof(measurement_file)) - 1] = '\0';
-
-			strcpy_s(cumulativehash_file, sizeof(cumulativehash_file), trust_report_dir);
-			//snprintf(cumulativehash_file, sizeof(cumulativehash_file), "%s%s", cumulativehash_file, measurement_file);
-			strcat_s(cumulativehash_file, sizeof(cumulativehash_file), measurement_file);
+			snprintf(cumulativehash_file, sizeof(cumulativehash_file), "%s/measurement.%s", vm_manifest_dir, extenstion);
 			LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
 
-
-			/*
-			 * call mount script to mount the VM disk as :
-			 * <ID> is mount LVMs
-			 * ../scripts/mount_vm_image.sh <disk> <mount_path> <ID>
-			 */
+		if (instance_type == INSTANCE_TYPE_VM) {
+			snprintf(mount_script, sizeof(mount_script), "%s" mount_script_path, g_vrtm_root);
 #ifdef _WIN32
 			//try to get next available drive letter, if not available wait for 5 sec
 			while (1) {
@@ -1267,14 +1297,11 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 					break;
 				}
 			}
-
-			snprintf(command, sizeof(command), power_shell power_shell_prereq_command mount_script " -Path %s -DriveLetter %s -Mount > %s%s-%d 2>&1", disk_file, mount_path, vm_manifest_dir, ma_log, child);
+			snprintf(command, sizeof(command), power_shell power_shell_prereq_command "%s -Path %s -DriveLetter %s -Mount > %s%s-%d 2>&1", mount_script, disk_file, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to mount the image : %s", command);
-			//i = system(command);
 			ZeroMemory(&si, sizeof(si));
 			si.cb = sizeof(si);
 			ZeroMemory(&pi, sizeof(pi));
-
 			i = CreateProcess( NULL, command, NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, NULL, current_dir_of_power_shell, &si, &pi);
 			WaitForSingleObject(pi.hProcess, INFINITE);
 			CloseHandle(si.hStdError);
@@ -1295,13 +1322,16 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			snprintf(mount_path, sizeof(mount_path), "%s%s-%d", g_mount_path, vm_uuid, child);
 			//create a directory under /mnt/vrtm/VM_UUID to mount the VM disk
 			LOG_DEBUG("Mount location : %s", mount_path);
-
 			if (make_dir(mount_path) != 0) {
 				start_app_status = 1;
 				goto return_response;
 			}
-
-			snprintf(command, sizeof(command), mount_script " %s %s %d > %s/%s-%d 2>&1", disk_file, mount_path, child, vm_manifest_dir, ma_log, child);
+			/*
+			 * call mount script to mount the VM disk as :
+			 * <ID> is mount LVMs
+			 * ../scripts/mount_vm_image.sh <disk> <mount_path> <ID>
+			 */
+			snprintf(command, sizeof(command), "%s %s %s %d > %s/%s-%d 2>&1", mount_script, disk_file, mount_path, child, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to mount the image : %s", command);
 			i = system(command);
 			LOG_DEBUG("system call to mount image exit status : %d", i);
@@ -1333,7 +1363,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 * ../scripts/mount_vm_image.sh MOUNT_PATH
 			 */
 #ifdef _WIN32
-			snprintf(command, sizeof(command), power_shell power_shell_prereq_command mount_script " -Path %s -DriveLetter %s -Umount >> %s%s-%d 2>&1", disk_file, mount_path, vm_manifest_dir, ma_log, child);
+			snprintf(command, sizeof(command), power_shell power_shell_prereq_command "%s -Path %s -DriveLetter %s -Umount >> %s%s-%d 2>&1", mount_script, disk_file, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to unmount the image : %s", command);
 
 			ZeroMemory(&si, sizeof(si));
@@ -1355,12 +1385,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				goto return_response;
 			}
 #elif __linux__
-			snprintf(command, sizeof(command), mount_script " %s >> %s/%s-%d 2>&1", mount_path, vm_manifest_dir, ma_log, child);
+			snprintf(command, sizeof(command), "%s %s >> %s/%s-%d 2>&1", mount_script, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to unmount the image : %s", command);
 			i = system(command);
 			LOG_DEBUG("system call for unmounting exit status : %d", i);
 			if ( i != 0 ) {
-				LOG_ERROR("Error in unmounting the vm image. Please check log file : %s/%s", vm_manifest_dir, ma_log, child);
+				LOG_ERROR("Error in unmounting the vm image. Please check log file : %s/%s-%d", vm_manifest_dir, ma_log, child);
 				start_app_status = 1;
 				goto return_response;
 			}
@@ -1372,18 +1402,37 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			}
 			LOG_DEBUG("MA executed successfully");
 			// Only call verfier when measurement is required
-	// Open measurement log file at a specified location
-			fq = fopen(cumulativehash_file, "rb");
-			if(!fq)
-			{
-				LOG_ERROR("Error returned by verifer in generating cumulative hash, please check Measurement log in file %s/%s-%d\n", vm_manifest_dir, ma_log, child);
-				//return TCSERVICE_RESULT_FAILED; // measurement failed  (verifier failed to measure)
+		}
+		else if( instance_type == INSTANCE_TYPE_DOCKER) {
+			/*
+			 * call MA to measure the VM as :
+			 * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
+			 */
+			keep_measurement_log = true;
+			LOG_TRACE("Instace type docker : %d", instance_type);
+			snprintf(command, sizeof(command), "./verifier %s %s/ IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
+			LOG_DEBUG("Command to launch MA : %s", command);
+			i = system(command);
+			LOG_DEBUG("system call to verifier exit status : %d", i);
+			if ( i != 0 ) {
+				LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement log in file %s/%s-%d", vm_manifest_dir, ma_log, child);
 				start_app_status = 1;
 				goto return_response;
 			}
+			LOG_DEBUG("MA executed successfully");
+		}
+		// Open measurement log file at a specified location
+		fq = fopen(cumulativehash_file, "rb");
+		if(!fq)
+		{
+			LOG_ERROR("Cumulative hash file not found, please check Measurement log in file %s/%s-%d\n", vm_manifest_dir, ma_log, child);
+			//return TCSERVICE_RESULT_FAILED; // measurement failed  (verifier failed to measure)
+			start_app_status = 1;
+			goto return_response;
+		}
 
-			//int flag=0;
-			strcpy_s(goldenImageHash, sizeof(goldenImageHash), vm_manifest_hash);
+		char imageHash[65] = {'\0'};
+		//int flag=0;
 			if (fq != NULL) {
 				char line[512];
 				if(fgets(line,sizeof(line),fq)!= NULL)  {
@@ -1428,7 +1477,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				vm_data[0] = vm_uuid;
 				vm_data_size++;
 				if ( temp_proc_id == NULL) {
-					if(!g_myService.m_procTable.addprocEntry(child, kernel_file, vm_data_size, vm_data, size, rgHash)) {
+					if(!g_myService.m_procTable.addprocEntry(child, kernel_file, vm_data_size, vm_data, size, rgHash, instance_type)) {
 						LOG_ERROR( "StartApp: cant add to vRTM Map\n");
 						//return TCSERVICE_RESULT_FAILED;
 						start_app_status = 1;
@@ -1468,6 +1517,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		}
     	if (start_app_status) {
 			if ( keep_measurement_log == false ) {
+				TODO write a remove directory function using dirint.h header file
 				LOG_TRACE("will remove reports directory %s", vm_manifest_dir);
 				remove_dir(vm_manifest_dir);
 			}
@@ -1805,26 +1855,64 @@ void* clean_vrtm_table(void *){
 	return NULL;
 }
 
+void* clean_deleted_docker_instances(void *){
+	std::set<std::string> uuid_list;
+	LOG_TRACE("");
+	while(g_myService.m_procTable.getactivedockeruuid(uuid_list)) {
+		int cleaned_entries;
+		sleep(g_entry_cleanup_interval);
+		g_myService.CleanVrtmTable(uuid_list, &cleaned_entries);
+		LOG_INFO("Number of Docker instances removed from vRTM table : %d", cleaned_entries);
+		uuid_list.clear();
+	}
+	g_docker_deletion_service_status = 0;
+	LOG_DEBUG("Docker Deletion Service thread exiting...");
+	return NULL;
+}
+
 int cleanupService() {
-	pthread_t tid;
-	pthread_attr_t attr;
+	pthread_t tid, tid_d;
+	pthread_attr_t attr, attr_d;
 	LOG_TRACE("");
 	if (g_cleanup_service_status == 1) {
 		LOG_INFO("Clean-up Service already running");
-		return 0;
-	}
-	pthread_attr_init(&attr);
-	if (!pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
-		pthread_create(&tid, &attr, clean_vrtm_table, (void *)NULL);
-		LOG_INFO("Successfully created the thread for entries cleanup");
-		g_cleanup_service_status = 1;
-		pthread_attr_destroy(&attr);
-		return 0;
+		//return 0;
 	}
 	else {
-		LOG_ERROR("Can't set cleanup thread attribute to detatchstate");
-		LOG_ERROR("Failed to spawn the vRTM entry clean up thread");
-		pthread_attr_destroy(&attr);
-		return 1;
+		pthread_attr_init(&attr);
+		if (!pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
+			pthread_create(&tid, &attr, clean_vrtm_table, (void *)NULL);
+			LOG_INFO("Successfully created the thread for entries cleanup");
+			g_cleanup_service_status = 1;
+			pthread_attr_destroy(&attr);
+			//return 0;
+		}
+		else {
+			LOG_ERROR("Can't set cleanup thread attribute to detatchstate");
+			LOG_ERROR("Failed to spawn the vRTM entry clean up thread");
+			pthread_attr_destroy(&attr);
+			//return 1;
+		}
 	}
-}
+
+	if(g_docker_deletion_service_status == 1) {
+		LOG_INFO("Docker deletion Service already running");
+		//return 0;
+	}
+	else {
+		pthread_attr_init(&attr_d);
+		if (!pthread_attr_setdetachstate(&attr_d, PTHREAD_CREATE_DETACHED)) {
+			pthread_create(&tid_d, &attr_d, clean_deleted_docker_instances, (void *)NULL);
+			LOG_INFO("Successfully created the thread for cleaning deleted docker instances");
+			g_docker_deletion_service_status = 1;
+			pthread_attr_destroy(&attr_d);
+			//return 0;
+		}
+		else {
+			LOG_ERROR("Can't set docker deletion thread attribute to detachstate");
+			LOG_ERROR("Failed to spawn the Docker Deletion service thread");
+			pthread_attr_destroy(&attr_d);
+			//return 1;
+		}
+	}
+}			
