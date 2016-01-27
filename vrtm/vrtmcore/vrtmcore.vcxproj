@@ -79,7 +79,7 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalLibraryDirectories>C:\Users\Administrator\Desktop\mysteryhill-lib\log4cpp\msvc10\log4cppLIB\Debug;C:\Users\Administrator\Desktop\mysteryhill-lib\libxml2-2.9.2\win32\bin.msvc;C:\Users\Administrator\Desktop\mysteryhill-lib\Pre-built.2\lib\x86;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>Bcrypt.lib;libxml2.lib;log4cppD.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Bcrypt.lib;Shlwapi.lib;libxml2.lib;log4cppD.lib;pthreadVC2.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ProjectReference>
       <UseLibraryDependencyInputs>true</UseLibraryDependencyInputs>
@@ -130,9 +130,6 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ResourceCompile Include="vrtmcore.rc" />
-  </ItemGroup>
   <ItemGroup>
     <ClCompile Include="modtcService.cpp" />
     <ClCompile Include="vrtmcoremain.cpp" />

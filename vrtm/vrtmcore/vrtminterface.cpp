@@ -333,8 +333,8 @@ void* dom_listener_main ( void* p)
 	hints.ai_protocol = IPPROTO_TCP;
     hints.ai_flags = AI_PASSIVE; // fill in my IP for me , I will use this IP to for binding 
 
-    snprintf(vrtm_port, sizeof(vrtm_port), "%d", g_rpcore_port);
-	iResult = getaddrinfo(g_rpcore_ip, vrtm_port, &hints, &vrtm_addr);
+    snprintf(vrtm_port, sizeof(vrtm_port), "%d", g_vrtmcore_port);
+	iResult = getaddrinfo(g_vrtmcore_ip, vrtm_port, &hints, &vrtm_addr);
 	if (iResult != 0) {
 		LOG_ERROR("getaddrinfo failed!!!");
 		clean_lib();

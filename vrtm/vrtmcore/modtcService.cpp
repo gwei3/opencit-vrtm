@@ -9,6 +9,7 @@
 #ifdef _WIN32
 #include <processthreadsapi.h>
 #include <bcrypt.h>
+#include <shlwapi.h>
 #elif __linux__
 #include <sys/wait.h> /* for wait */
 #include <sys/un.h>
@@ -65,13 +66,13 @@ byte                    g_servicehash[32]= {
 #ifdef _WIN32
 #define power_shell "powershell "
 #define power_shell_prereq_command "-noprofile -executionpolicy bypass -file "
-#define mount_script_path "scripts/Mount-EXTVM.ps1"
+#define mount_script_path "/scripts/Mount-EXTVM.ps1"
 #elif __linux__
-#define mount_script_path "scripts/mount_vm_image.sh"
+#define mount_script_path "/scripts/mount_vm_image.sh"
 #endif
 
 #define ma_log "/measurement.log"
-#define stripped_manifest_file "manifest.xml"
+#define stripped_manifest_file "/manifest.xml"
 uint32_t	g_rpdomid = 1000;
 static int g_cleanup_service_status = 0;
 static int g_docker_deletion_service_status = 0;
@@ -87,7 +88,7 @@ static int g_docker_deletion_service_status = 0;
 #define STATUS_UNSUCCESSFUL         ((NTSTATUS)0xC0000001L)
 #endif
 
-int cleanupService();
+void cleanupService();
 void* clean_vrtm_table(void *p);
 void* clean_deleted_docker_instances(void *p);
 // ---------------------------------------------------------------------------
@@ -1020,7 +1021,11 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uui
 
 	snprintf(command, sizeof(command), "docker ps -q --no-trunc");
 	LOG_DEBUG("Docker command : %s", command);
+#ifdef _WIN32
+	fp=_popen(command,"r");
+#elif __linux__
 	fp=popen(command,"r");
+#endif
 	if (fp != NULL) {
 		while(true) {
 			line = (char *) calloc(1,sizeof(char) * line_size);
@@ -1035,7 +1040,11 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uui
 			}
 			free(line);
 		}
+#ifdef _WIN32
+		_pclose(fp);
+#elif __linux__
 		pclose(fp);
+#endif
 	}
 
 	for(std::set<std::string>::iterator iter = uuid_list.begin() ; iter != uuid_list.end(); iter++) {
@@ -1211,13 +1220,27 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	}
 
 
-        snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s%s/", g_trust_report_dir, vm_uuid);
+        snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s%s", g_trust_report_dir, vm_uuid);
 		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
 		snprintf(manifest_file, sizeof(manifest_file), "%s%s", vm_manifest_dir, "/trustpolicy.xml");
 		LOG_DEBUG("Manifest path %s ", manifest_file);
 		snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", vm_manifest_dir, "/manifest.xml");
 		LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
+#ifdef _WIN32
+		if (PathFileExists(manifest_file)==0){
+			LOG_ERROR("trustpolicy.xml doesn't exist at  %s", manifest_file);
+			LOG_ERROR( "cant continue without reading trustpolicy values");
+			start_app_status = 1;
+			goto return_response;
+		}
 
+		if (PathFileExists(nohash_manifest_file)==0){
+			LOG_ERROR("manifestlist.xml doesn't exist at  %s", nohash_manifest_file);
+			LOG_ERROR( "cant continue without reading digest algorithm");
+			start_app_status = 1;
+			goto return_response;
+		}
+#elif __linux__
 		if(access(manifest_file, F_OK)!=0){
 			LOG_ERROR("trustpolicy.xml doesn't exist at  %s", manifest_file);
 			LOG_ERROR( "cant continue without reading trustpolicy values");
@@ -1231,6 +1254,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			start_app_status = 1;
 			goto return_response;
 		}
+#endif
     	/*
     	 * extract Launch Policy, CustomerId, ImageId, VM hash, and Manifest signature value from formatted manifestlist.xml
     	 * by specifying fixed xpaths with namespaces
@@ -1272,7 +1296,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			strcpy_s(extension, sizeof(extension), digest_alg_buff);
 			free(digest_alg_buff);
 			LOG_DEBUG("Extension : %s", extension);
-			snprintf(cumulativehash_file, sizeof(cumulativehash_file), "%s/measurement.%s", vm_manifest_dir, extenstion);
+			snprintf(cumulativehash_file, sizeof(cumulativehash_file), "%s/measurement.%s", vm_manifest_dir, extension);
 			LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
 
 		if (instance_type == INSTANCE_TYPE_VM) {
@@ -1348,7 +1372,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
 			 */
 #ifdef _WIN32
-			snprintf(command, sizeof(command), "C:/Users/Administrator/Desktop/imvm/x64/Debug/verifier.exe %s %s IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
+			snprintf(command, sizeof(command), "C:/Users/Administrator/Desktop/21-01-2016/dcg_security-tboot-xm/imvm/x64/Debug/verifier.exe %s %s IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
 #elif __linux__
 			snprintf(command, sizeof(command), "./verifier %s %s/mount/ IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
 #endif
@@ -1517,7 +1541,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		}
     	if (start_app_status) {
 			if ( keep_measurement_log == false ) {
-				TODO write a remove directory function using dirint.h header file
+				//TODO write a remove directory function using dirint.h header file
 				LOG_TRACE("will remove reports directory %s", vm_manifest_dir);
 				remove_dir(vm_manifest_dir);
 			}
@@ -1860,7 +1884,12 @@ void* clean_deleted_docker_instances(void *){
 	LOG_TRACE("");
 	while(g_myService.m_procTable.getactivedockeruuid(uuid_list)) {
 		int cleaned_entries;
+#ifdef __linux__
 		sleep(g_entry_cleanup_interval);
+#elif _WIN32
+		DWORD g_entry_cleanup_interval_msec = g_entry_cleanup_interval * 1000;
+		Sleep(g_entry_cleanup_interval_msec);
+#endif
 		g_myService.CleanVrtmTable(uuid_list, &cleaned_entries);
 		LOG_INFO("Number of Docker instances removed from vRTM table : %d", cleaned_entries);
 		uuid_list.clear();
@@ -1870,7 +1899,7 @@ void* clean_deleted_docker_instances(void *){
 	return NULL;
 }
 
-int cleanupService() {
+void cleanupService() {
 	pthread_t tid, tid_d;
 	pthread_attr_t attr, attr_d;
 	LOG_TRACE("");
