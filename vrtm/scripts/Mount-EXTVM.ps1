@@ -23,7 +23,6 @@ $Ext2DsdDriver='C:\Program Files\Ext2Fsd\Mount.exe'
 
 Function MountImage ($Path, $DriveLetter)
 {
-	Write-Host "present working directory"
 	Write-Host "path : $Path driveletter : $DriveLetter"
 	Mount-VHD -Path $Path
 	If($?)
@@ -48,7 +47,7 @@ Function MountImage ($Path, $DriveLetter)
 				Exit
 			}			
 			else {
-				Write-Host "partition number : $PartitionNumber :"
+				Write-Host "partition number : $PartitionNumber"
 			}
 
 			Start-Sleep -s 2
@@ -86,7 +85,15 @@ Function Usage()
 {
 	Write-Host "Usage: Mount-EXTVM.ps1 <Path> <DriveLetter> <Mount or Umount>"
 }
-
+If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))
+ {    
+  Echo "This script needs to be run As Admin"
+  Break
+ }
+ Else
+ {
+  Echo "Already running as Admin"
+ }
 If($Mount)
 {
 	MountImage $Path $DriveLetter

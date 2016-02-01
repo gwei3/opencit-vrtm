@@ -1321,9 +1321,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 					break;
 				}
 			}
+
 			snprintf(command, sizeof(command), power_shell power_shell_prereq_command "%s -Path %s -DriveLetter %s -Mount > %s%s-%d 2>&1", mount_script, disk_file, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to mount the image : %s", command);
-			ZeroMemory(&si, sizeof(si));
+			/*ZeroMemory(&si, sizeof(si));
 			si.cb = sizeof(si);
 			ZeroMemory(&pi, sizeof(pi));
 			i = CreateProcess( NULL, command, NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, NULL, current_dir_of_power_shell, &si, &pi);
@@ -1332,11 +1333,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			CloseHandle(si.hStdInput);
 			CloseHandle(si.hStdOutput);
 			CloseHandle(pi.hProcess);
-			CloseHandle(pi.hThread);
-			
+			CloseHandle(pi.hThread);*/
+			i = system(command);
+			LOG_DEBUG("system call to mount image exit status : %d", i);
 			keep_measurement_log = true;
-			if (i == 0) {
-				LOG_ERROR("CreateProcess failed (%d).", GetLastError());
+			if (i != 0) {
+				//LOG_ERROR("CreateProcess failed (%d).", GetLastError());
 				LOG_ERROR("Error in mounting the image for measurement. For more info please look into file %s%s-%d", vm_manifest_dir, ma_log, child);
 				start_app_status = 1;
 				goto return_response;
@@ -1372,7 +1374,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			 * ./verfier manifestlist.xml MOUNT_LOCATION IMVM
 			 */
 #ifdef _WIN32
-			snprintf(command, sizeof(command), "C:/Users/Administrator/Desktop/21-01-2016/dcg_security-tboot-xm/imvm/x64/Debug/verifier.exe %s %s IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
+			snprintf(command, sizeof(command), "verifier.exe %s %s IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
 #elif __linux__
 			snprintf(command, sizeof(command), "./verifier %s %s/mount/ IMVM >> %s/%s-%d 2>&1", nohash_manifest_file, mount_path, vm_manifest_dir, ma_log, child);
 #endif
@@ -1389,21 +1391,20 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 #ifdef _WIN32
 			snprintf(command, sizeof(command), power_shell power_shell_prereq_command "%s -Path %s -DriveLetter %s -Umount >> %s%s-%d 2>&1", mount_script, disk_file, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to unmount the image : %s", command);
-
-			ZeroMemory(&si, sizeof(si));
+			/*ZeroMemory(&si, sizeof(si));
 			si.cb = sizeof(si);
 			ZeroMemory(&pi, sizeof(pi));
-
 			i = CreateProcess(NULL, command, NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, NULL, current_dir_of_power_shell, &si, &pi);
 			WaitForSingleObject(pi.hProcess, INFINITE);
 			CloseHandle(si.hStdError);
 			CloseHandle(si.hStdInput);
 			CloseHandle(si.hStdOutput);
 			CloseHandle(pi.hProcess);
-			CloseHandle(pi.hThread); 
-			
-			if (i == 0) {
-				LOG_ERROR("CreateProcess failed (%d).", GetLastError());
+			CloseHandle(pi.hThread);*/ 
+			i = system(command);
+			LOG_DEBUG("system call for unmounting exit status : %d", i);
+			if (i != 0) {
+				//LOG_ERROR("CreateProcess failed (%d).", GetLastError());
 				LOG_ERROR("Error in unmounting the vm image. Please check log file : %s%s-%d", vm_manifest_dir, ma_log, child);
 				start_app_status = 1;
 				goto return_response;
