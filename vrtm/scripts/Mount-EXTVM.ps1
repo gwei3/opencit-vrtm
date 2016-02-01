@@ -44,7 +44,7 @@ Function MountImage ($Path, $DriveLetter)
 			if( [string]::IsNullOrEmpty($PartitionNumber) ) {
 				Write-Host "couldn't get Partition number"
 				UnmountImage $Path $DriveLetter
-				Exit
+				Exit 1
 			}			
 			else {
 				Write-Host "partition number : $PartitionNumber"
@@ -60,17 +60,20 @@ Function MountImage ($Path, $DriveLetter)
 			{
 				"Unable to assign drive letter"
 				UnmountImage $Path $DriveLetter
+				Exit 1
 			}
 		}
 		Else
 		{
 			"Unable to get the image info"
 			UnmountImage $Path $DriveLetter
+			Exit 1
 		}	
 	}
 	Else
 	{
 		"Unable to mount the image"
+		Exit 1
 	}	
 }
 
@@ -79,6 +82,14 @@ Function UnmountImage ($Path, $DriveLetter)
 	Start-Sleep -s 2
 	& $Ext2DsdDriver /umount $DriveLetter
 	Dismount-VHD -Path $Path
+	If($?)
+	{
+		return
+	}
+	else
+	{
+		Exit 2
+	}
 }
 
 Function Usage()
@@ -101,6 +112,7 @@ If($Mount)
 Elseif($Umount)
 {
 	UnmountImage $Path $DriveLetter
+	Exit 0
 }
 Else
 {
