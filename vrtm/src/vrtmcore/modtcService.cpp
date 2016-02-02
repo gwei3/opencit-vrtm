@@ -53,6 +53,8 @@ extern "C" {
 #include <vector>
 #include <map>
 
+int g_sz_uuid;
+int g_max_uuid;
 tcServiceInterface      g_myService;
 int                     g_servicepid= 0;
 //extern bool			g_fterminateLoop;
@@ -998,7 +1000,7 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(unsigned long entry_max_age
 	for( proc_table_map::iterator table_it = m_procTable.proc_table.begin(); table_it != m_procTable.proc_table.end(); table_it++ ){
 		LOG_DEBUG("Comparing Current entry VM status : %d against vm status : %d ", table_it->second.m_vm_status, vm_status);
 		if(table_it->second.m_vm_status == vm_status ) {
-			int entry_age = difftime(time(NULL), table_it->second.m_status_upadation_time);
+			unsigned long entry_age = difftime(time(NULL), table_it->second.m_status_upadation_time);
 			if( entry_age >= entry_max_age) {
 				keys_to_del.push_back(table_it->first);
 			}
@@ -1146,12 +1148,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	int 	instance_type = INSTANCE_TYPE_VM;
 
 #ifdef _WIN32
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
+	//STARTUPINFO si;
+	//PROCESS_INFORMATION pi;
 	char next_logical_drive_char;
 	int sleep_count = 0;
 	// dirctory which will be the working directory of powershell
-	char current_dir_of_power_shell[] = "./";
+	//char current_dir_of_power_shell[] = "./";
 #endif
 
 //	char * nohash_manifest_file ="/root/nohash_manifest.xml"; // Need to be passed by policy agent

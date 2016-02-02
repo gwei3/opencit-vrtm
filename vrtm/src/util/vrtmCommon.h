@@ -23,6 +23,13 @@ typedef unsigned char byte;
 #define strdup		_strdup
 #define unlink		_unlink
 //#define popen		_popen
+#ifdef VRTMCHANNEL_BUILD
+#define VRTMCHANNEL_DLLPORT __declspec (dllexport)
+#else
+#define VRTMCHANNEL_DLLPORT __declspec (dllimport)
+#endif
+#elif __linux__
+#define VRTMCHANNEL_DLLPORT
 #endif
 
 int make_dir(char *filename);

@@ -18,13 +18,32 @@
       <Platform>x64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\vrtmchannel\channelcoding.cpp" />
+    <ClCompile Include="..\..\src\vrtmchannel\log_vrtmchannel.cpp" />
+    <ClCompile Include="..\..\src\vrtmchannel\parser.cpp" />
+    <ClCompile Include="..\..\src\vrtmchannel\tcpchan.cpp" />
+    <ClCompile Include="..\..\src\vrtmchannel\xpathparser.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\vrtmchannel\channelcoding.h" />
+    <ClInclude Include="..\..\src\vrtmchannel\log_vrtmchannel.h" />
+    <ClInclude Include="..\..\src\vrtmchannel\parser.h" />
+    <ClInclude Include="..\..\src\vrtmchannel\tcpchan.h" />
+    <ClInclude Include="..\..\src\vrtmchannel\xpathparser.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\util\util.vcxproj">
+      <Project>{a9507ba0-5252-48d7-8cbc-4b958b560770}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{A9507BA0-5252-48D7-8CBC-4B958B560770}</ProjectGuid>
-    <RootNamespace>util</RootNamespace>
+    <ProjectGuid>{4968DC3C-6EB2-40D7-87C2-6C853F2B71D6}</ProjectGuid>
+    <RootNamespace>vrtmchannel</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
@@ -37,14 +56,14 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -66,23 +85,29 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)\..\bin\$(Configuration)\</OutDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\Administrator\Desktop\mysteryhill-lib\log4cpp\include;C:\Users\Administrator\Desktop\mysteryhill-lib\x86_64\Build-OpenSSL-VC-64-dbg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(SolutionDir)\log4cpp\include;$(SolutionDir)\libxml2-2.9.2\include;..\..\src\util;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;VRTMCHANNEL_BUILD;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ShowIncludes>false</ShowIncludes>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\gs-0794\Desktop\Project\C_DevUtils\log4cpp\msvc10\log4cppLIB\Debug;C:\Users\gs-0794\Desktop\Project\C_DevUtils\x86_64\Build-OpenSSL-VC-64-dbg\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libeay32.lib;ssleay32.lib;log4cppD.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)\log4cpp\msvc10\log4cppLIB\Debug;$(SolutionDir)\libxml2-2.9.2\win32\bin.msvc;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libxml2.lib;log4cppD.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Lib>
-      <AdditionalDependencies>Shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libxml2.lib;log4cppD.lib;util.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+    <Lib>
+      <AdditionalLibraryDirectories>..\Debug;C:\Users\gs-1018\Desktop\mysteryhill-lib\log4cpp\msvc10\log4cppLIB\Debug;C:\Users\gs-1018\Desktop\mysteryhill-lib\libxml2-2.9.2\win32\bin.msvc;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -90,16 +115,20 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\gs-1018\Desktop\mysteryhill-lib\log4cpp\include;C:\Users\gs-1018\Desktop\mysteryhill-lib\x86_64\Build-OpenSSL-VC-64-dbg\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\gs-1018\Desktop\mysteryhill-lib\log4cpp\include;C:\Users\gs-1018\Desktop\mysteryhill-lib\libxml2-2.9.2\include;..\util;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ShowIncludes>false</ShowIncludes>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>C:\Users\gs-0794\Desktop\Project\C_DevUtils\log4cpp\msvc10\log4cppLIB\Debug;C:\Users\gs-0794\Desktop\Project\C_DevUtils\x86_64\Build-OpenSSL-VC-64-dbg\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libeay32.lib;ssleay32.lib;log4cppD.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Users\gs-0794\Desktop\Project\C_DevUtils\libxml2-2.7.8.win32\lib;..\Debug;C:\Users\gs-0794\Desktop\Project\C_DevUtils\log4cpp\msvc10\log4cppLIB\Debug;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libxml2.lib;log4cppD.lib;util.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Lib>
-      <AdditionalDependencies>Shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libxml2.lib;log4cppD.lib;util.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+    <Lib>
+      <AdditionalLibraryDirectories>..\Debug;C:\Users\gs-1018\Desktop\mysteryhill-lib\log4cpp\msvc10\log4cppLIB\Debug;C:\Users\gs-1018\Desktop\mysteryhill-lib\libxml2-2.9.2\win32\bin.msvc;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -109,12 +138,14 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\gs-0794\Desktop\Project\C_DevUtils\log4cpp\include\log4cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Administrator\Desktop\mysteryhill-lib\log4cpp\include;C:\Users\Administrator\Desktop\mysteryhill-lib\libxml2-2.9.2\include;..\util</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>libxml2.lib;log4cppD.lib;util.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -124,7 +155,6 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\Users\gs-0794\Desktop\Project\C_DevUtils\log4cpp\include\log4cpp;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -132,21 +162,6 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClInclude Include="base64.h" />
-    <ClInclude Include="loadconfig.h" />
-    <ClInclude Include="logging.h" />
-    <ClInclude Include="vrtmCommon.h" />
-    <ClInclude Include="vrtmsockets.h" />
-    <ClInclude Include="win_headers.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="base64.cpp" />
-    <ClCompile Include="loadconfig.cpp" />
-    <ClCompile Include="logging.cpp" />
-    <ClCompile Include="vrtmsockets.cpp" />
-    <ClCompile Include="vrtmCommon.cpp" />
-  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

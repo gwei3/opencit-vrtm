@@ -23,8 +23,6 @@ extern "C" {
 
 #if defined(LIBXML_XPATH_ENABLED) && defined(LIBXML_SAX1_ENABLED)
 
-int list_elements_from_object(xmlNodeSetPtr nodes, char** elements_buf, int elements_buf_size);
-
 /**
  * setup_xpath_parser:
  * @doc : 			pointer to doc pointer
