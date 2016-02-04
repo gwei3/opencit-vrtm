@@ -42,6 +42,7 @@ typedef unsigned TCSERVICE_RESULT;
 #define TCSERVICE_RESULT_REQTOOLARGE            9
 #define TCSERVICE_RESULT_FAILED                10
 
+#define VM_STATUS_UNKNOWN						-1
 #define VM_STATUS_CANCELLED						0
 #define VM_STATUS_STARTED						1
 #define VM_STATUS_STOPPED						2
@@ -134,6 +135,7 @@ public:
     int					getproctablesize();
     int 				getcancelledvmcount();
     int					getactivedockeruuid(std::set<std::string> &);
+	int					getactivevmsuuid(std::set<std::string> &);
     void                print();
 
 };
@@ -167,6 +169,7 @@ public:
     TCSERVICE_RESULT	GenerateSAMLAndGetDir(char *vm_uuid, char * nonce, char * vm_manifest_dir);
     TCSERVICE_RESULT 	CleanVrtmTable(unsigned long entry_max_age,int vm_status, int* deleted_entries);
     TCSERVICE_RESULT	CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries);
+	TCSERVICE_RESULT	CleanVrtmTable_and_update_vm_status(std::set<std::string> & vms, int* deleted_vm_count, int *inactive);
     TCSERVICE_RESULT 	get_xpath_values(std::map<unsigned char*, char *> xpath_map, unsigned char* namespace_list, char* xml_file);
 };
 

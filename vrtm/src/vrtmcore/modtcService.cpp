@@ -10,6 +10,7 @@
 #include <processthreadsapi.h>
 #include <bcrypt.h>
 #include <shlwapi.h>
+#include "hypervWMIcaller.h"
 #elif __linux__
 #include <sys/wait.h> /* for wait */
 #include <sys/un.h>
@@ -78,6 +79,7 @@ byte                    g_servicehash[32]= {
 uint32_t	g_rpdomid = 1000;
 static int g_cleanup_service_status = 0;
 static int g_docker_deletion_service_status = 0;
+static int g_hyperv_vm_cleanup_service_status = 0;
 
 
 #define NUMPROCENTS 200
@@ -130,8 +132,14 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
     //proc_ent.m_procid = procid;
 	proc_ent.m_szexeFile = strdup(file);
     proc_ent.m_sizeHash = sizeHash;
-    if(instance_type == 0)
+	if (instance_type == INSTANCE_TYPE_VM)
+		//in case of windows we keep it as started, cause there is no explicit notifier,
+		//like in case of KVM(vrtm_listener)
+#ifdef _WIN32
+		proc_ent.m_vm_status = VM_STATUS_STARTED;
+#else
         proc_ent.m_vm_status = VM_STATUS_STOPPED;
+#endif
     else
         proc_ent.m_vm_status = VM_STATUS_STARTED;
     strcpy_s(proc_ent.m_uuid, sizeof(proc_ent.m_uuid), av[0]);
@@ -298,6 +306,18 @@ int serviceprocTable::getactivedockeruuid(std::set<std::string> & uuid_list) {
 	pthread_mutex_unlock(&loc_proc_table);
 	LOG_DEBUG("Number of active docker instances in vrtm table: %d ", uuid_list.size());
 	return uuid_list.size();
+}
+
+int serviceprocTable::getactivevmsuuid(std::set<std::string> &active_vms) {
+	pthread_mutex_lock(&loc_proc_table);
+	for (proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end(); table_it++) {
+		if (table_it->second.m_instance_type == INSTANCE_TYPE_VM && table_it->second.m_vm_status != VM_STATUS_CANCELLED) {
+			active_vms.insert(std::string(table_it->second.m_uuid));
+		}
+	}
+	pthread_mutex_unlock(&loc_proc_table);
+	LOG_DEBUG("Number of VM entries in vRTM table which are not in cancelled state : %d", active_vms.size());
+	return active_vms.size();
 }
 
 void serviceprocTable::print()
@@ -728,6 +748,26 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 			LOG_INFO("Can't generate report. VM with UUID : %s is in stopped state.");
 			return TCSERVICE_RESULT_FAILED;
 		}
+#ifdef _WIN32
+		else if (pEnt->m_vm_status == VM_STATUS_STARTED) {
+			LOG_INFO("Current status of VM in vrtm is running, will quickly confirm once with hyper-v");
+			//TODO: MAKE a api call to check the status of VM on hyper-v wheather it is active or not
+			std::map<std::string, int> vm_in_ques;
+			vm_in_ques.insert(std::pair<std::string, int>(pEnt->m_uuid, VM_STATUS_STARTED));
+			if (get_hyperv_vms_status(vm_in_ques) == 0) {
+				if (vm_in_ques[pEnt->m_uuid] == VM_STATUS_STOPPED) {
+					LOG_INFO("Actual status of VM is stopped, So report will not be generated");
+					vm_in_ques.clear();
+					return TCSERVICE_RESULT_FAILED;
+				}
+			}
+			else {
+				LOG_ERROR("Can't get the latest status of VM with WMI call");
+				LOG_WARN("vrtm might be sending stale or false report");
+				vm_in_ques.clear();
+			}
+		}
+#endif
 	}
 	snprintf(vm_manifest_dir, MANIFEST_DIR_SIZE, "%s%s/", g_trust_report_dir, vm_uuid); 
 	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
@@ -1055,6 +1095,56 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uui
 		if(m_procTable.removeprocEntry(command))
 			(*deleted_entries)++;
 	}
+	return TCSERVICE_RESULT_SUCCESS;
+}
+
+TCSERVICE_RESULT tcServiceInterface::CleanVrtmTable_and_update_vm_status(std::set<std::string> & vms, int* deleted_vm_count, int *inactive) {
+#ifdef _WIN32
+	std::map<std::string, int> hyperv_vms;
+	for (std::set<std::string>::iterator iter = vms.begin(); iter != vms.end(); iter++) {
+		//all vm are in started or running state in vrtm for now
+		hyperv_vms.insert(std::pair<std::string, int>((*iter), VM_STATUS_UNKNOWN));
+	}
+	//TODO: make api call to find actual state of VMs
+	if (get_hyperv_vms_status(hyperv_vms) == 0) {
+	//iterate of all VM, if their actual state is deleted remove them and if it stopped update their status
+		for (std::map<std::string, int>::iterator iter = hyperv_vms.begin(); iter != hyperv_vms.end(); iter++) {
+			if (iter->second == VM_STATUS_DELETED) {
+				//VM is deleted or not present on hyper-v
+				std::vector<char> vm_uuid(iter->first.begin(), iter->first.end());
+				vm_uuid.push_back('\0');
+				if (m_procTable.removeprocEntry(&vm_uuid[0]) == true) {
+					LOG_INFO("Succesfully removed the entry from vrtm table for VM with uuid : %s", &vm_uuid[0]);
+					*deleted_vm_count++;
+				}
+				else {
+					LOG_ERROR("Can't remove the entry from vrtm table for VM with uuid : %s", &vm_uuid[0]);
+				}
+			}
+			else if (iter->second == VM_STATUS_STOPPED) {
+				//VM is present but it is not in enabled state on hyper-v
+				std::vector<char> vm_uuid(iter->first.begin(), iter->first.end());
+				vm_uuid.push_back('\0');
+				if (TCSERVICE_RESULT_SUCCESS == UpdateAppStatus(&vm_uuid[0], VM_STATUS_STOPPED)) {
+					LOG_INFO("Succesfully updated the status of VM with uuid : %s in vrtm table", &vm_uuid[0]);
+					*inactive++;
+				}
+				else {
+					LOG_ERROR("Can't update the status of VM with UUID: %s", &vm_uuid[0]);
+				}
+			}
+			else {
+				LOG_DEBUG("VM with UUID : %s is in running state", iter->first.c_str());
+			}
+		}
+	}
+	else {
+		LOG_ERROR("Couldn't get VM state with WMI call, will try again after %d time", g_entry_cleanup_interval);
+		hyperv_vms.clear();
+		return TCSERVICE_RESULT_FAILED;
+	}
+	hyperv_vms.clear();
+#endif
 	return TCSERVICE_RESULT_SUCCESS;
 }
 
@@ -1902,9 +1992,30 @@ void* clean_deleted_docker_instances(void *){
 	return NULL;
 }
 
+#ifdef _WIN32
+void* clean_and_update_hyperv_vm_status(void *) {
+	std::set<std::string> active_vms;
+	LOG_TRACE("");
+	while (g_myService.m_procTable.getactivevmsuuid(active_vms)) {
+		int removed_instances_count;
+		int stopped_instances_count;
+#ifdef __linux__
+		sleep(g_entry_cleanup_interval_);
+#elif _WIN32
+		DWORD g_entry_cleanup_interval_msec = g_entry_cleanup_interval * 1000;
+		Sleep(g_entry_cleanup_interval_msec);
+#endif
+		g_myService.CleanVrtmTable_and_update_vm_status(active_vms, &removed_instances_count, &stopped_instances_count);
+		active_vms.clear();
+	}
+	g_hyperv_vm_cleanup_service_status = 0;
+	return (void *)NULL;
+}
+#endif
+
 void cleanupService() {
-	pthread_t tid, tid_d;
-	pthread_attr_t attr, attr_d;
+	pthread_t tid, tid_d, tid_hyperv;
+	pthread_attr_t attr, attr_d, attr_hyperv;
 	LOG_TRACE("");
 	if (g_cleanup_service_status == 1) {
 		LOG_INFO("Clean-up Service already running");
@@ -1947,4 +2058,28 @@ void cleanupService() {
 			//return 1;
 		}
 	}
+
+#ifdef _WIN32
+	if (g_hyperv_vm_cleanup_service_status) {
+		LOG_INFO("Hyper-V VM status checking service is already running");
+	}
+	else {
+		pthread_attr_init(&attr_hyperv);
+		if (!pthread_attr_setdetachstate(&attr_hyperv, PTHREAD_CREATE_DETACHED)) {
+			if (pthread_create(&tid_hyperv, &attr_hyperv, clean_and_update_hyperv_vm_status, (void *)NULL)) {
+				LOG_ERROR("Failed to spawn thread for hyper-v vm cleanup and status updation");
+			}
+			else {
+				LOG_INFO("Successfully spawn thread for hyper-v vm cleanup and status updation");
+				g_hyperv_vm_cleanup_service_status = 1;
+			}
+			pthread_attr_destroy(&attr_d);
+		}
+		else {
+			LOG_ERROR("Can't set Hyper-V VM cleanup and VM status update thread attribute to detachstate");
+			LOG_ERROR("Failed to spawn thread for Hyper-V VM cleanup and status updation");
+			pthread_attr_destroy(&attr_hyperv);
+		}
+	}
+#endif
 }			

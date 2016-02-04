@@ -89,7 +89,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\x86\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\x86\$(Configuration);$(SolutionDir)\..\third party\Pre-built.2\lib\x86;..\..\bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\x86\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\x86\$(Configuration);$(SolutionDir)\..\third party\Pre-built.2\lib\x86;..\..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Bcrypt.lib;Shlwapi.lib;libxml2.lib;log4cpp.lib;pthreadVC2.lib;util.lib;vrtmchannel.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ProjectReference>
@@ -106,7 +106,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\Pre-built.2\lib\$(Platform);..\..\bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\Pre-built.2\lib\$(Platform);..\..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Bcrypt.lib;Shlwapi.lib;libxml2.lib;log4cpp.lib;pthreadVC2.lib;util.lib;vrtmchannel.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <ProjectReference>
@@ -127,7 +127,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\x86\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\x86\$(Configuration);$(SolutionDir)\..\third party\Pre-built.2\lib\x86;..\..\bin</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\x86\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\x86\$(Configuration);$(SolutionDir)\..\third party\Pre-built.2\lib\x86;..\..\lib</AdditionalLibraryDirectories>
       <AdditionalDependencies>Bcrypt.lib;Shlwapi.lib;libxml2.lib;log4cpp.lib;pthreadVC2.lib;util.lib;vrtmchannel.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -145,7 +145,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\Pre-built.2\lib\$(Platform);..\..\bin;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\Pre-built.2\lib\$(Platform);..\..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>Bcrypt.lib;Shlwapi.lib;libxml2.lib;log4cpp.lib;pthreadVC2.lib;util.lib;vrtmchannel.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
