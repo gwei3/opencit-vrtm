@@ -81,8 +81,9 @@ int init_com_wmi(IWbemLocator **pLoc, IWbemServices **pSvc, _bstr_t & name_space
 		CoUninitialize();
 		return 4;          // API call has failed.
 	}
-
-	LOG_INFO("Connected to %s WMI namespace");
+	char * char_str_name_space = _com_util::ConvertBSTRToString(name_space);
+	LOG_INFO("Connected to %s WMI namespace", char_str_name_space);
+	delete[] char_str_name_space;
 
 	// Set security levels on the proxy -------------------------
 	// Set the IWbemServices proxy so that impersonation

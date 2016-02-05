@@ -1115,7 +1115,7 @@ TCSERVICE_RESULT tcServiceInterface::CleanVrtmTable_and_update_vm_status(std::se
 				vm_uuid.push_back('\0');
 				if (m_procTable.removeprocEntry(&vm_uuid[0]) == true) {
 					LOG_INFO("Succesfully removed the entry from vrtm table for VM with uuid : %s", &vm_uuid[0]);
-					*deleted_vm_count++;
+					(*deleted_vm_count)++;
 				}
 				else {
 					LOG_ERROR("Can't remove the entry from vrtm table for VM with uuid : %s", &vm_uuid[0]);
@@ -1127,7 +1127,7 @@ TCSERVICE_RESULT tcServiceInterface::CleanVrtmTable_and_update_vm_status(std::se
 				vm_uuid.push_back('\0');
 				if (TCSERVICE_RESULT_SUCCESS == UpdateAppStatus(&vm_uuid[0], VM_STATUS_STOPPED)) {
 					LOG_INFO("Succesfully updated the status of VM with uuid : %s in vrtm table", &vm_uuid[0]);
-					*inactive++;
+					(*inactive)++;
 				}
 				else {
 					LOG_ERROR("Can't update the status of VM with UUID: %s", &vm_uuid[0]);
@@ -1997,8 +1997,8 @@ void* clean_and_update_hyperv_vm_status(void *) {
 	std::set<std::string> active_vms;
 	LOG_TRACE("");
 	while (g_myService.m_procTable.getactivevmsuuid(active_vms)) {
-		int removed_instances_count;
-		int stopped_instances_count;
+		int removed_instances_count = 0;
+		int stopped_instances_count = 0;
 #ifdef __linux__
 		sleep(g_entry_cleanup_interval_);
 #elif _WIN32
@@ -2006,9 +2006,11 @@ void* clean_and_update_hyperv_vm_status(void *) {
 		Sleep(g_entry_cleanup_interval_msec);
 #endif
 		g_myService.CleanVrtmTable_and_update_vm_status(active_vms, &removed_instances_count, &stopped_instances_count);
+		LOG_INFO("Hyper-V VM clean-up and state updation thread removed \"%d\" VMs and update state of \"%d\" VMs", removed_instances_count, stopped_instances_count);
 		active_vms.clear();
 	}
 	g_hyperv_vm_cleanup_service_status = 0;
+	LOG_DEBUG("Hyper-V clean-up and vm state updation thread exiting...");
 	return (void *)NULL;
 }
 #endif
