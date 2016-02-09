@@ -8,4 +8,8 @@ typedef unsigned char byte;
 #endif
 
 #define SHA256DIGESTBYTESIZE       32
-
+#ifdef RSIZE_MAX_STR
+#define MAX_LEN RSIZE_MAX_STR
+#else
+#define	MAX_LEN 4096
+#endif

@@ -191,13 +191,15 @@ function installvrtmProxyAndListner()
 		LIBVIRT_QEMU_FILE="/etc/apparmor.d/abstractions/libvirt-qemu"           
                 if [ -e $LIBVIRT_QEMU_FILE ] ; then
 		        vrtm_comment="#Intel CIT vrtm"
+                        vrtm_end_comment="#End Intel CIT vrtm"
                         grep "$vrtm_comment" $LIBVIRT_QEMU_FILE > /dev/null
                         if [ $? -eq 1 ] ; then
                             echo "$vrtm_comment" >> $LIBVIRT_QEMU_FILE
-                            echo "$INSTALL_DIR/vrtm/lib/libvrtmchannel-g.so r," >> $LIBVIRT_QEMU_FILE
+                            echo "$INSTALL_DIR/vrtm/lib/libvrtmchannel.so rmix," >> $LIBVIRT_QEMU_FILE
                             echo "$INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties r," >> $LIBVIRT_QEMU_FILE
                             echo "$LOG_DIR/vrtm_proxy.log w," >> $LIBVIRT_QEMU_FILE
                             echo "/usr/bin/qemu-system-x86_64_orig rmix," >> $LIBVIRT_QEMU_FILE
+                            echo "$vrtm_end_comment" >> $LIBVIRT_QEMU_FILE	
                         fi
                         echo "Appended libvirt apparmour policy"
                 elif [ -e /etc/apparmor.d/disable/usr.sbin.libvirtd ] ; then
@@ -232,8 +234,8 @@ function installvrtmProxyAndListner()
 		         restorecon -v $INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties
 			 semanage fcontext -a -t qemu_exec_t "$QEMU_INSTALL_LOCATION"
 			 restorecon -v "$QEMU_INSTALL_LOCATION"
-			 semanage fcontext -a -t qemu_exec_t $INSTALL_DIR/vrtm/lib/libvrtmchannel-g.so
-			 restorecon -v $INSTALL_DIR/vrtm/lib/libvrtmchannel-g.so  
+			 semanage fcontext -a -t qemu_exec_t $INSTALL_DIR/vrtm/lib/libvrtmchannel.so
+			 restorecon -v $INSTALL_DIR/vrtm/lib/libvrtmchannel.so  
                          echo " 
                                module svirt_for_links 1.0;
                                 
@@ -320,10 +322,33 @@ function createvRTMStartScript()
 # Short-Description: VRTM
 # Description:       Virtual Root Trust Management
 ### END INIT INFO
-
+	tagent_availability()
+	{
+		tagent_bin=\"\"
+		tagent_bin=\"\`which tagent\`\"
+		if [ -z \"\$tagent_bin\" ]
+		then
+			export PATH=\"\$PATH:/usr/local/bin\"
+			tagent_bin=\"\`which tagent\`\"
+			if [ -z \"\$tagent_bin\" ]
+			then
+				return 1
+			else
+				return 0
+			fi
+		fi
+		return 0
+	}
 	startVrtm()
 	{
-		chown -R nova:nova /var/run/libvirt/
+		#chown -R nova:nova /var/run/libvirt/
+		if ! tagent_availability
+		then
+			echo \"tagent not found\"
+			echo \"can't start vrtm\"
+			return 1
+		fi
+		ldconfig
         	cd \"$INSTALL_DIR/vrtm/bin\"
         	nohup ./vrtmcore > /var/log/vrtm/vrtm_crash.log 2>&1 &
 	}
@@ -376,6 +401,7 @@ function createvRTMStartScript()
 
     startRpListner()
     {
+    	ldconfig
         cd \"$INSTALL_DIR/vrtm/bin\"
         nohup ./vrtm_listener > /var/log/vrtm/vrtm_listener_crash.log 2>&1 &
 	echo \$! > \$RPLISTENER_PID_FILE
