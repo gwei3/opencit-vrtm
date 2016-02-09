@@ -241,6 +241,7 @@ int read_config()
 			return -1;
 		}
 	}
+	chmod(g_trust_report_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 	// create mount location for vRTM at /mnt/vrtm
 	ret_val = mkdir(g_mount_path, 0766);
 	if (ret_val == 0 ) {
