@@ -308,10 +308,7 @@ void* dom_listener_main ( void* p)
     int 		iQueueSize = 100;
     int 		flag = 0;
     int*		thread_fd;
-	int			iResult;
-#ifdef _WIN32
-	WSADATA wsData;
-#endif
+    int			iResult;
     pthread_t tid;
     pthread_attr_t  attr;
     char vrtm_port[6] = {'\0'};
@@ -320,6 +317,7 @@ void* dom_listener_main ( void* p)
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 #ifdef _WIN32	
+	WSADATA wsData;
 	iResult = initialise_lib(&wsData);
 	if (iResult != 0) {
 		LOG_ERROR("Error in intialising library");

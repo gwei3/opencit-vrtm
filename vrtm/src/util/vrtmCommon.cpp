@@ -1,6 +1,7 @@
 #include "win_headers.h"
 #include "vrtmCommon.h"
 #include "logging.h"
+#include <errno.h>
 
 int make_dir(char *dir_name) {
 	int result = 0;

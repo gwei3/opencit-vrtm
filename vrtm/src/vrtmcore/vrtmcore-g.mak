@@ -15,6 +15,8 @@ UTIL=       ../util
 SC=         ../util
 CH=         ../vrtmchannel
 TM=	    	../vrtmcore
+LXML=		/usr/include/libxml2/
+OPENSSL=    	/usr/include/openssl/
 LOG4CPP=	/usr/include/log4cpp/
 SAFESTRING=     ../util/SafeStringLibrary/
 SAFESTRING_INCLUDE=    $(SAFESTRING)/include/
@@ -32,21 +34,30 @@ CC=         g++
 LINK=       g++
 
 sobjs=    	$(OBJ)/vrtmcoremain.o $(OBJ)/vrtminterface.o \
-            $(OBJ)/modtcService.o $(OBJ)/logging.o
+            $(OBJ)/modtcService.o $(OBJ)/logging.o \
+	    $(OBJ)/loadconfig.o $(OBJ)/vrtmCommon.o $(OBJ)/vrtmsockets.o
 			
 #	    $(OBJ)/dombuilder.o $(OBJ)/tcpchan.o
-
 
 all: $(BIN)/vrtmcore
 
 $(BIN)/vrtmcore: $(sobjs)
 	@echo "vrtmcoreservice"
-	$(LINK) -o $(BIN)/vrtmcore $(sobjs) $(LDFLAGS) -L$(LIB) -L$(SAFESTRING) -L/usr/local/lib/ -lSafeStringRelease -lpthread  -lvrtmchannel -lxml2 -llog4cpp
+	$(LINK) -o $(BIN)/vrtmcore $(sobjs) $(LDFLAGS) -L$(LIB) -L$(SAFESTRING) -L/usr/local/lib/ -lvrtmchannel -lpthread -lxml2 -llog4cpp -lssl -lcrypto -lSafeStringRelease
 ifneq "$(debug)" "1"
 	strip -s $(BIN)/vrtmcore
 endif
 
 #$(LINK) -o $(BIN)/rpcoreservice $(sobjs) $(LDFLAGS) -lxenlight -lxlutil -lxenctrl -lxenguest -lblktapctl -lxenstore -luuid -lutil -lpthread -L$(LIB) -lrpdombldr-g
+
+$(OBJ)/vrtmsockets.o: $(SC)/vrtmsockets.cpp $(SC)/vrtmsockets.h
+	$(CC) $(CFLAGS) -I$(SC) -c -o $(OBJ)/vrtmsockets.o $(SC)/vrtmsockets.cpp
+
+$(OBJ)/vrtmCommon.o: $(SC)/vrtmCommon.cpp $(SC)/vrtmCommon.h
+	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -c -o $(OBJ)/vrtmCommon.o $(SC)/vrtmCommon.cpp
+
+$(OBJ)/loadconfig.o: $(SC)/loadconfig.cpp $(SC)/loadconfig.h
+	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/loadconfig.o $(SC)/loadconfig.cpp
 
 $(OBJ)/logging.o: $(SC)/logging.cpp $(SC)/logging.h 
 	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -c -o $(OBJ)/logging.o $(SC)/logging.cpp
@@ -58,8 +69,7 @@ $(OBJ)/vrtmcoremain.o: $(TM)/vrtmcoremain.cpp
 $(OBJ)/vrtminterface.o: $(TM)/vrtminterface.cpp 
 	$(CC) $(CFLAGS)  -I$(CH) -I$(UTIL)   -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/vrtminterface.o $(TM)/vrtminterface.cpp
 
-
 #original tcService
 $(OBJ)/modtcService.o: $(TM)/modtcService.cpp
-	$(CC) $(CFLAGS) -I$(UTIL)  -I/usr/include/libxml2 -I$(CH)  -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/modtcService.o $(TM)/modtcService.cpp
+	$(CC) $(CFLAGS) -I$(UTIL) -I$(LXML) -I$(OPENSSL) -I$(CH)  -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/modtcService.o $(TM)/modtcService.cpp
 

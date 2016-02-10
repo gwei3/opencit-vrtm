@@ -1,24 +1,18 @@
 #include "vrtmsockets.h"
 
-int initialise_lib(WSADATA* wsaData) {
 #ifdef _WIN32
+int initialise_lib(WSADATA* wsaData) {
 	return WSAStartup(MAKEWORD(2, 2), wsaData);
-#else
-	return 0;
-#endif
 }
+
+int get_socket_error() {
+        return WSAGetLastError();
+}
+#endif
 
 void clean_lib() {
 #ifdef _WIN32
 	WSACleanup();
-#endif
-}
-
-int get_socket_error() {
-#ifdef _WIN32
-	return WSAGetLastError();
-#else
-	return 0;
 #endif
 }
 

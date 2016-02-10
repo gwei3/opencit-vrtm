@@ -76,6 +76,7 @@ byte                    g_servicehash[32]= {
 
 #define ma_log "/measurement.log"
 #define stripped_manifest_file "/manifest.xml"
+#define signingkey_file "/opt/trustagent/configuration/signingkey.pem"
 uint32_t	g_rpdomid = 1000;
 static int g_cleanup_service_status = 0;
 static int g_docker_deletion_service_status = 0;
@@ -599,14 +600,14 @@ int extractCert(char *pem_file, char *certBuffer, int certBuffer_size) {
 }
 
 int appendCert(char *certBuffer, char *manifest_dir, int certBuffer_size) {
+	char outfile[1048] = { 0 };
+	snprintf(outfile, sizeof(outfile), "%stemp.pem", manifest_dir);
 #ifdef _WIN32
 	char infile[1048] = { 0 };
-	char outfile[1048] = { 0 };
 	char command[2304] = { 0 };
 
 	snprintf(infile, sizeof(infile), "%stemp.der", manifest_dir);
-	snprintf(outfile, sizeof(outfile), "%stemp.pem", manifest_dir);
-	snprintf(command, sizeof(command), "CertUtil -decode /opt/trustagent/configuration/signingkey.pem %s && CertUtil -encode %s %s", infile, infile, outfile);
+	snprintf(command, sizeof(command), "CertUtil -decode " signingkey_file " %s && CertUtil -encode %s %s", infile, infile, outfile);
 	LOG_DEBUG("CertUtil command : %s", command);
 
 	FILE *fp = _popen(command, "r");
@@ -617,8 +618,8 @@ int appendCert(char *certBuffer, char *manifest_dir, int certBuffer_size) {
 	X509 *cert;
 	BIO *inbio, *outbio;
 
-	inbio = BIO_new_file("/opt/trustagent/configuration/signingkey.pem", "r");
-	outbio = BIO_new_file("temp.pem", "w");
+	inbio = BIO_new_file(signingkey_file, "r");
+	outbio = BIO_new_file(outfile, "w");
 
 	if(!(cert = PEM_read_bio_X509(inbio, NULL, 0, NULL))) {
 		LOG_ERROR("Error loading certificate into memory");
@@ -685,11 +686,7 @@ int calculateHash(char *xml_file, char *hash_str, int hash_str_size) {
 	unsigned char hash[SHA_DIGEST_LENGTH];
 	SHA_CTX sha1;
 	SHA1_Init(&sha1);
-	const int bufSize = 32768;
-	char *buffer = (char *)malloc(bufSize);
 
-	int bytesRead = 0;
-	if (!buffer) return -1;
 	while ((bytesRead = fread(buffer, 1, bufSize, fd)))
 		SHA1_Update(&sha1, buffer, bytesRead);
 	SHA1_Final(hash, &sha1);
@@ -727,7 +724,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	char manifest_dir[1024]={0};
 	char hash_str[512]={0};
 	char signature[1024]={0};
-	char propertiesFile[100]={0};
 	char tpm_signkey_passwd[100]={0};
 	FILE * fp = NULL;
 	FILE * fp1 = NULL;
@@ -1226,9 +1222,6 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char 	command[2304]={0};
 	FILE*   fp1=NULL;
 	char    extension[10]={0};
-	char    popen_command[1048]={0};
-	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
-	char    measurement_file[2048]={0};
 	bool	keep_measurement_log = false;
 	int		verifier_exit_status=1;
    //create domain process shall check the whitelist
@@ -1548,7 +1541,6 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			goto return_response;
 		}
 
-		char imageHash[65] = {'\0'};
 		//int flag=0;
 			if (fq != NULL) {
 				char line[512];
@@ -1579,7 +1571,6 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			//The code below does the work of converting 64 byte hex (imageHash) to 32 byte binary (rgHash)
 			//same as in rpchannel/channelcoding.cpp:ascii2bin(),
 			{
-				int c = 0;
 				strcpy_s(vm_manifest_hash, MANIFEST_HASH_SIZE, imageHash);
 				/*int len = strnlen_s(imageHash,sizeof(imageHash));
 				int iSize = 0;

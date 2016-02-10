@@ -6,6 +6,16 @@
 #include "logging.h"
 #include "loadconfig.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __linux__
+#include "safe_lib.h"
+#endif
+#ifdef __cplusplus
+}
+#endif
+
 int load_config(const char * configFile, std::map<std::string, std::string> & config_map)
 {
 	FILE *fp = fopen(configFile, "r");

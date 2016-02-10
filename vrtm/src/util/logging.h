@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include <log4cpp\Category.hh>
-#include <log4cpp\PropertyConfigurator.hh>
+#include <log4cpp/Category.hh>
+#include <log4cpp/PropertyConfigurator.hh>
 #include "vrtmCommon.h"
 
 #define LOG4CPP_FIX_ERROR_COLLISION 1
