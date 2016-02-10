@@ -268,7 +268,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     // Parse the command line request and extract the disk path
-    disk_start_ptr = strstr(drive_data, "file=") + sizeof("file=");
+    disk_start_ptr = strstr(drive_data, "file=") + sizeof("file=") - 1;
     disk_end_ptr = strstr(drive_data, ",if=none");
     int disk_path_len = disk_end_ptr-disk_start_ptr;
 	LOG_DEBUG("Disk path length: %d", disk_path_len);

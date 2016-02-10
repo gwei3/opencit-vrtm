@@ -2023,6 +2023,9 @@ void cleanupService() {
 		LOG_INFO("Clean-up Service already running");
 		//return 0;
 	}
+	else if (g_myService.m_procTable.getcancelledvmcount() == 0) {
+		LOG_INFO("No vms in cancelled state");
+	}
 	else {
 		pthread_attr_init(&attr);
 		if (!pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED)) {
@@ -2040,9 +2043,13 @@ void cleanupService() {
 		}
 	}
 
+	std::set<std::string> uuid_list;
 	if(g_docker_deletion_service_status == 1) {
 		LOG_INFO("Docker deletion Service already running");
 		//return 0;
+	}
+	else if (g_myService.m_procTable.getactivedockeruuid(uuid_list) == 0) {
+		LOG_INFO("No active docker instances");
 	}
 	else {
 		pthread_attr_init(&attr_d);
