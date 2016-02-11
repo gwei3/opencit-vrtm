@@ -2073,7 +2073,7 @@ void cleanupService() {
 				LOG_INFO("Successfully spawn thread for hyper-v vm cleanup and status updation");
 				g_hyperv_vm_cleanup_service_status = 1;
 			}
-			pthread_attr_destroy(&attr_d);
+			pthread_attr_destroy(&attr_hyperv);
 		}
 		else {
 			LOG_ERROR("Can't set Hyper-V VM cleanup and VM status update thread attribute to detachstate");
