@@ -217,7 +217,7 @@ function installvrtmProxyAndListner()
                         grep "$vrtm_comment" $LIBVIRT_QEMU_FILE > /dev/null
                         if [ $? -eq 1 ] ; then
                             echo "$vrtm_comment" >> $LIBVIRT_QEMU_FILE
-                            echo "$INSTALL_DIR/vrtm/lib/libvrtmchannel.so r," >> $LIBVIRT_QEMU_FILE
+                            echo "$INSTALL_DIR/vrtm/lib/libvrtmchannel.so rmix," >> $LIBVIRT_QEMU_FILE
                             echo "$INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties r," >> $LIBVIRT_QEMU_FILE
                             echo "$INSTALL_DIR/vrtm/configuration/vRTM.cfg r," >> $LIBVIRT_QEMU_FILE
                             echo "$LOG_DIR/vrtm_proxy.log w," >> $LIBVIRT_QEMU_FILE
