@@ -30,8 +30,8 @@
 !insertmacro MUI_PAGE_INSTFILES
 ; Finish page
 !define MUI_FINISHPAGE_NOAUTOCLOSE
-!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
-!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README"
+;!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
+;!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README"
 !insertmacro MUI_PAGE_FINISH
 
 ; Uninstaller pages
@@ -59,38 +59,38 @@ FunctionEnd
 Section -Prerequisites
   MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON1 "$(^Name) has some pre-requisites, it is recommended to continue with Installing Pre-requisites" /SD IDOK IDCANCEL endPre
     SetOutPath "$INSTDIR\prerequisites"
-    File "..\vrtm\prerequisites\vcredist_x86_13.exe"
-    ExecWait "$INSTDIR\prerequisites\vcredist_x86_13.exe"
-    File "..\vrtm\prerequisites\vcredist_x86_10.exe"
-    ExecWait "$INSTDIR\prerequisites\vcredist_x86_10.exe"
     File "..\vrtm\prerequisites\Ext2Fsd-0.62.exe"
+	File "..\vrtm\prerequisites\vcredist_x86_10.exe"
+	File "..\vrtm\prerequisites\vcredist_x86_13.exe"
+
+    ExecWait "$INSTDIR\prerequisites\vcredist_x86_13.exe"
+    ExecWait "$INSTDIR\prerequisites\vcredist_x86_10.exe"
     ExecWait "$INSTDIR\prerequisites\Ext2Fsd-0.62.exe"
   endPre:
 SectionEnd
 
 Section "vrtmcore" SEC01
-  SetOverwrite try
   SetOutPath "$INSTDIR\configuration"
   File "..\vrtm\configuration\vRTM.cfg"
   File "..\vrtm\configuration\vrtm_log.properties"
   File "..\vrtm\configuration\vrtm_proxylog.properties"
+
   SetOutPath "$INSTDIR\scripts"
+  File "..\vrtm\scripts\vrtm.cmd"
+  File "..\vrtm\scripts\nocmd.vbs"
+  File "..\vrtm\scripts\initsvcsetup.cmd"
   File "..\vrtm\scripts\Mount-EXTVM.ps1"
   File "..\vrtm\scripts\mount_vm_image.sh"
   File "..\vrtm\scripts\preheat-guestmount.sh"
-  SetOverwrite ifnewer
+
   SetOutPath "$INSTDIR\bin"
   File "..\vrtm\bin\log4cpp.dll"
   File "..\vrtm\bin\libxml2.dll"
   File "..\vrtm\bin\pthreadVC2.dll"
-  File "..\vrtm\scripts\vrtm.cmd"
   File "..\vrtm\bin\vrtmchannel.dll"
+  File "..\vrtm\bin\vrtmservice.exe"
   File "..\vrtm\bin\vrtmcore.exe"
   File "..\..\dcg_security-tboot-xm\imvm\bin\verifier.exe"
-  SetOutPath "$INSTDIR"
-  File "..\vrtm\scripts\nocmd.vbs"
-  File "..\vrtm\scripts\initsvcsetup.cmd"
-  File "..\vrtm\bin\vrtmservice.exe"
 
   CreateDirectory "$INSTDIR\log"
   CreateDirectory "$INSTDIR\temp"
@@ -109,7 +109,7 @@ Section -Post
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
   
-  # Create System Environment Variable - VRTM_HOME
+  # Create System Environment Variable VRTM_HOME
   !define env_hklm 'HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"'
   !define env_hkcu 'HKCU "Environment"'
   WriteRegExpandStr ${env_hklm} VRTM_HOME $INSTDIR
@@ -117,6 +117,7 @@ Section -Post
 SectionEnd
 
 Section -StartService
+  # Create vRTM service and tasks
   ExecWait '$INSTDIR\initsvcsetup.cmd'
 SectionEnd
 
@@ -143,29 +144,28 @@ Section Uninstall
   nsExec::Exec 'sc delete vRTM'
 
   Delete "$INSTDIR\uninst.exe"
-  Delete "$INSTDIR\LogFile.txt"
-  Delete "$INSTDIR\vrtmservice.exe"
-  Delete "$INSTDIR\initsvcsetup.cmd"
-  Delete "$INSTDIR\nocmd.vbs"
   Delete "$INSTDIR\log\vrtm.log"
   Delete "$INSTDIR\log\vrtm_listener.log"
   Delete "$INSTDIR\temp\rpcoreservice__DT_XX99"
-  Delete "$INSTDIR\bin\verifier.exe"
-  Delete "$INSTDIR\bin\vrtmcore.exe"
-  Delete "$INSTDIR\bin\vrtmchannel.dll"
-  Delete "$INSTDIR\bin\vrtm.cmd"
-  Delete "$INSTDIR\bin\pthreadVC2.dll"
-  Delete "$INSTDIR\bin\libxml2.dll"
   Delete "$INSTDIR\bin\log4cpp.dll"
-  Delete "$INSTDIR\scripts\preheat-guestmount.sh"
-  Delete "$INSTDIR\scripts\mount_vm_image.sh"
+  Delete "$INSTDIR\bin\libxml2.dll"
+  Delete "$INSTDIR\bin\pthreadVC2.dll"
+  Delete "$INSTDIR\bin\vrtmchannel.dll"
+  Delete "$INSTDIR\bin\vrtmservice.exe"
+  Delete "$INSTDIR\bin\vrtmcore.exe"
+  Delete "$INSTDIR\bin\verifier.exe"
+  Delete "$INSTDIR\scripts\vrtm.cmd"
+  Delete "$INSTDIR\scripts\nocmd.vbs"
+  Delete "$INSTDIR\scripts\initsvcsetup.cmd"
   Delete "$INSTDIR\scripts\Mount-EXTVM.ps1"
-  Delete "$INSTDIR\configuration\vrtm_proxylog.properties"
-  Delete "$INSTDIR\configuration\vrtm_log.properties"
+  Delete "$INSTDIR\scripts\mount_vm_image.sh"
+  Delete "$INSTDIR\scripts\preheat-guestmount.sh"
   Delete "$INSTDIR\configuration\vRTM.cfg"
-  Delete "$INSTDIR\prerequisites\vcredist_x86_13.exe"
-  Delete "$INSTDIR\prerequisites\vcredist_x86_10.exe"
+  Delete "$INSTDIR\configuration\vrtm_log.properties"
+  Delete "$INSTDIR\configuration\vrtm_proxylog.properties"
   Delete "$INSTDIR\prerequisites\Ext2Fsd-0.62.exe"
+  Delete "$INSTDIR\prerequisites\vcredist_x86_10.exe"
+  Delete "$INSTDIR\prerequisites\vcredist_x86_13.exe"
 
   Delete "$SMPROGRAMS\Intel\vRTM\Uninstall.lnk"
   Delete "$SMPROGRAMS\Intel\vRTM\vRTM.lnk"
@@ -183,7 +183,7 @@ Section Uninstall
   DeleteRegKey ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}"
   DeleteRegKey HKLM "${PRODUCT_DIR_REGKEY}"
 
-  # Remove system environment variable VRTM_HOME
+  # Remove System Environment Variable VRTM_HOME
   DeleteRegValue ${env_hklm} VRTM_HOME
   SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
   SetAutoClose true

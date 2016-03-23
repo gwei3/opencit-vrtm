@@ -39,7 +39,10 @@
             // 
             // serviceInstaller1
             // 
+            this.serviceInstaller1.Description = "Intel CIT vRTM service";
+            this.serviceInstaller1.DisplayName = "Intel CIT vRTM";
             this.serviceInstaller1.ServiceName = "vRTM";
+            this.serviceInstaller1.StartType = System.ServiceProcess.ServiceStartMode.Automatic;
             // 
             // ProjectInstaller
             // 

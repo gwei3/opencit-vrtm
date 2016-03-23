@@ -7,44 +7,53 @@ using System.Linq;
 using System.ServiceProcess;
 using System.Text;
 using System.Threading.Tasks;
-using System.Timers;
+using System.Runtime.InteropServices;
+
+public enum ServiceState
+{
+    SERVICE_STOPPED = 0x00000001,
+    SERVICE_START_PENDING = 0x00000002,
+    SERVICE_STOP_PENDING = 0x00000003,
+    SERVICE_RUNNING = 0x00000004,
+    SERVICE_CONTINUE_PENDING = 0x00000005,
+    SERVICE_PAUSE_PENDING = 0x00000006,
+    SERVICE_PAUSED = 0x00000007,
+}
+
+[StructLayout(LayoutKind.Sequential)]
+public struct ServiceStatus
+{
+    public long dwServiceType;
+    public ServiceState dwCurrentState;
+    public long dwControlsAccepted;
+    public long dwWin32ExitCode;
+    public long dwServiceSpecificExitCode;
+    public long dwCheckPoint;
+    public long dwWaitHint;
+};
 
 namespace vRTM
 {
     public partial class vrtmservice : ServiceBase
     {
-        private Timer timer = null;
-
+      
         public vrtmservice()
         {
             InitializeComponent();
         }
 
-        private void timer_Tick(object sender, ElapsedEventArgs e)
-        { 
-            ServiceController sc = new ServiceController("vRTM");
-            switch(sc.Status)
-            {
-                case ServiceControllerStatus.Running:
-                    return;
-                default:
-                    Library.WriteErrorLog("Starting vRTM service");
-                    this.start_vrtm();
-                    return;
-            }
-        }
-
-        private void start_vrtm()
+        [DllImport("advapi32.dll", SetLastError = true)]
+        private static extern bool SetServiceStatus(IntPtr handle, ref ServiceStatus serviceStatus);
+        
+        protected override void OnStart(string[] args)
         {
+            ServiceStatus serviceStatus = new ServiceStatus();
+            serviceStatus.dwCurrentState = ServiceState.SERVICE_START_PENDING;
+            serviceStatus.dwWaitHint = 100000;
+            SetServiceStatus(this.ServiceHandle, ref serviceStatus); 
+            
             string vrtm_dir = Environment.GetEnvironmentVariable("VRTM_HOME");
-            if (vrtm_dir == null)
-            {
-                Library.WriteErrorLog("VRTM_HOME environment variable not found");
-                Library.WriteErrorLog("Service could not be started");
-                return;
-            }
             string vrtmcmdstr = vrtm_dir + "/bin/vrtm.cmd";
-            Library.WriteErrorLog(vrtmcmdstr);
 
             Process myProcess = new Process();
             try
@@ -57,22 +66,23 @@ namespace vRTM
             }
             catch (Exception ex)
             {
-                Library.WriteErrorLog(ex.Message);
-                this.stop_vrtm();
+                Console.WriteLine(ex.Message);
             }
+
+            // Update the service state to Running.
+            serviceStatus.dwCurrentState = ServiceState.SERVICE_RUNNING;
+            SetServiceStatus(this.ServiceHandle, ref serviceStatus);
         }
 
-        private void stop_vrtm()
+        protected override void OnStop()
         {
+            ServiceStatus serviceStatus = new ServiceStatus();
+            serviceStatus.dwCurrentState = ServiceState.SERVICE_STOP_PENDING;
+            serviceStatus.dwWaitHint = 100000;
+            SetServiceStatus(this.ServiceHandle, ref serviceStatus); 
+            
             string vrtm_dir = Environment.GetEnvironmentVariable("VRTM_HOME");
-            if (vrtm_dir == null)
-            {
-                Library.WriteErrorLog("VRTM_HOME environment variable not found");
-                Library.WriteErrorLog("Service could not be stopped");
-                return;
-            }
             string vrtmcmdstr = vrtm_dir + "/bin/vrtm.cmd";
-            Library.WriteErrorLog(vrtmcmdstr);
 
             Process myProcess = new Process();
             try
@@ -85,27 +95,12 @@ namespace vRTM
             }
             catch (Exception ex)
             {
-                Library.WriteErrorLog(ex.Message);
-                this.stop_vrtm();
+                Console.WriteLine(ex.Message);
             }
-        }
 
-        protected override void OnStart(string[] args)
-        {
-            timer = new Timer();
-            this.timer.Interval = 60000;
-            this.timer.Elapsed += new System.Timers.ElapsedEventHandler(this.timer_Tick);
-
-            this.start_vrtm();
-            timer.Enabled = true;
-            Library.WriteErrorLog("vRTM started");
-        }
-
-        protected override void OnStop()
-        {
-            this.stop_vrtm();
-            timer.Enabled = false;
-            Library.WriteErrorLog("vRTM stopped");
+            // Update the service state to Running.
+            serviceStatus.dwCurrentState = ServiceState.SERVICE_STOPPED;
+            SetServiceStatus(this.ServiceHandle, ref serviceStatus);
         }
     }
 }
