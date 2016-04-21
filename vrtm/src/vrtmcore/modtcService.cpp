@@ -62,7 +62,7 @@ static int g_docker_deletion_service_status = 0;
 #define KEYWORD_UNTRUSTED	"untrusted"
 
 
-int cleanupService();
+void cleanupService();
 void* clean_vrtm_table(void *p);
 void* clean_deleted_docker_instances(void *p);
 // ---------------------------------------------------------------------------
@@ -721,6 +721,12 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uui
 	if (fp != NULL) {
 		while(true) {
 			line = (char *) calloc(1,sizeof(char) * line_size);
+			if (line == NULL){
+				LOG_ERROR("Failed to execute command to running containers");
+				LOG_DEBUG("Calloc Failed to allcoate memory to read a line");
+				pclose(fp);
+				return TCSERVICE_RESULT_FAILED;
+			}
 			fgets(line,line_size,fp);
 			if(feof(fp)) {
 				free(line);
@@ -865,7 +871,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	int	verifier_exit_status=1;
    //create domain process shall check the whitelist
 	child = procid;
-	char 	mount_path[128];
+	char 	mount_path[128] = {'\0'};
 	char	mount_script[128];
 	int 	instance_type = INSTANCE_TYPE_VM;
 
@@ -930,6 +936,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 
 	if(vm_uuid[0] == 0) {
 		LOG_ERROR("uuid is not present");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	else if ( instance_type == INSTANCE_TYPE_DOCKER && mount_path[0] == '\0' ) {
+		LOG_ERROR("Instance type is docker instance and mount path is not specified");
 		return TCSERVICE_RESULT_FAILED;
 	}
 
@@ -1540,7 +1550,7 @@ void* clean_deleted_docker_instances(void *){
 	return NULL;
 }
 
-int cleanupService() {
+void cleanupService() {
 	pthread_t tid, tid_d;
 	pthread_attr_t attr, attr_d;
 	LOG_TRACE("");
