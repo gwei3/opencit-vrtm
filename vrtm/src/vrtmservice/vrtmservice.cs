@@ -23,13 +23,13 @@ public enum ServiceState
 [StructLayout(LayoutKind.Sequential)]
 public struct ServiceStatus
 {
-    public long dwServiceType;
+    public uint dwServiceType;
     public ServiceState dwCurrentState;
-    public long dwControlsAccepted;
-    public long dwWin32ExitCode;
-    public long dwServiceSpecificExitCode;
-    public long dwCheckPoint;
-    public long dwWaitHint;
+    public uint dwControlsAccepted;
+    public uint dwWin32ExitCode;
+    public uint dwServiceSpecificExitCode;
+    public uint dwCheckPoint;
+    public uint dwWaitHint;
 };
 
 namespace vRTM
@@ -53,7 +53,7 @@ namespace vRTM
             SetServiceStatus(this.ServiceHandle, ref serviceStatus); 
             
             string vrtm_dir = Environment.GetEnvironmentVariable("VRTM_HOME");
-            string vrtmcmdstr = vrtm_dir + "/bin/vrtm.cmd";
+            string vrtmcmdstr = vrtm_dir + "/scripts/vrtm.cmd";
 
             Process myProcess = new Process();
             try
@@ -82,7 +82,7 @@ namespace vRTM
             SetServiceStatus(this.ServiceHandle, ref serviceStatus); 
             
             string vrtm_dir = Environment.GetEnvironmentVariable("VRTM_HOME");
-            string vrtmcmdstr = vrtm_dir + "/bin/vrtm.cmd";
+            string vrtmcmdstr = vrtm_dir + "/scripts/vrtm.cmd";
 
             Process myProcess = new Process();
             try

@@ -1,5 +1,7 @@
 ; MUI 1.67 compatible ------
 !include "MUI.nsh"
+!include "x64.nsh"
+!include "LogicLib.nsh"
 
 !define PRODUCT_NAME "vRTM"
 !define PRODUCT_VERSION "1.0"
@@ -13,25 +15,37 @@
 !define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
 !define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
 
-; Language Selection Dialog Settings
-!define MUI_LANGDLL_REGISTRY_ROOT "${PRODUCT_UNINST_ROOT_KEY}"
-!define MUI_LANGDLL_REGISTRY_KEY "${PRODUCT_UNINST_KEY}"
-!define MUI_LANGDLL_REGISTRY_VALUENAME "NSIS:Language"
+; MUI end ------
+
+Name "${PRODUCT_NAME}"
+OutFile "vrtm-setup.exe"
+InstallDir "$PROGRAMFILES\Intel\vRTM"
+InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
+ShowInstDetails show
+ShowUnInstDetails show
+
+var extFlag
+var vcr10Flag
+var vcr13Flag
+
+; ------------------------------------------------------------------
+; ***************************** PAGES ******************************
+; ------------------------------------------------------------------
 
 ; Welcome page
 !insertmacro MUI_PAGE_WELCOME
 ; License page
 ;!insertmacro MUI_PAGE_LICENSE ""
 ; Components page
-!insertmacro MUI_PAGE_COMPONENTS
+;!insertmacro MUI_PAGE_COMPONENTS
 ; Directory page
-;!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_DIRECTORY
 ; Instfiles page
 !insertmacro MUI_PAGE_INSTFILES
 ; Finish page
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 ;!define MUI_FINISHPAGE_SHOWREADME_NOTCHECKED
-;!define MUI_FINISHPAGE_SHOWREADME "$INSTDIR\README"
+;!define MUI_FINISHPAGE_SHOWREADME ""
 !insertmacro MUI_PAGE_FINISH
 
 ; Uninstaller pages
@@ -39,46 +53,118 @@
 
 ; Language files
 !insertmacro MUI_LANGUAGE "English"
-!insertmacro MUI_LANGUAGE "French"
-!insertmacro MUI_LANGUAGE "German"
+; -------------------------------------------------------------------------
+; ***************************** END OF PAGES ******************************
+; -------------------------------------------------------------------------
 
-; MUI end ------
+; ----------------------------------------------------------------------------------
+; ******************************** IN-BUILT FUNCTIONS ******************************
+; ----------------------------------------------------------------------------------
 
-Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "vrtm-setup.exe"
-InstallDir "$PROGRAMFILES\Intel\vRTM"
-InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
-ShowInstDetails show
-ShowUnInstDetails show
+; Built-in Function StrStr
+!define StrStr "!insertmacro StrStr"
+!macro StrStr ResultVar String SubString
+  Push `${String}`
+  Push `${SubString}`
+  Call StrStr
+  Pop `${ResultVar}`
+!macroend
 
-Function .onInit
-  !insertmacro MUI_LANGDLL_DISPLAY
+Function StrStr
+/*After this point:
+  ------------------------------------------
+  $R0 = SubString (input)
+  $R1 = String (input)
+  $R2 = SubStringLen (temp)
+  $R3 = StrLen (temp)
+  $R4 = StartCharPos (temp)
+  $R5 = TempStr (temp)*/
+
+  ;Get input from user
+  Exch $R0
+  Exch
+  Exch $R1
+  Push $R2
+  Push $R3
+  Push $R4
+  Push $R5
+
+  ;Get "String" and "SubString" length
+  StrLen $R2 $R0
+  StrLen $R3 $R1
+  ;Start "StartCharPos" counter
+  StrCpy $R4 0
+
+  ;Loop until "SubString" is found or "String" reaches its end
+  ${Do}
+    ;Remove everything before and after the searched part ("TempStr")
+    StrCpy $R5 $R1 $R2 $R4
+
+    ;Compare "TempStr" with "SubString"
+    ${IfThen} $R5 == $R0 ${|} ${ExitDo} ${|}
+    ;If not "SubString", this could be "String"'s end
+    ${IfThen} $R4 >= $R3 ${|} ${ExitDo} ${|}
+    ;If not, continue the loop
+    IntOp $R4 $R4 + 1
+  ${Loop}
+
+/*After this point:
+  ------------------------------------------
+  $R0 = ResultVar (output)*/
+
+  ;Remove part before "SubString" on "String" (if there has one)
+  StrCpy $R0 $R1 `` $R4
+
+  ;Return output to user
+  Pop $R5
+  Pop $R4
+  Pop $R3
+  Pop $R2
+  Pop $R1
+  Exch $R0
 FunctionEnd
+; ----------------------------------------------------------------------------------
+; *************************** END OF IN-BUILT FUNCTIONS ****************************
+; ----------------------------------------------------------------------------------
 
-; These are the programs that are needed by vRTM.
-Section -Prerequisites
-  MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON1 "$(^Name) has some pre-requisites, it is recommended to continue with Installing Pre-requisites" /SD IDOK IDCANCEL endPre
-    SetOutPath "$INSTDIR\prerequisites"
-    File "..\vrtm\prerequisites\Ext2Fsd-0.62.exe"
-	File "..\vrtm\prerequisites\vcredist_x86_10.exe"
-	File "..\vrtm\prerequisites\vcredist_x86_13.exe"
+; ----------------------------------------------------------------------------------
+; *************************** SECTION FOR INSTALLING *******************************
+; ----------------------------------------------------------------------------------
 
-    ExecWait "$INSTDIR\prerequisites\vcredist_x86_13.exe"
-    ExecWait "$INSTDIR\prerequisites\vcredist_x86_10.exe"
-    ExecWait "$INSTDIR\prerequisites\Ext2Fsd-0.62.exe"
-  endPre:
+Section InstallPrerequisites
+  SetOutPath "$INSTDIR\prerequisites"
+  File "..\vrtm\prerequisites\vcredist_10.exe"
+  ${If} $vcr10Flag == 0
+    MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON1 "Microsoft Visual C++ 2010 Redistributable not found. It is recommended to continue with the installation for Intel CIT vRTM setup." /SD IDOK IDCANCEL end10
+    nsExec::Exec '$INSTDIR\prerequisites\vcredist_10.exe'
+  ${endif}
+
+  end10:
+  File "..\vrtm\prerequisites\vcredist_13.exe"
+  ${If} $vcr13Flag == 0
+    MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON1 "Microsoft Visual C++ 2013 Redistributable not found. It is recommended to continue with the installation for Intel CIT vRTM setup." /SD IDOK IDCANCEL end13
+    nsExec::Exec '$INSTDIR\prerequisites\vcredist_13.exe'
+  ${endif}
+
+  end13:
+  File "..\vrtm\prerequisites\Ext2Fsd-0.62.exe"
+  ${If} $extFlag == 0
+    MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON1 "Ext2Fsd driver not found. It is recommended to continue with the installation for Intel CIT vRTM setup." /SD IDOK IDCANCEL end
+    nsExec::Exec '$INSTDIR\prerequisites\Ext2Fsd-0.62.exe'
+  ${endif}
+  end:
 SectionEnd
 
-Section "vrtmcore" SEC01
+Section Install
   SetOutPath "$INSTDIR\configuration"
   File "..\vrtm\configuration\vRTM.cfg"
   File "..\vrtm\configuration\vrtm_log.properties"
   File "..\vrtm\configuration\vrtm_proxylog.properties"
 
   SetOutPath "$INSTDIR\scripts"
+  File "..\install\nocmd.vbs"
+  File "..\install\initsvcsetup.cmd"
   File "..\vrtm\scripts\vrtm.cmd"
-  File "..\vrtm\scripts\nocmd.vbs"
-  File "..\vrtm\scripts\initsvcsetup.cmd"
   File "..\vrtm\scripts\Mount-EXTVM.ps1"
   File "..\vrtm\scripts\mount_vm_image.sh"
   File "..\vrtm\scripts\preheat-guestmount.sh"
@@ -91,24 +177,23 @@ Section "vrtmcore" SEC01
   File "..\vrtm\bin\vrtmservice.exe"
   File "..\vrtm\bin\vrtmcore.exe"
   File "..\..\dcg_security-tboot-xm\imvm\bin\verifier.exe"
+SectionEnd
 
-  CreateDirectory "$INSTDIR\log"
-  CreateDirectory "$INSTDIR\temp"
+Section AdditionalIcons
   CreateDirectory "$SMPROGRAMS\Intel"
   CreateDirectory "$SMPROGRAMS\Intel\vRTM"
-  CreateShortCut "$SMPROGRAMS\Intel\vRTM\vRTM.lnk" "$INSTDIR\bin\vrtmcore.exe"
   CreateShortCut "$SMPROGRAMS\Intel\vRTM\Uninstall.lnk" "$INSTDIR\uninst.exe"
 SectionEnd
 
-Section -Post
+Section Post
   WriteUninstaller "$INSTDIR\uninst.exe"
-  WriteRegStr HKLM "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\vrtmcore.exe"
+  WriteRegStr HKLM "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\bin\vrtmcore.exe"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninst.exe"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\bin\vrtmcore.exe"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
-  
+
   # Create System Environment Variable VRTM_HOME
   !define env_hklm 'HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment"'
   !define env_hkcu 'HKCU "Environment"'
@@ -116,25 +201,16 @@ Section -Post
   SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
 SectionEnd
 
-Section -StartService
+Section InstallService
   # Create vRTM service and tasks
-  ExecWait '$INSTDIR\initsvcsetup.cmd'
+  nsExec::Exec '$INSTDIR\scripts\initsvcsetup.cmd'
+  Delete "$INSTDIR\scripts\initsvcsetup.cmd"
+  Delete "$INSTDIR\scripts\nocmd.vbs"
 SectionEnd
 
-; Section descriptions
-!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC01} "Installs the vrtmcore components"
-!insertmacro MUI_FUNCTION_DESCRIPTION_END
-
-Function un.onUninstSuccess
-  HideWindow
-  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer."
-FunctionEnd
-
-Function un.onInit
-  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
-  Abort
-FunctionEnd
+; ----------------------------------------------------------------------------------
+; ************************** SECTION FOR UNINSTALLING ******************************
+; ----------------------------------------------------------------------------------
 
 Section Uninstall
   # Remove vRTM service and tasks
@@ -144,9 +220,7 @@ Section Uninstall
   nsExec::Exec 'sc delete vRTM'
 
   Delete "$INSTDIR\uninst.exe"
-  Delete "$INSTDIR\log\vrtm.log"
-  Delete "$INSTDIR\log\vrtm_listener.log"
-  Delete "$INSTDIR\temp\rpcoreservice__DT_XX99"
+  Delete "$INSTDIR\rpcoreservice__DT_XX99"
   Delete "$INSTDIR\bin\log4cpp.dll"
   Delete "$INSTDIR\bin\libxml2.dll"
   Delete "$INSTDIR\bin\pthreadVC2.dll"
@@ -155,8 +229,6 @@ Section Uninstall
   Delete "$INSTDIR\bin\vrtmcore.exe"
   Delete "$INSTDIR\bin\verifier.exe"
   Delete "$INSTDIR\scripts\vrtm.cmd"
-  Delete "$INSTDIR\scripts\nocmd.vbs"
-  Delete "$INSTDIR\scripts\initsvcsetup.cmd"
   Delete "$INSTDIR\scripts\Mount-EXTVM.ps1"
   Delete "$INSTDIR\scripts\mount_vm_image.sh"
   Delete "$INSTDIR\scripts\preheat-guestmount.sh"
@@ -164,16 +236,12 @@ Section Uninstall
   Delete "$INSTDIR\configuration\vrtm_log.properties"
   Delete "$INSTDIR\configuration\vrtm_proxylog.properties"
   Delete "$INSTDIR\prerequisites\Ext2Fsd-0.62.exe"
-  Delete "$INSTDIR\prerequisites\vcredist_x86_10.exe"
-  Delete "$INSTDIR\prerequisites\vcredist_x86_13.exe"
-
+  Delete "$INSTDIR\prerequisites\vcredist_10.exe"
+  Delete "$INSTDIR\prerequisites\vcredist_13.exe"
   Delete "$SMPROGRAMS\Intel\vRTM\Uninstall.lnk"
-  Delete "$SMPROGRAMS\Intel\vRTM\vRTM.lnk"
+
   RMDir "$SMPROGRAMS\Intel\vRTM"
   RMDir "$SMPROGRAMS\Intel"
-
-  RMDir "$INSTDIR\log"
-  RMDir "$INSTDIR\temp"
   RMDir "$INSTDIR\bin"
   RMDir "$INSTDIR\scripts"
   RMDir "$INSTDIR\configuration"
@@ -188,3 +256,75 @@ Section Uninstall
   SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment" /TIMEOUT=5000
   SetAutoClose true
 SectionEnd
+; ----------------------------------------------------------------------------------
+; ********************* END OF INSTALL/UNINSTALL SECTIONS **************************
+; ----------------------------------------------------------------------------------
+
+; ----------------------------------------------------------
+; ********************* FUNCTIONS **************************
+; ----------------------------------------------------------
+
+Function .onInit
+  !ifdef IsSilent
+    SetSilent silent
+  !endif
+
+  ${If} ${RunningX64}
+    StrCpy $2 "Name like '%%Microsoft Visual C++ 2010  x64%%'"
+    StrCpy $3 "Name like '%%Microsoft Visual C++ 2013 x64%%'"
+  ${Else}
+    StrCpy $2 "Name like '%%Microsoft Visual C++ 2010  x86%%'"
+    StrCpy $3 "Name like '%%Microsoft Visual C++ 2013 x86%%'"
+  ${EndIf}
+
+  nsExec::ExecToStack 'wmic product where "$2" get name'
+  Pop $0
+  Pop $1
+  ${If} ${RunningX64}
+    ${StrStr} $0 $1 "Microsoft Visual C++ 2010  x64"
+  ${Else}
+    ${StrStr} $0 $1 "Microsoft Visual C++ 2010  x86"
+  ${EndIf}
+  StrCmp $0 "" notfound10
+    StrCpy $vcr10Flag 1
+    Goto done10
+  notfound10:
+    StrCpy $vcr10Flag 0
+
+  done10:
+  nsExec::ExecToStack 'wmic product where "$3" get name'
+  Pop $0
+  Pop $1
+  ${If} ${RunningX64}
+    ${StrStr} $0 $1 "Microsoft Visual C++ 2013 x64"
+  ${Else}
+    ${StrStr} $0 $1 "Microsoft Visual C++ 2013 x86"
+  ${EndIf}
+  StrCmp $0 "" notfound13
+    StrCpy $vcr13Flag 1
+    Goto done13
+  notfound13:
+    StrCpy $vcr13Flag 0
+
+  done13:
+  ClearErrors
+  ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\services\Ext2Fsd" "DisplayName"
+  ${If} ${Errors}
+    StrCpy $extFlag 0
+  ${Else}
+    StrCpy $extFlag 1
+  ${EndIf}
+FunctionEnd
+
+Function un.onInit
+  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
+  Abort
+FunctionEnd
+
+Function un.onUninstSuccess
+  HideWindow
+  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer."
+FunctionEnd
+; ----------------------------------------------------------
+; ****************** END OF FUNCTIONS **********************
+; ----------------------------------------------------------

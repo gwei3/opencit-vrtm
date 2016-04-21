@@ -102,45 +102,33 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\third party\log4cpp\include;$(SolutionDir)\..\third party\libxml2-2.9.2\include;..\..\src\util;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\third party\log4cpp\include;$(SolutionDir)\..\third party\libxml2\include;..\..\src\util;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;VRTMCHANNEL_BUILD;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ShowIncludes>false</ShowIncludes>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\x86\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\x86\$(Configuration);..\..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\x86\$(Configuration);$(SolutionDir)\..\third party\libxml2\lib\x86\$(Configuration);..\..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libxml2.lib;log4cpp.lib;util.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(SolutionDir)\..\lib\$(TargetName).lib</ImportLibrary>
     </Link>
-    <Lib>
-      <AdditionalDependencies>libxml2.lib;log4cppD.lib;util.lib;%(AdditionalDependencies)</AdditionalDependencies>
-    </Lib>
-    <Lib>
-      <AdditionalLibraryDirectories>..\Debug;C:\Users\gs-1018\Desktop\mysteryhill-lib\log4cpp\msvc10\log4cppLIB\Debug;C:\Users\gs-1018\Desktop\mysteryhill-lib\libxml2-2.9.2\win32\bin.msvc;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\third party\log4cpp\include;$(SolutionDir)\..\third party\libxml2-2.9.2\include;..\..\src\util;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\third party\log4cpp\include;$(SolutionDir)\..\third party\libxml2\include;..\..\src\util;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;VRTMCHANNEL_BUILD;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ShowIncludes>false</ShowIncludes>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\$(Platform)\$(Configuration);..\..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\libxml2\lib\$(Platform)\$(Configuration);..\..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libxml2.lib;log4cpp.lib;util.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(SolutionDir)\..\lib\$(TargetName).lib</ImportLibrary>
     </Link>
-    <Lib>
-      <AdditionalDependencies>libxml2.lib;log4cppD.lib;util.lib;%(AdditionalDependencies)</AdditionalDependencies>
-    </Lib>
-    <Lib>
-      <AdditionalLibraryDirectories>..\Debug;C:\Users\gs-1018\Desktop\mysteryhill-lib\log4cpp\msvc10\log4cppLIB\Debug;C:\Users\gs-1018\Desktop\mysteryhill-lib\libxml2-2.9.2\win32\bin.msvc;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -149,7 +137,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\third party\log4cpp\include;$(SolutionDir)\..\third party\libxml2-2.9.2\include;..\..\src\util</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\third party\log4cpp\include;$(SolutionDir)\..\third party\libxml2\include;..\..\src\util</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
@@ -157,7 +145,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies>libxml2.lib;log4cpp.lib;util.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\x86\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\x86\$(Configuration);..\..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\x86\$(Configuration);$(SolutionDir)\..\third party\libxml2\lib\x86\$(Configuration);..\..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ImportLibrary>$(SolutionDir)\..\lib\$(TargetName).lib</ImportLibrary>
     </Link>
   </ItemDefinitionGroup>
@@ -168,14 +156,14 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(SolutionDir)\..\third party\log4cpp\include;$(SolutionDir)\..\third party\libxml2-2.9.2\include;..\..\src\util;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\third party\log4cpp\include;$(SolutionDir)\..\third party\libxml2\include;..\..\src\util;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_CRT_NONSTDC_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\libxml2-2.9.2\lib\$(Platform)\$(Configuration);..\..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)\..\third party\log4cpp\lib\$(Platform)\$(Configuration);$(SolutionDir)\..\third party\libxml2\lib\$(Platform)\$(Configuration);..\..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>libxml2.lib;log4cpp.lib;util.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ImportLibrary>$(SolutionDir)\..\lib\$(TargetName).lib</ImportLibrary>
     </Link>

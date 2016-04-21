@@ -46,7 +46,7 @@ char    g_vrtm_root[64] = "../";
 #ifdef __linux__
 char 	g_trust_report_dir[512] = "/var/log/trustreports/";
 #elif _WIN32
-char 	g_trust_report_dir[512] = "../temp/trustreports/";
+char 	g_trust_report_dir[512] = "C:/OpenStack/Log/trustreports";
 #endif
 char* 	g_mount_path = "/mnt/vrtm/";
 long 	g_entry_cleanup_interval = 30;
@@ -108,7 +108,7 @@ int read_config()
 	trust_report_dir = config_map["trust_report_dir"];
 	if (trust_report_dir == "") {
 #ifdef _WIN32
-		trust_report_dir = "../temp/trustreports/";
+		trust_report_dir = "C:/OpenStack/Log/trustreports";
 #elif __linux__
 		trust_report_dir = "/var/log/trustreports/";
 #endif
@@ -215,7 +215,7 @@ int singleInstanceRpcoreservice()
 		return -2;
      }
 #elif _WIN32
-    const char *lockFile="../temp/rpcoreservice__DT_XX99";
+    const char *lockFile="../rpcoreservice__DT_XX99";
 	if (CreateFile((LPCSTR)lockFile, GENERIC_READ | GENERIC_WRITE, 0, NULL, 2, FILE_ATTRIBUTE_NORMAL, NULL) == INVALID_HANDLE_VALUE) {
 		//LOG_ERROR("Unable get Handle of lock file. \n Another instance of vRTM might be running");
 		return -2;

@@ -33,6 +33,14 @@ GOTO:EOF
   copy "%vrtm_home%\third party\log4cpp\bin\%1\%2\log4cpp.dll" %vrtm_home%\bin /y
   echo. "%vrtm_home%\third party\pthread\dll\%1\pthreadVC2.dll"
   copy "%vrtm_home%\third party\pthread\dll\%1\pthreadVC2.dll" %vrtm_home%\bin /y
+  
+  mkdir "%vrtm_home%\prerequisites"
+  echo. "%vrtm_home%\third party\Ext2Fsd-0.62.exe"
+  copy "%vrtm_home%\third party\Ext2Fsd-0.62.exe" %vrtm_home%\prerequisites /y
+  echo. "%vrtm_home%\third party\vcredist\vs2010\vcredist_%1.exe"
+  copy "%vrtm_home%\third party\vcredist\vs2010\vcredist_%1.exe" %vrtm_home%\prerequisites\vcredist_10.exe /y
+  echo. "%vrtm_home%\third party\vcredist\vs2013\vcredist_%1.exe"
+  copy "%vrtm_home%\third party\vcredist\vs2013\vcredist_%1.exe" %vrtm_home%\prerequisites\vcredist_13.exe /y
 GOTO:EOF
 
 :vrtm_build
