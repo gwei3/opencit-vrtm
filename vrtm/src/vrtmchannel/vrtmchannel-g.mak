@@ -55,7 +55,7 @@ $(OBJ)/xpathparser.o: $(TM)/xpathparser.cpp $(TM)/xpathparser.h
 	$(CC) $(CFLAGS) -I$(S) -I$(LXML) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/xpathparser.o $(TM)/xpathparser.cpp -lxml2
 
 $(OBJ)/loadconfig.o: $(S)/loadconfig.cpp $(S)/loadconfig.h
-	$(CC) $(CFLAGS) -I$(S) -I$(LOG4CPP) -c -o $(OBJ)/loadconfig.o $(S)/loadconfig.cpp
+	$(CC) $(CFLAGS) -I$(S) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/loadconfig.o $(S)/loadconfig.cpp
 	
 	
 $(LIB)/libvrtmchannel.so: $(sobjs)

@@ -6,12 +6,21 @@
 #include "logging.h"
 #include "loadconfig.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "safe_lib.h"
+#ifdef __cplusplus
+}
+#endif
+
 int load_config(const char * configFile, std:: map<std::string, std::string> & config_map)
 {
 	char *line;
 	int line_size = 512;
-	char *key;
-	char *value;
+	char *key = NULL;
+	char *value = NULL;
+	long unsigned int cur_line_size = 0;
 
 	FILE *fp = fopen(configFile,"r");
 	LOG_TRACE("Loading vRTM config file %s", configFile);
@@ -35,8 +44,9 @@ int load_config(const char * configFile, std:: map<std::string, std::string> & c
 				free(line);
 				continue;
 			}
-			key=strtok(line,"=");
-			value=strtok(NULL,"=");
+			cur_line_size= strnlen_s(line, line_size);
+			key=strtok_s(line, &cur_line_size, "=", &value);
+			//value=strtok(NULL, &cur_tok_len, "=", &next_tok);
 			if(key != NULL && value != NULL) {
 				std::string map_key (key);
 				std::string map_value (value);

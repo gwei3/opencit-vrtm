@@ -134,7 +134,7 @@ int read_config()
 	g_max_thread_limit = atoi(max_thread_limit.c_str());
 	LOG_DEBUG("vRTM Max concurrent request processing limit : %d", g_max_thread_limit);
 	strcpy_s(g_vrtm_root, sizeof(g_vrtm_root), vrtm_root.c_str());
-	strcat(g_vrtm_root, "/");
+	strcat_s(g_vrtm_root, sizeof(g_vrtm_root), "/");
 	LOG_DEBUG("vRTM root : %s", g_vrtm_root);
 	strcpy_s(g_trust_report_dir,sizeof(g_trust_report_dir),trust_report_dir.c_str());
 	strcat_s(g_trust_report_dir,sizeof(g_trust_report_dir),"/");

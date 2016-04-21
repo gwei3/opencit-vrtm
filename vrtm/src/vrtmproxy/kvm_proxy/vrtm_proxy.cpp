@@ -277,9 +277,9 @@ int main(int argc, char** argv) {
 	LOG_DEBUG("Disk Path: %s", disk_path);
 
     //Extract UUID of VM
-    strncpy(trust_report_dir, disk_path, disk_path_len-strlen("/disk"));
+    strncpy_s(trust_report_dir, sizeof(trust_report_dir), disk_path, disk_path_len - sizeof("/disk") - 1);
     char *uuid_ptr = strrchr(trust_report_dir, '/');
-    strcpy(uuid, uuid_ptr + 1);
+    strcpy_s(uuid, sizeof(uuid), uuid_ptr + 1);
     LOG_TRACE("Extracted UUID : %s", uuid);
 
     // Parse the config file and extract the manifest path
@@ -349,7 +349,7 @@ int main(int argc, char** argv) {
 		strcat_s(kernel_args, sizeof(kernel_args), " vrtmcore_ip=");
 		strcat_s(kernel_args, sizeof(kernel_args), vrtmcore_ip);
         //snprintf(kernel_args, sizeof(kernel_args), "%s rpcore_ip=%s", kernel_args, rpcore_ip);
-		strncat(kernel_args, sizeof(kernel_args), " vrtmcore_port=");
+		strcat_s(kernel_args, sizeof(kernel_args), " vrtmcore_port=");
 		char vrtm_port_buff[32] = {'\0'};
 		snprintf(vrtm_port_buff, sizeof(vrtm_port_buff), "%d", vrtmcore_port);
 		strcat_s(kernel_args, sizeof(kernel_args), vrtm_port_buff);

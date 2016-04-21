@@ -49,7 +49,7 @@ endif
 #$(LINK) -o $(BIN)/rpcoreservice $(sobjs) $(LDFLAGS) -lxenlight -lxlutil -lxenctrl -lxenguest -lblktapctl -lxenstore -luuid -lutil -lpthread -L$(LIB) -lrpdombldr-g
 
 $(OBJ)/logging.o: $(SC)/logging.cpp $(SC)/logging.h 
-	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -c -o $(OBJ)/logging.o $(SC)/logging.cpp
+	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/logging.o $(SC)/logging.cpp
 
 $(OBJ)/vrtmcoremain.o: $(TM)/vrtmcoremain.cpp
 	@echo $(debug)

@@ -356,7 +356,7 @@ TCSERVICE_RESULT tcServiceInterface::initService(const char* execfile, int an, c
         return TCSERVICE_RESULT_FAILED;
     g_servicehashType= hashType;
     g_servicehashSize= sizehash;
-    memcpy(g_servicehash, rgHash, sizehash);
+    memcpy_s(g_servicehash, sizeof(g_servicehash), rgHash, sizehash);
     g_fservicehashValid= true;
 #endif
 
@@ -837,7 +837,7 @@ TCSERVICE_RESULT tcServiceInterface::get_xpath_values(std::map<unsigned char *, 
 TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int* poutsize, byte* out)
 {
     int     size= SHA256DIGESTBYTESIZE;
-    byte    rgHash[SHA256DIGESTBYTESIZE];
+    byte    rgHash[SHA256DIGESTBYTESIZE] = {'\0'};
     int     child= 0;
     int     i;
     char    kernel_file[1024] = {0};
@@ -909,7 +909,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         }
 
         if( av[i] && strcmp(av[i], "-uuid") == 0 ){
-        	strcpy(vm_uuid, av[++i]);
+        	strcpy_s(vm_uuid, sizeof(vm_uuid), av[++i]);
         	LOG_DEBUG("uuid : %s",vm_uuid);
         }
 
@@ -923,7 +923,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         	LOG_DEBUG("Instance type : Docker instance, %d", instance_type);
         }
         if ( av[i] && strcmp(av[i], "-mount_path") == 0) {
-        	strcpy(mount_path, av[++i]);
+        	strcpy_s(mount_path, sizeof(mount_path), av[++i]);
         	LOG_DEBUG("Mounted image path : %s", mount_path);
         }
     }
@@ -960,15 +960,14 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		fp1=popen(popen_command,"r");
 		if (fp1 != NULL) {
 			fgets(extension, sizeof(extension)-1, fp1);
-			sprintf(measurement_file,"%s.%s","/measurement",extension);
+			snprintf(measurement_file, sizeof(measurement_file), "%s.%s","/measurement",extension);
 			pclose(fp1);
-			if(measurement_file[strlen(measurement_file) - 1] == '\n')
-				measurement_file[strlen(measurement_file) - 1] = '\0';
+			if(measurement_file[strnlen_s(measurement_file, sizeof(measurement_file)) - 1] == '\n')
+				measurement_file[strnlen_s(measurement_file, sizeof(measurement_file)) - 1] = '\0';
 			LOG_DEBUG("Extension : %s",extension);
 
-			strncpy(cumulativehash_file, vm_manifest_dir, sizeof(cumulativehash_file) -  1);
-			strncat(cumulativehash_file, measurement_file, sizeof(cumulativehash_file) - strlen(cumulativehash_file) - 1);
-			cumulativehash_file[ sizeof(cumulativehash_file) - 1] = '\0';
+			strcpy_s(cumulativehash_file, sizeof(cumulativehash_file), vm_manifest_dir);
+			strcat_s(cumulativehash_file, sizeof(cumulativehash_file), measurement_file);
 			LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
 		}
 		else {
@@ -1138,10 +1137,12 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				strcpy_s(vm_manifest_hash, MANIFEST_HASH_SIZE, imageHash);
 				int len = strnlen_s(imageHash,sizeof(imageHash));
 				int iSize = 0;
+				/*
 				for (c= 0; c < len; c = c+2) {
 					sscanf(&imageHash[c], "%02x", (unsigned int *)&rgHash[c/2]);
 					iSize++;
 				}
+				*/
 				LOG_TRACE("Adding proc table entry for measured VM");
 				int temp_proc_id = g_myService.m_procTable.getprocIdfromuuid(vm_uuid);
 				int vm_data_size = 0;
