@@ -1,4 +1,7 @@
 @echo off
+REM #####################################################################
+REM This script build the third party libraries on windows platform
+REM #####################################################################
 setlocal enabledelayedexpansion
 
 set me=%~n0
@@ -6,11 +9,6 @@ set pwd=%~dp0
 
 set vcvarsall="C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\vcvarsall.bat"
 set VsDevCmd="C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\Tools\VsDevCmd.bat"
-set dest_home="C:\Users\gs-1018\Desktop"
-
-set libxml_home=%1
-set log4cpp_home=%2
-set pthread_home=%3
 
 IF "%~1"=="" (
   call:print_help
@@ -19,6 +17,10 @@ IF "%~1"=="" (
 ) ELSE IF "%~3"=="" (
   call:print_help
 ) ELSE (
+  set libxml_home=%1
+  set log4cpp_home=%2
+  set pthread_home=%3
+  set /p dest_home=Enter the location to copy build files : 
   call:libxml_build
 )
 GOTO:EOF
@@ -45,7 +47,7 @@ GOTO:EOF
   )
   call:libxml_build_util Release x86
   call:libxml_build_util Release x64
-  cd
+
   cscript configure.js iconv=no debug=yes
   IF NOT %ERRORLEVEL% EQU 0 (
     echo. %me%: Libxml debug configurations could not be set
@@ -102,10 +104,6 @@ GOTO:EOF
   copy %pthread_home%\lib\x64\pthreadVC2.lib "%dest_home%\third party\pthread\lib\x64" /y
 GOTO:EOF
 
-:print_help
-  echo. "Usage: $0 libxml_dir log4cpp_dir pthread_dir"
-GOTO:EOF
-
 :libxml_build_util
   setlocal
   echo. inside libxml_build_util %1 %2
@@ -124,7 +122,7 @@ GOTO:EOF
 	  EXIT /b %ERRORLEVEL%
 	)
   )
-  cd
+
   nmake /f Makefile.msvc
   IF NOT %ERRORLEVEL% EQU 0 (
     echo. %me%: Build Failed
@@ -139,7 +137,6 @@ GOTO:EOF
 :log4cpp_build_util
   setlocal
   echo. inside log4cpp_build_util %1 %2
-  cd
   IF "%2"=="x86" (
     echo. calling with Win32 option
     msbuild msvc10.sln /property:Configuration=%1;Platform=Win32
@@ -162,6 +159,10 @@ GOTO:EOF
 	)
   )
   endlocal
+GOTO:EOF
+
+:print_help
+  echo. "Usage: $0 libxml_dir log4cpp_dir pthread_dir"
 GOTO:EOF
 
 endlocal
