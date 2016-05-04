@@ -117,7 +117,8 @@ int read_config()
 	count++;
 	entry_cleanup_interval = config_map["entry_cleanup_interval"];
 	if (entry_cleanup_interval == "") {
-		LOG_WARN("VM Entry cleanup interval not found in vRTM.cfg. Using default value : %d", g_entry_cleanup_interval);
+		entry_cleanup_interval = "30";
+		LOG_WARN("VM Entry cleanup interval not found in vRTM.cfg. Using default value : %d", entry_cleanup_interval.c_str());
 	}
 	count++;
 	/*delete_vm_max_age = config_map["delete_vm_max_age"];
@@ -127,7 +128,8 @@ int read_config()
 	count++;*/
 	cancelled_vm_max_age = config_map["cancelled_vm_max_age"];
 	if (cancelled_vm_max_age == "") {
-		LOG_WARN("Cancelled VM cleanup interval not found in vRTM.cfg. Using default value : %d", g_cancelled_vm_max_age);
+		cancelled_vm_max_age = "86400";
+		LOG_WARN("Cancelled VM cleanup interval not found in vRTM.cfg. Using default value : %d", cancelled_vm_max_age.c_str());
 	}
 	count++;
 	/*stopped_vm_max_age = config_map["stopped_vm_max_age"];
@@ -142,7 +144,7 @@ int read_config()
 	g_max_thread_limit = atoi(max_thread_limit.c_str());
 	LOG_DEBUG("vRTM Max concurrent request processing limit : %d", g_max_thread_limit);
 	strcpy_s(g_vrtm_root, sizeof(g_vrtm_root), vrtm_root.c_str());
-	strcat(g_vrtm_root, "/");
+	strcat_s(g_vrtm_root, sizeof(g_vrtm_root),"/");
 	LOG_DEBUG("vRTM root : %s", g_vrtm_root);
 	strcpy_s(g_trust_report_dir,sizeof(g_trust_report_dir),trust_report_dir.c_str());
 	strcat_s(g_trust_report_dir,sizeof(g_trust_report_dir),"/");

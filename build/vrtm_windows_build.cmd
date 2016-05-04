@@ -4,8 +4,6 @@ setlocal enabledelayedexpansion
 set me=%~n0
 set pwd=%~dp0
 set "vrtm_build_home=%pwd%"
-
-REM set makensis="C:\Program Files (x86)\NSIS\\makensis.exe"
 IF "%NSIS_HOME%"=="" (
   set "makensis=C:\Program Files (x86)\NSIS\makensis.exe"
 ) ELSE (
@@ -14,9 +12,9 @@ IF "%NSIS_HOME%"=="" (
 
 set vrtm_home=%pwd%\..\vrtm
 
-IF "%1"=="" (
+IF "%~1"=="" (
   call:print_help
-) ELSE IF "%2"=="" (
+) ELSE IF "%~2"=="" (
   call:print_help
 ) ELSE (
   call:vrtm_install %1 %2

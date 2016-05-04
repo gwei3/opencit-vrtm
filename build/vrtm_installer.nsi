@@ -6,6 +6,7 @@
 !define PRODUCT_NAME "vRTM"
 !define PRODUCT_VERSION "1.0"
 !define PRODUCT_PUBLISHER "Intel Corporation"
+!define PRODUCT_WEB_SITE "http://www.intel.com"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
@@ -39,6 +40,7 @@ var vcr13Flag
 ; Components page
 ;!insertmacro MUI_PAGE_COMPONENTS
 ; Directory page
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW DirectoryPageShow
 !insertmacro MUI_PAGE_DIRECTORY
 ; Instfiles page
 !insertmacro MUI_PAGE_INSTFILES
@@ -132,6 +134,7 @@ FunctionEnd
 ; ----------------------------------------------------------------------------------
 
 Section InstallPrerequisites
+  SetOverwrite ifnewer
   SetOutPath "$INSTDIR\prerequisites"
   File "..\vrtm\prerequisites\vcredist_10.exe"
   ${If} $vcr10Flag == 0
@@ -156,11 +159,11 @@ Section InstallPrerequisites
 SectionEnd
 
 Section Install
+  SetOverwrite ifnewer
   SetOutPath "$INSTDIR\configuration"
   File "..\vrtm\configuration\vRTM.cfg"
   File "..\vrtm\configuration\vrtm_log.properties"
   File "..\vrtm\configuration\vrtm_proxylog.properties"
-
   SetOutPath "$INSTDIR\scripts"
   File "..\install\nocmd.vbs"
   File "..\install\initsvcsetup.cmd"
@@ -168,7 +171,6 @@ Section Install
   File "..\vrtm\scripts\Mount-EXTVM.ps1"
   File "..\vrtm\scripts\mount_vm_image.sh"
   File "..\vrtm\scripts\preheat-guestmount.sh"
-
   SetOutPath "$INSTDIR\bin"
   File "..\vrtm\bin\log4cpp.dll"
   File "..\vrtm\bin\libxml2.dll"
@@ -190,7 +192,7 @@ Section Post
   WriteRegStr HKLM "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\bin\vrtmcore.exe"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninst.exe"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\bin\vrtmcore.exe"
+  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
 
@@ -317,13 +319,21 @@ Function .onInit
 FunctionEnd
 
 Function un.onInit
-  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
-  Abort
+;  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "Are you sure you want to completely remove $(^Name) and all of its components?" IDYES +2
+;  Abort
 FunctionEnd
 
 Function un.onUninstSuccess
-  HideWindow
-  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer."
+;  HideWindow
+;  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) was successfully removed from your computer."
+FunctionEnd
+
+Function DirectoryPageShow
+	FindWindow $R0 "#32770" "" $HWNDPARENT
+	GetDlgItem $R1 $R0 1019
+	EnableWindow $R1 0
+	GetDlgItem $R1 $R0 1001
+	EnableWindow $R1 0
 FunctionEnd
 ; ----------------------------------------------------------
 ; ****************** END OF FUNCTIONS **********************
