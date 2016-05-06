@@ -53,6 +53,7 @@ typedef unsigned TCSERVICE_RESULT;
 #define MANIFEST_SIGNATURE_SIZE 512
 #define LAUNCH_POLICY_SIZE	15
 #define MANIFEST_DIR_SIZE	1024
+#define INSTANCENAME_SIZE 512
 
 //#include "jlmUtility.h"
 #ifndef byte
@@ -74,6 +75,7 @@ public:
     int                 m_size_vm_manifest_dir;
     byte                m_rgHash[RG_HASH_SIZE];
     char                m_uuid[UUID_SIZE];
+    char				m_instance_name[INSTANCENAME_SIZE];
     char                m_vdi_uuid[UUID_SIZE];
     char*               m_szexeFile;
     int                 m_nArgs;
@@ -92,7 +94,7 @@ public:
     int					m_instance_type;
 
     serviceprocEnt() : m_rgHash(), m_uuid(), m_vdi_uuid(), m_vm_image_id(), m_vm_customer_id(),
-    		m_vm_manifest_hash(), m_vm_manifest_signature(), m_vm_launch_policy(), m_vm_manifest_dir() {
+    		m_vm_manifest_hash(), m_vm_manifest_signature(), m_vm_launch_policy(), m_vm_manifest_dir(), m_instance_name() {
     	
 	m_procid = m_sizeHash = m_size_vm_image_id = m_size_vm_customer_id = m_size_vm_manifest_hash =
     			m_size_vm_manifest_signature = m_size_vm_launch_policy = m_size_vm_manifest_dir = m_nArgs = 0;
@@ -121,11 +123,13 @@ public:
     bool                addprocEntry(int procid, const char* file, int an, char** av,
     			int sizeHash, byte* hash, int instance_type);
     bool 				updateprocEntry(int procid, char* uuid, char* vdi_uuid);
-    bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature,char* launch_policy,bool status, char * vm_manifest_dir);
+    bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature,
+    						char* launch_policy,bool status, char * vm_manifest_dir, char * instance_name = NULL);
     bool                removeprocEntry(int procid);
     bool                removeprocEntry(char* uuid);
     serviceprocEnt*     getEntfromprocId(int procid);
     int					getprocIdfromuuid(char* uuid);
+    int					getprocIdfrominstance_name(char *instance_name);
     int					getproctablesize();
     int 				getcancelledvmcount();
     int					getactivedockeruuid(std::set<std::string> &);

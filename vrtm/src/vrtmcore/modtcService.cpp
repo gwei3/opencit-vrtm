@@ -189,11 +189,15 @@ bool serviceprocTable::updateprocEntry(int procid, char* uuid, char *vdi_uuid)
 }
 
 bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash,
-									char* vm_manifest_signature, char *launch_policy, bool verification_status, char * vm_manifest_dir) {
+									char* vm_manifest_signature, char *launch_policy, bool verification_status,
+									char * vm_manifest_dir, char * instance_name) {
     //geting the procentry related to this procid
 	LOG_DEBUG("vRTM map entry of vRTM id : %d to be updated with vm image id : %s vm customer id : %s vm hash : %s"
 			" vm manifest signature : %s launch policy : %s verification status : %d vm manifest dir : %s", procid, vm_image_id,
 			vm_customer_id, vm_manifest_hash, vm_manifest_signature, launch_policy, verification_status, vm_manifest_dir);
+	if (instance_name != NULL) {
+		LOG_DEBUG("instance Name : %s", instance_name);
+	}
 	pthread_mutex_lock(&loc_proc_table);
 	proc_table_map::iterator table_it = proc_table.find(procid);
 	if( table_it == proc_table.end()) {
@@ -217,6 +221,10 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 	if (verification_status == false && (strcmp(launch_policy, "Enforce") == 0)) {
 		LOG_DEBUG("Updated the VM status to : %d ", VM_STATUS_CANCELLED);
 		table_it->second.m_vm_status = VM_STATUS_CANCELLED;
+	}
+	if ( instance_name != NULL) {
+		//copy instance name if updateprocTable() is called with docker instance name
+		strcpy_s(table_it->second.m_instance_name, INSTANCENAME_SIZE, instance_name);
 	}
 	pthread_mutex_unlock(&loc_proc_table);
 	cleanupService();
@@ -250,6 +258,26 @@ int serviceprocTable::getprocIdfromuuid(char* uuid) {
 	}
 	pthread_mutex_unlock(&loc_proc_table);
 	LOG_WARN("UUID %s is not registered with vRTM", uuid);
+	return NULL;
+}
+
+int	serviceprocTable::getprocIdfrominstance_name(char *docker_instance_name){
+	if (docker_instance_name == NULL) {
+		LOG_WARN("Provide a valid instance name. Recieved address of docker instance name is NULL");
+		return NULL;
+	}
+	LOG_DEBUG("Finding vRTM Id of map entry having docker instance name : %s", docker_instance_name);
+	pthread_mutex_lock(&loc_proc_table);
+	for(proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++ ) {
+		if (strcmp(table_it->second.m_instance_name, docker_instance_name) == 0) {
+			LOG_INFO("vRTM Id of entry with instance name is : %d", table_it->first);
+			int proc_id = table_it->first;
+			pthread_mutex_unlock(&(this->loc_proc_table));
+			return (proc_id);
+		}
+	}
+	pthread_mutex_unlock(&(this->loc_proc_table));
+	LOG_WARN("Docker instance name : %s is not registered with vRTM", docker_instance_name );
 	return NULL;
 }
 
@@ -445,8 +473,11 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	
 	int proc_id = m_procTable.getprocIdfromuuid(vm_uuid);
 	if (proc_id == NULL) {
-		LOG_ERROR("UUID : %s is not registered with vRTM\n", vm_uuid);
-		return TCSERVICE_RESULT_FAILED;
+		//check whether docker instance of this name is registered with vrtmcore
+		if ( (proc_id = m_procTable.getprocIdfrominstance_name(vm_uuid)) == NULL) {
+			LOG_ERROR("Any instance with given UUID or Name : %s is not registered with vRTM\n", vm_uuid);
+			return TCSERVICE_RESULT_FAILED;
+		}
 	}
 	serviceprocEnt * pEnt = m_procTable.getEntfromprocId(proc_id);
 	if ( pEnt != NULL) {
@@ -457,7 +488,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 			return TCSERVICE_RESULT_FAILED;
 		}
 	}
-	snprintf(vm_manifest_dir, MANIFEST_DIR_SIZE, "%s%s/", g_trust_report_dir, vm_uuid); 
+	snprintf(vm_manifest_dir, MANIFEST_DIR_SIZE, "%s%s/", g_trust_report_dir, pEnt->m_uuid);
 	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
 	
 		
@@ -476,7 +507,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
 
-	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
+	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>",nonce, pEnt->m_uuid,"SHA256", pEnt->m_vm_manifest_hash);
 	fprintf(fp1,"%s",xmlstr);
 	fclose(fp1);
 	chmod(filepath, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -485,7 +516,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	// Calculate the Digest Value       
 
 
-	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
+	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, pEnt->m_uuid,"SHA256", pEnt->m_vm_manifest_hash);
 	snprintf(tempfile,sizeof(tempfile),"%sus_xml.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
 	if (fp == NULL) {
@@ -860,6 +891,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char    vm_manifest_dir[1024] ={0};
     bool 	verification_status = false;
     char	vm_uuid[UUID_SIZE] = {'\0'};
+    char	instance_name[INSTANCENAME_SIZE] = {'\0'};
     int 	start_app_status = 0;
     char 	command[2304]={0};
 	FILE*   fp1=NULL;
@@ -932,6 +964,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         	strcpy_s(mount_path, sizeof(mount_path), av[++i]);
         	LOG_DEBUG("Mounted image path : %s", mount_path);
         }
+        if ( av[i] && strcmp(av[i], "-name") == 0) {
+        	strcpy_s(instance_name, INSTANCENAME_SIZE, av[++i]);
+        	LOG_DEBUG("Name of instance : %s", instance_name);
+        }
     }
 
 	if(vm_uuid[0] == 0) {
@@ -940,6 +976,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	}
 	else if ( instance_type == INSTANCE_TYPE_DOCKER && mount_path[0] == '\0' ) {
 		LOG_ERROR("Instance type is docker instance and mount path is not specified");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	else if ( instance_type == INSTANCE_TYPE_DOCKER && instance_name[0] == '\0') {
+		LOG_ERROR("Instance type is docker and name of instance is not specified");
 		return TCSERVICE_RESULT_FAILED;
 	}
 
@@ -1172,7 +1212,19 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				}
 			}
 			LOG_TRACE("Updating proc table entry");
-		   if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir)) {
+			int update_stat = false;
+			if ( instance_type == INSTANCE_TYPE_VM ) {
+				LOG_TRACE("calling updateprocEntry without  instance name");
+				update_stat = g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash,
+						vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir);
+			}
+			else if( instance_type == INSTANCE_TYPE_DOCKER) {
+				LOG_TRACE("calling updateprocEntry with  instance name");
+				// pass instance name too
+				update_stat = g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash,
+						vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir, instance_name);
+			}
+			if(!update_stat) {
 				LOG_ERROR("SartApp : can't update proc table entry\n");
 				//return TCSERVICE_RESULT_FAILED;
 				start_app_status = 1;
