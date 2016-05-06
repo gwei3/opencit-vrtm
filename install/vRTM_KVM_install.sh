@@ -15,7 +15,6 @@ BUILD_LIBVIRT="FALSE"
 KVM_BINARY=""
 LOG_DIR="/var/log/vrtm"
 VERSION_INFO_FILE=vrtm.version
-DEFAULT_DEPLOYMENT_TYPE="vm"
 
 # This function returns either rhel fedora ubuntu suse
 # TODO : This function can be moved out to some common file
@@ -576,10 +575,6 @@ function install_log4cpp()
 
 function main_default()
 {
-	if [ -z "$DEPLOYMENT_TYPE" ]
-	then
-		DEPLOYMENT_TYPE=$DEFAULT_DEPLOYMENT_TYPE
-	fi
   if [ -z "$INSTALL_DIR" ]; then
     INSTALL_DIR="$DEFAULT_INSTALL_DIR"
   fi

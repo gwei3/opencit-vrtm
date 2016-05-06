@@ -24,6 +24,11 @@
 export VRTM_HOME=${VRTM_HOME:-/opt/vrtm}
 VRTM_LAYOUT=${VRTM_LAYOUT:-home}
 VRTM_VERSION_FILE=vrtm.version
+DEFAULT_DEPLOYMENT_TYPE="vm"
+if [ -z "$DEPLOYMENT_TYPE" ]
+then
+	export DEPLOYMENT_TYPE=$DEFAULT_DEPLOYMENT_TYPE
+fi
 
 # the env directory is not configurable; it is defined as VRTM_HOME/env and
 # the administrator may use a symlink if necessary to place it anywhere else
