@@ -1592,10 +1592,11 @@ void* clean_deleted_docker_instances(void *){
 	LOG_TRACE("");
 	while(g_myService.m_procTable.getactivedockeruuid(uuid_list)) {
 		int cleaned_entries;
-		sleep(g_entry_cleanup_interval);
+		//sleep(g_entry_cleanup_interval);
 		g_myService.CleanVrtmTable(uuid_list, &cleaned_entries);
 		LOG_INFO("Number of Docker instances removed from vRTM table : %d", cleaned_entries);
 		uuid_list.clear();
+		sleep(g_entry_cleanup_interval);
 	}
 	g_docker_deletion_service_status = 0;
 	LOG_DEBUG("Docker Deletion Service thread exiting...");
