@@ -185,6 +185,7 @@ int read_config()
 		}
 	}
 #ifdef __linux__
+	chmod(g_trust_report_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 	// create mount location for vRTM at /mnt/vrtm
 	if (make_dir(g_mount_path) != 0) {
 		return -1;

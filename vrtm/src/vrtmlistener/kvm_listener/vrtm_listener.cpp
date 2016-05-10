@@ -25,12 +25,11 @@ VM’s UUID to clean up the VM’s record in VRTMCore.
 #include <fcntl.h>
 #include <map>
 #include <iostream>
+#include "logging.h"
 #include "tcpchan.h"
 #include "channelcoding.h"
 #include "parser.h"
 #include "vrtm_api_code.h"
-
-#include "logging.h"
 #include "log_vrtmchannel.h"
 
 #ifdef __cplusplus
@@ -177,7 +176,7 @@ static void stopOnSignal(int sig) {
 void* listen_libvirt_events( void* input) {
 
     struct sigaction action_stop;
-    memset_s(&action_stop, sizeof(action_stop), 0);
+    memset(&action_stop, 0, sizeof(action_stop));
     action_stop.sa_handler = stopOnSignal;
     LOG_TRACE("Registering for listening to Libvirt events");
 
@@ -285,7 +284,7 @@ int update_vm_status(char* uuid, int vm_status) {
         goto fail;
     }
 
-    memset_s(rgBuf, sizeof(rgBuf), 0);
+    memset(rgBuf, 0, sizeof(rgBuf));
     LOG_TRACE( "Request sent successfully");
     LOG_TRACE( "Reading from socket for response");
     

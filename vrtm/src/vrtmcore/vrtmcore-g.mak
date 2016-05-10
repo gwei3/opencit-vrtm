@@ -33,10 +33,8 @@ O1CFLAGS=    -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D __FLUSHIO__ $(O1RELEASE_
 CC=         g++
 LINK=       g++
 
-sobjs=    	$(OBJ)/vrtmcoremain.o $(OBJ)/vrtminterface.o \
-            $(OBJ)/modtcService.o $(OBJ)/logging.o \
-	    $(OBJ)/loadconfig.o $(OBJ)/vrtmCommon.o $(OBJ)/vrtmsockets.o
-			
+sobjs=    	$(OBJ)/vrtmcoremain.o $(OBJ)/vrtminterface.o $(OBJ)/modtcService.o $(OBJ)/logging.o
+
 #	    $(OBJ)/dombuilder.o $(OBJ)/tcpchan.o
 
 all: $(BIN)/vrtmcore
@@ -49,15 +47,6 @@ ifneq "$(debug)" "1"
 endif
 
 #$(LINK) -o $(BIN)/rpcoreservice $(sobjs) $(LDFLAGS) -lxenlight -lxlutil -lxenctrl -lxenguest -lblktapctl -lxenstore -luuid -lutil -lpthread -L$(LIB) -lrpdombldr-g
-
-$(OBJ)/vrtmsockets.o: $(SC)/vrtmsockets.cpp $(SC)/vrtmsockets.h
-	$(CC) $(CFLAGS) -I$(SC) -c -o $(OBJ)/vrtmsockets.o $(SC)/vrtmsockets.cpp
-
-$(OBJ)/vrtmCommon.o: $(SC)/vrtmCommon.cpp $(SC)/vrtmCommon.h
-	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -c -o $(OBJ)/vrtmCommon.o $(SC)/vrtmCommon.cpp
-
-$(OBJ)/loadconfig.o: $(SC)/loadconfig.cpp $(SC)/loadconfig.h
-	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/loadconfig.o $(SC)/loadconfig.cpp
 
 $(OBJ)/logging.o: $(SC)/logging.cpp $(SC)/logging.h 
 	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -c -o $(OBJ)/logging.o $(SC)/logging.cpp

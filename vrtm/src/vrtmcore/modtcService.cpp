@@ -785,7 +785,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 
 	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
 	fprintf(fp1,"%s",xmlstr);
-	//fclose(fp1);
+	fclose(fp1);
     LOG_DEBUG("XML content : %s", xmlstr);
 
 	// Calculate the Digest Value       
@@ -799,7 +799,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
 
-
+/*
 	if(canonicalizeXml(tempfile, outfile) != 0) {
 		return TCSERVICE_RESULT_FAILED;
 	}
@@ -814,17 +814,17 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	}
 	LOG_DEBUG("Encoded Hash : %s", b64_str);
 	fprintf(fp1,"%s", b64_str);
-/*
+*/
 	snprintf(command0,sizeof(command0),"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n >> %ssigned_report.xml", manifest_dir,manifest_dir);
 	LOG_DEBUG("command generated to calculate hash: %s", command0);
 	system(command0);
-*/
 
-	//fp1 = fopen(filepath,"a");
+
+	fp1 = fopen(filepath,"a");
 	snprintf(xmlstr,sizeof(xmlstr),"</DigestValue></Reference></SignedInfo><SignatureValue>");
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
-    //fclose(fp1);
+    fclose(fp1);
 
 
     // Calculate the Signature Value
@@ -836,14 +836,14 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	}
 	snprintf(xmlstr,sizeof(xmlstr),"<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod><DigestValue>");
 	fprintf(fp,"%s",xmlstr); 
-	//fclose(fp);
+	fclose(fp);
 
-	fprintf(fp,"%s", b64_str);
-/*
+	//fprintf(fp,"%s", b64_str);
+
 	snprintf(command0,sizeof(command0),"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
 	system(command0);
-*/
-	//fp = fopen(tempfile,"a");
+
+	fp = fopen(tempfile,"a");
 	snprintf(xmlstr,sizeof(xmlstr),"</DigestValue></Reference></SignedInfo>");
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
@@ -867,7 +867,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	}
 	snprintf(tempfile, sizeof(tempfile), "%sus_can.xml",manifest_dir);				 
 	// Sign the XML
-	if(canonicalizeXml(tempfile, outfile) != 0) {
+	/*if(canonicalizeXml(tempfile, outfile) != 0) {
 		return TCSERVICE_RESULT_FAILED;
 	}
 	if (calculateHash(outfile, hash_str, sizeof(hash_str)) != 0) {
@@ -875,11 +875,11 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		return TCSERVICE_RESULT_FAILED;
 	}
 	LOG_DEBUG("Calculated Hash : %s", hash_str);
-/*
+*/
 	snprintf(command0,sizeof(command0),"xmlstarlet c14n %sus_can.xml | openssl dgst -sha1 -binary -out %shash.input",manifest_dir,manifest_dir);
 	system(command0);
-*/
 
+/*
 	snprintf(tempfile,sizeof(tempfile),"%shash.input",manifest_dir);
 	fp = fopen(tempfile,"wb");
 	if ( fp == NULL) {
@@ -888,12 +888,12 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	}
 	fprintf(fp, "%s", hash_str);
 	fclose(fp);
-
+*/
 	snprintf(command0,sizeof(command0),"/opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
 	LOG_DEBUG("Signing Command : %s", command0);
 	system(command0);
 
-
+/*
 	snprintf(tempfile,sizeof(tempfile),"%shash.sig",manifest_dir);
 	fp = fopen(tempfile, "rb");
 	if ( fp == NULL) {
@@ -902,7 +902,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	}
 	fgets(signature, 1024, fp);
 	fclose(fp);
-
+	LOG_DEBUG("signature read : %s", signature);
 
 	if(Base64Encode(signature, &b64_str) != 0) {
 		LOG_ERROR("Unable to encode the calculated hash");
@@ -913,33 +913,33 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	//fp1 = fopen(filepath,"a");
 	fprintf(fp1, "%s", b64_str);
 	//fclose(fp1);
-/*
+*/
 	snprintf(command0,sizeof(command0),"openssl enc -base64 -in %shash.sig |xargs echo -n >> %ssigned_report.xml",manifest_dir,manifest_dir); 
 	system(command0);
-*/
 
-	//fp1 = fopen(filepath,"a");
+
+	fp1 = fopen(filepath,"a");
 	snprintf(xmlstr,sizeof(xmlstr),"</SignatureValue><KeyInfo><X509Data><X509Certificate>");
 	LOG_DEBUG("XML content : %s", xmlstr);
 	fprintf(fp1,"%s",xmlstr);
-	//fclose(fp1);
+	fclose(fp1);
 					
 
 	// Append the X.509 certificate
-	if(appendCert(cert, manifest_dir, sizeof(cert)) != 0) {
+	/*if(appendCert(cert, manifest_dir, sizeof(cert)) != 0) {
 		LOG_ERROR("Unable to append Certificate");
 		return TCSERVICE_RESULT_FAILED;
 	}
 	LOG_DEBUG("Extracted Certificate : %s", cert);
-/*
+*/
 	snprintf(command0,sizeof(command0),"openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
 	LOG_DEBUG("Command to generate certificate : %s", command0);
 	system(command0);
-*/
+
 					   
 
-	//fp1 = fopen(filepath,"a");
-	fprintf(fp1, "%s", cert);
+	fp1 = fopen(filepath,"a");
+	//fprintf(fp1, "%s", cert);
 	snprintf(xmlstr,sizeof(xmlstr),"</X509Certificate></X509Data></KeyInfo></Signature></VMQuote>");
 	fprintf(fp1,"%s",xmlstr);
 	fclose(fp1);
@@ -1280,7 +1280,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         }
 
         if( av[i] && strcmp(av[i], "-uuid") == 0 ){
-        	strcpy(vm_uuid, av[++i]);
+        	strcpy_s(vm_uuid, sizeof(vm_uuid), av[++i]);
         	LOG_DEBUG("uuid : %s",vm_uuid);
         }
 
@@ -1294,7 +1294,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         	LOG_DEBUG("Instance type : Docker instance, %d", instance_type);
         }
         if ( av[i] && strcmp(av[i], "-mount_path") == 0) {
-        	strcpy(mount_path, av[++i]);
+        	strcpy_s(mount_path, sizeof(mount_path), av[++i]);
         	LOG_DEBUG("Mounted image path : %s", mount_path);
         }
     }

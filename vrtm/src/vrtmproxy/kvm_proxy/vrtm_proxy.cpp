@@ -20,11 +20,11 @@ VRTM-proxy will call qemu with VM launch options after the VM image measurement 
 #include <time.h>
 #include <errno.h>
 #include <unistd.h>
+#include "logging.h"
 #include "tcpchan.h"
 #include "channelcoding.h"
 #include "parser.h"
 #include "vrtm_api_code.h"
-#include "logging.h"
 #include "log_vrtmchannel.h"
 #include "loadconfig.h"
 
@@ -135,7 +135,7 @@ int get_rpcore_response(char* kernel_path, char* ramdisk_path, char* disk_path,
         goto fail;
     }
 
-    memset_s(rgBuf, sizeof(rgBuf), 0);
+    memset(rgBuf, 0, sizeof(rgBuf));
     LOG_TRACE("Request sent successfully");
     
 again:  
@@ -272,14 +272,14 @@ int main(int argc, char** argv) {
     disk_end_ptr = strstr(drive_data, ",if=none");
     int disk_path_len = disk_end_ptr-disk_start_ptr;
 	LOG_DEBUG("Disk path length: %d", disk_path_len);
-    memset_s(disk_path, sizeof(disk_path), '\0');
+    memset(disk_path, 0, sizeof(disk_path));
     strncpy_s(disk_path, PATH_MAX, disk_start_ptr, disk_path_len);
 	LOG_DEBUG("Disk Path: %s", disk_path);
 
     //Extract UUID of VM
-    strncpy(trust_report_dir, disk_path, disk_path_len-strlen("/disk"));
+    strncpy_s(trust_report_dir, sizeof(trust_report_dir), disk_path, disk_path_len-strnlen_s("/disk", sizeof("/disk")));
     char *uuid_ptr = strrchr(trust_report_dir, '/');
-    strcpy(uuid, uuid_ptr + 1);
+    strcpy_s(uuid, sizeof(uuid), uuid_ptr + 1);
     LOG_TRACE("Extracted UUID : %s", uuid);
 
     // Parse the config file and extract the manifest path
@@ -349,7 +349,7 @@ int main(int argc, char** argv) {
 		strcat_s(kernel_args, sizeof(kernel_args), " vrtmcore_ip=");
 		strcat_s(kernel_args, sizeof(kernel_args), vrtmcore_ip);
         //snprintf(kernel_args, sizeof(kernel_args), "%s rpcore_ip=%s", kernel_args, rpcore_ip);
-		strncat(kernel_args, sizeof(kernel_args), " vrtmcore_port=");
+		strcat_s(kernel_args, sizeof(kernel_args), " vrtmcore_port=");
 		char vrtm_port_buff[32] = {'\0'};
 		snprintf(vrtm_port_buff, sizeof(vrtm_port_buff), "%d", vrtmcore_port);
 		strcat_s(kernel_args, sizeof(kernel_args), vrtm_port_buff);

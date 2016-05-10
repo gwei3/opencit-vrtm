@@ -29,9 +29,18 @@ O1CFLAGS=    -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D __FLUSHIO__ $(O1RELEASE_
 CC=         g++
 LINK=       g++
 
-sobjs=     $(OBJ)/channelcoding.o $(OBJ)/parser.o $(OBJ)/tcpchan.o $(OBJ)/logging.o $(OBJ)/base64.o $(OBJ)/log_vrtmchannel.o $(OBJ)/xpathparser.o
+sobjs=     $(OBJ)/channelcoding.o $(OBJ)/parser.o $(OBJ)/tcpchan.o $(OBJ)/logging.o $(OBJ)/base64.o $(OBJ)/log_vrtmchannel.o $(OBJ)/xpathparser.o $(OBJ)/vrtmsockets.o $(OBJ)/loadconfig.o $(OBJ)/vrtmCommon.o
 
 all: $(LIB)/libvrtmchannel.so 
+
+$(OBJ)/vrtmCommon.o: $(S)/vrtmCommon.cpp $(S)/vrtmCommon.h
+	$(CC) $(CFLAGS) -I$(S) -I$(LOG4CPP) -c -o $(OBJ)/vrtmCommon.o $(S)/vrtmCommon.cpp
+
+$(OBJ)/loadconfig.o: $(S)/loadconfig.cpp $(S)/loadconfig.h
+	$(CC) $(CFLAGS) -I$(S) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/loadconfig.o $(S)/loadconfig.cpp
+
+$(OBJ)/vrtmsockets.o: $(S)/vrtmsockets.cpp $(S)/vrtmsockets.h
+	$(CC) $(CFLAGS) -I$(S) -c -o $(OBJ)/vrtmsockets.o $(S)/vrtmsockets.cpp
 
 $(OBJ)/logging.o: $(S)/logging.cpp $(S)/logging.h 
 	$(CC) $(CFLAGS) -I$(S) -I$(LOG4CPP) -c -o $(OBJ)/logging.o $(S)/logging.cpp
