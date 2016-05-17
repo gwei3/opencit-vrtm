@@ -277,7 +277,7 @@ int main(int argc, char** argv) {
 	LOG_DEBUG("Disk Path: %s", disk_path);
 
     //Extract UUID of VM
-    strncpy_s(trust_report_dir, sizeof(trust_report_dir), disk_path, disk_path_len - sizeof("/disk") - 1);
+    strncpy_s(trust_report_dir, sizeof(trust_report_dir), disk_path, disk_path_len - (sizeof("/disk") - 1));
     char *uuid_ptr = strrchr(trust_report_dir, '/');
     strcpy_s(uuid, sizeof(uuid), uuid_ptr + 1);
     LOG_TRACE("Extracted UUID : %s", uuid);
