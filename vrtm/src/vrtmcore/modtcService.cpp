@@ -499,7 +499,7 @@ int setup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *handl
 	}
 
 	*hashObject_ptr = (PBYTE)malloc(*hashObject_size);
-	if (hashObject_ptr == NULL) {
+	if (*hashObject_ptr == NULL) {
 		cleanup_CNG_api_args(handle_Alg, handle_Hash_object, hashObject_ptr, hash_ptr);
 		return -1;
 	}
@@ -643,6 +643,7 @@ int appendCert(char *certBuffer, char *manifest_dir, int certBuffer_size) {
 }
 
 int calculateHash(char *xml_file, char *hash_str, int hash_str_size) {
+	int status = 0;
 	const int bufSize = 65000;
 	char *buffer = (char *)malloc(bufSize);
 	int bytesRead = 0;
@@ -651,6 +652,7 @@ int calculateHash(char *xml_file, char *hash_str, int hash_str_size) {
 	FILE *fd = fopen(xml_file, "rb");
 	if (fd == NULL){
 		LOG_ERROR("Unable to open file '%s'\n", xml_file);
+		free(buffer);
 		return -1;
 	}
 
@@ -667,14 +669,16 @@ int calculateHash(char *xml_file, char *hash_str, int hash_str_size) {
 	status = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
 	if (!NT_SUCCESS(status)) {
 		LOG_ERROR("Could not inititalize CNG args Provider : 0x%x", status);
-		return -1;
+		status = -1;
+		goto cleanup;
 	}
 	while ((bytesRead = fread(buffer, 1, bufSize, fd))) {
 		// calculate hash of bytes read
 		status = BCryptHashData(handle_Hash_object, (PUCHAR)buffer, bytesRead, 0);
 		if (!NT_SUCCESS(status)) {
 			cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-			return -1;
+			status = -1;
+			goto cleanup;
 		}
 	}
 
@@ -693,9 +697,10 @@ int calculateHash(char *xml_file, char *hash_str, int hash_str_size) {
 
 	strncpy_s(hash_str, MAX_LEN, (char *)hash, SHA_DIGEST_LENGTH);
 #endif
+cleanup:
 	fclose(fd);
 	free(buffer);
-	return 0;
+	return status;
 }
 
 int canonicalizeXml(char *infile, char *outfile) {
@@ -821,6 +826,10 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 
 
 	fp1 = fopen(filepath,"a");
+	if (fp1 == NULL) {
+		LOG_ERROR("Can't write report in signed_report.xml file");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	snprintf(xmlstr,sizeof(xmlstr),"</DigestValue></Reference></SignedInfo><SignatureValue>");
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
@@ -844,6 +853,10 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	system(command0);
 
 	fp = fopen(tempfile,"a");
+	if (fp == NULL) {
+		LOG_ERROR("can't open the file us_can.xml");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	snprintf(xmlstr,sizeof(xmlstr),"</DigestValue></Reference></SignedInfo>");
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
@@ -919,6 +932,10 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 
 
 	fp1 = fopen(filepath,"a");
+	if (fp1 == NULL) {
+		LOG_ERROR("Can't write report in signed_report.xml file");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	snprintf(xmlstr,sizeof(xmlstr),"</SignatureValue><KeyInfo><X509Data><X509Certificate>");
 	LOG_DEBUG("XML content : %s", xmlstr);
 	fprintf(fp1,"%s",xmlstr);
@@ -939,6 +956,10 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 					   
 
 	fp1 = fopen(filepath,"a");
+	if (fp1 == NULL) {
+		LOG_ERROR("Can't write report in signed_report.xml file");
+		return TCSERVICE_RESULT_FAILED;
+	}
 	//fprintf(fp1, "%s", cert);
 	snprintf(xmlstr,sizeof(xmlstr),"</X509Certificate></X509Data></KeyInfo></Signature></VMQuote>");
 	fprintf(fp1,"%s",xmlstr);
@@ -1067,6 +1088,11 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uui
 	if (fp != NULL) {
 		while(true) {
 			line = (char *) calloc(1,sizeof(char) * line_size);
+			if (line == NULL) {
+				LOG_ERROR("Can't allocate memory to read a line");
+				fclose(fp);
+				return TCSERVICE_RESULT_FAILED;
+			}
 			fgets(line,line_size,fp);
 			if(feof(fp)) {
 				free(line);
@@ -1226,7 +1252,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	int		verifier_exit_status=1;
    //create domain process shall check the whitelist
 	child = procid;
-	char 	mount_path[128];
+	char 	mount_path[128] = {'\0'};
 	char	mount_script[128];
 	int 	instance_type = INSTANCE_TYPE_VM;
 
@@ -1302,6 +1328,9 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	if(vm_uuid[0] == 0) {
 		LOG_ERROR("uuid is not present");
 		return TCSERVICE_RESULT_FAILED;
+	}else if ( instance_type == INSTANCE_TYPE_DOCKER && mount_path[0] == '\0' ) {
+		LOG_ERROR("Instance type is docker instance and mount path is not specified");
+		return TCSERVICE_RESULT_FAILED;
 	}
 
 
@@ -1341,7 +1370,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		}
 #endif
     	/*
-    	 * extract Launch Policy, CustomerId, ImageId, VM hash, and Manifest signature value from formatted manifestlist.xml
+    	 * extract Launch Policy, CustomerId, ImageId, VM hash, Manifest signature and Digest Alg value from formatted manifestlist.xml
     	 * by specifying fixed xpaths with namespaces
     	 */
     	launch_policy_buff = (char *)calloc(1, sizeof(char)* LARGE_CHAR_ARR_SIZE);
@@ -1370,7 +1399,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			else if (strcmp(launch_policy_buff, "MeasureAndEnforce") == 0) {
 				strcpy_s(launchPolicy, sizeof(launchPolicy), "Enforce");
 			}
-			free(launch_policy_buff);
+
 			if (strcmp(launchPolicy, "Audit") != 0 && strcmp(launchPolicy, "Enforce") != 0) {
 				LOG_INFO("Launch policy is neither Audit nor Enforce so vm verification is not not carried out");
 				remove_dir(vm_manifest_dir);
@@ -1379,7 +1408,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			}
 			strcpy_s(goldenImageHash, sizeof(goldenImageHash), vm_manifest_hash);			
 			strcpy_s(extension, sizeof(extension), digest_alg_buff);
-			free(digest_alg_buff);
+
 			LOG_DEBUG("Extension : %s", extension);
 			snprintf(cumulativehash_file, sizeof(cumulativehash_file), "%s/measurement.%s", vm_manifest_dir, extension);
 			LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
@@ -1612,11 +1641,13 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 
     // free all allocated variable
     
-    return_response :
-    	if ( !vm_image_id ) free(vm_image_id);
-        if ( !vm_customer_id ) free(vm_customer_id);
-        if ( !vm_manifest_hash ) free(vm_manifest_hash);
-        if ( !vm_manifest_signature ) free(vm_manifest_signature);
+	return_response :
+		if ( launch_policy_buff ) free(launch_policy_buff);
+    		if ( vm_image_id ) free(vm_image_id);
+        	if ( vm_customer_id ) free(vm_customer_id);
+        	if ( vm_manifest_hash ) free(vm_manifest_hash);
+        	if ( vm_manifest_signature ) free(vm_manifest_signature);
+		if ( digest_alg_buff ) free(digest_alg_buff);
 		for ( i = 0; i < an; i++) {
 			if( av[i] ) {
 				free (av[i]);

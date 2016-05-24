@@ -40,7 +40,7 @@ int remove_dir(char* dir_name) {
 	fileOp.fFlags = FOF_SILENT | FOF_NOCONFIRMATION | FOF_NOERRORUI | FOF_NOCONFIRMMKDIR;
 
 	TCHAR newFrom[MAX_PATH];
-	strcpy_s(newFrom, dir_name);
+	strcpy_s(newFrom, sizeof(newFrom), dir_name);
 	newFrom[strnlen_s(dir_name, MAX_LEN) + 1] = NULL;
 	fileOp.pFrom = newFrom;
 

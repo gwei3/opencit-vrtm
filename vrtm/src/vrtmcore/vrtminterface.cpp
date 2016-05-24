@@ -321,6 +321,7 @@ void* dom_listener_main ( void* p)
 	iResult = initialise_lib(&wsData);
 	if (iResult != 0) {
 		LOG_ERROR("Error in intialising library");
+		pthread_attr_destroy(&attr);
 		return false;
 	}
 #endif
@@ -335,6 +336,7 @@ void* dom_listener_main ( void* p)
 	iResult = getaddrinfo(g_vrtmcore_ip, vrtm_port, &hints, &vrtm_addr);
 	if (iResult != 0) {
 		LOG_ERROR("getaddrinfo failed!!!");
+		pthread_attr_destroy(&attr);
 		clean_lib();
 		return false;
 	}

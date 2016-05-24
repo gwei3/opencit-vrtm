@@ -151,6 +151,7 @@ int ch_open(char* serverip, int port) {
 	fd = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
 	if (fd < 0) {
 		LOG_ERROR("Socket creation failed : %d", fd);
+		freeaddrinfo(result);
 		clean_lib();
 		return -1;
 	}
@@ -167,8 +168,10 @@ int ch_open(char* serverip, int port) {
 		close_connection(fd);
 		clean_lib();
 		fd = -1;
-		LOG_ERROR("Can't connect with server, Please check that it's running : %s\n", strerror(errno));        
-    }    
+		LOG_ERROR("Can't connect with server, Please check that it's running : %s\n", strerror(errno));
+
+	}    
+	freeaddrinfo(result);
     return fd;
 }
 

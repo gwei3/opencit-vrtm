@@ -68,8 +68,11 @@ void ( * default_handler_bus) (int );
 void ( * default_handler_tstp) (int );
 
 int  g_quit = 0;
-
+#ifdef _WIN32
+HANDLE g_fdLock;
+#elif __linux__
 int g_fdLock;
+#endif
 
 int read_config()
 {
@@ -219,7 +222,7 @@ int singleInstanceRpcoreservice()
      }
 #elif _WIN32
     const char *lockFile="../rpcoreservice__DT_XX99";
-	if (CreateFile((LPCSTR)lockFile, GENERIC_READ | GENERIC_WRITE, 0, NULL, 2, FILE_ATTRIBUTE_NORMAL, NULL) == INVALID_HANDLE_VALUE) {
+	if ( ( g_fdLock = CreateFile((LPCSTR)lockFile, GENERIC_READ | GENERIC_WRITE, 0, NULL, 2, FILE_ATTRIBUTE_NORMAL, NULL)) == INVALID_HANDLE_VALUE) {
 		//LOG_ERROR("Unable get Handle of lock file. \n Another instance of vRTM might be running");
 		return -2;
 	}
@@ -341,6 +344,11 @@ int main(int an, char** av)
 	return iRet;
 
 cleanup:
+#ifdef _WIN32
+	  CloseHandle(g_fdLock);
+#elif __linux__
+	  close(g_fdLock);
+#endif
 	  closeLog();
 	  return iRet;
 }

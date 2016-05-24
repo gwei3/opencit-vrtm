@@ -68,7 +68,7 @@ namespace vRTM
             {
                 Console.WriteLine(ex.Message);
             }
-
+            myProcess.Close();
             // Update the service state to Running.
             serviceStatus.dwCurrentState = ServiceState.SERVICE_RUNNING;
             SetServiceStatus(this.ServiceHandle, ref serviceStatus);
@@ -97,7 +97,7 @@ namespace vRTM
             {
                 Console.WriteLine(ex.Message);
             }
-
+            myProcess.Close();
             // Update the service state to Running.
             serviceStatus.dwCurrentState = ServiceState.SERVICE_STOPPED;
             SetServiceStatus(this.ServiceHandle, ref serviceStatus);
