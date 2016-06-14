@@ -64,7 +64,7 @@ static int g_docker_deletion_service_status = 0;
 
 void cleanupService();
 void* clean_vrtm_table(void *p);
-void* clean_deleted_docker_instances(void *p);
+//void* clean_deleted_docker_instances(void *p);
 // ---------------------------------------------------------------------------
 
 bool uidfrompid(int pid, int* puid)
@@ -301,7 +301,7 @@ int serviceprocTable::getcancelledvmcount() {
 	LOG_DEBUG("Number of VM with cancelled status : %d ", count);
 	return count;
 }
-
+/*
 int serviceprocTable::getactivedockeruuid(std::set<std::string> & uuid_list) {
 	pthread_mutex_lock(&loc_proc_table);
 	for( proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++) {
@@ -313,7 +313,7 @@ int serviceprocTable::getactivedockeruuid(std::set<std::string> & uuid_list) {
 	LOG_DEBUG("Number of active docker instances in vrtm table: %d ", uuid_list.size());
 	return uuid_list.size();
 }
-
+*/
 void serviceprocTable::print()
 {
 	pthread_mutex_lock(&loc_proc_table);
@@ -738,7 +738,7 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(unsigned long entry_max_age
 	}
 	return TCSERVICE_RESULT_SUCCESS;
 }
-
+/*
 TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries) {
 	FILE *fp = NULL;
 	*deleted_entries = 0;
@@ -780,7 +780,7 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uui
 	}
 	return TCSERVICE_RESULT_SUCCESS;
 }
-
+*/
 /*This function returns the value of an XML tag.
 Input parameter: Line read from the XML file
 Output: Value in the tag
@@ -1586,7 +1586,7 @@ void* clean_vrtm_table(void *){
 	LOG_DEBUG("Cleanup thread exiting...");
 	return NULL;
 }
-
+/*
 void* clean_deleted_docker_instances(void *){
 	std::set<std::string> uuid_list;
 	LOG_TRACE("");
@@ -1602,7 +1602,7 @@ void* clean_deleted_docker_instances(void *){
 	LOG_DEBUG("Docker Deletion Service thread exiting...");
 	return NULL;
 }
-
+*/
 void cleanupService() {
 	pthread_t tid, tid_d;
 	pthread_attr_t attr, attr_d;
@@ -1631,7 +1631,7 @@ void cleanupService() {
 		}
 	}
 
-	std::set<std::string> uuid_list;
+	/*std::set<std::string> uuid_list;
 	if(g_docker_deletion_service_status == 1) {
 		LOG_INFO("Docker deletion Service already running");
 		//return 0;
@@ -1654,5 +1654,5 @@ void cleanupService() {
 			pthread_attr_destroy(&attr_d);
 			//return 1;
 		}
-	}
+	}*/
 }			

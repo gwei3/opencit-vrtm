@@ -132,7 +132,7 @@ public:
     int					getprocIdfrominstance_name(char *instance_name);
     int					getproctablesize();
     int 				getcancelledvmcount();
-    int					getactivedockeruuid(std::set<std::string> &);
+    //int					getactivedockeruuid(std::set<std::string> &);
     void                print();
 
 };
@@ -165,7 +165,7 @@ public:
     TCSERVICE_RESULT	IsVerified(char *vm_uuid, int* verification_status);
     TCSERVICE_RESULT	GenerateSAMLAndGetDir(char *vm_uuid, char * nonce, char * vm_manifest_dir);
     TCSERVICE_RESULT 	CleanVrtmTable(unsigned long entry_max_age,int vm_status, int* deleted_entries);
-    TCSERVICE_RESULT	CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries);
+    //TCSERVICE_RESULT	CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries);
     TCSERVICE_RESULT 	get_xpath_values(std::map<unsigned char*, char *> xpath_map, unsigned char* namespace_list, char* xml_file);
 };
 
