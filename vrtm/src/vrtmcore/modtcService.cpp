@@ -115,7 +115,7 @@ bool serviceprocTable::addprocEntry(int procid, const char* file, int an, char**
     //proc_ent.m_procid = procid;
     proc_ent.m_szexeFile = strdup(file);
     proc_ent.m_sizeHash = sizeHash;
-    if(instance_type == 0)
+    if(instance_type == INSTANCE_TYPE_VM )
         proc_ent.m_vm_status = VM_STATUS_STOPPED;
     else
         proc_ent.m_vm_status = VM_STATUS_STARTED;
@@ -221,6 +221,10 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 	if (verification_status == false && (strcmp(launch_policy, "Enforce") == 0)) {
 		LOG_DEBUG("Updated the VM status to : %d ", VM_STATUS_CANCELLED);
 		table_it->second.m_vm_status = VM_STATUS_CANCELLED;
+	}
+	if ( table_it->second.m_instance_type == INSTANCE_TYPE_DOCKER ) {
+		LOG_DEBUG("Updating docker instance status back to %d, cause instance type is %d", VM_STATUS_STARTED, INSTANCE_TYPE_DOCKER);
+		table_it->second.m_vm_status = VM_STATUS_STARTED;
 	}
 	if ( instance_name != NULL) {
 		//copy instance name if updateprocTable() is called with docker instance name
