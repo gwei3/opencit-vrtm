@@ -222,7 +222,7 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 		LOG_DEBUG("Updated the VM status to : %d ", VM_STATUS_CANCELLED);
 		table_it->second.m_vm_status = VM_STATUS_CANCELLED;
 	}
-	if ( table_it->second.m_instance_type == INSTANCE_TYPE_DOCKER ) {
+	else if ( table_it->second.m_instance_type == INSTANCE_TYPE_DOCKER ) {
 		LOG_DEBUG("Updating docker instance status back to %d, cause instance type is %d", VM_STATUS_STARTED, INSTANCE_TYPE_DOCKER);
 		table_it->second.m_vm_status = VM_STATUS_STARTED;
 	}
