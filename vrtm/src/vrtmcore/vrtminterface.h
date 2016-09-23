@@ -1,3 +1,3 @@
 
 
-bool start_vrtm_interface(const char* name);
+void* start_vrtm_interface(void* name);

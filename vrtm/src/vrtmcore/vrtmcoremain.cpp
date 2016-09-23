@@ -25,6 +25,7 @@
 #include "log_vrtmchannel.h"
 #include "tcconfig.h"
 #include "vrtminterface.h"
+#include "vrtm_listener.h"
 #include "loadconfig.h"
 
 #ifdef __cplusplus
@@ -44,11 +45,13 @@ int     g_vrtmcore_port 		= 16005;
 int     g_max_thread_limit 	= 64;
 char    g_vrtm_root[64] = "../";
 char 	g_trust_report_dir[512]  = "/var/lib/nova/trustreports/";
-char* 	g_mount_path = "/mnt/vrtm/";
 long 	g_entry_cleanup_interval = 30;
 //long 	g_delete_vm_max_age = 3600;
 long 	g_cancelled_vm_max_age = 86400;
 //long	g_stopped_vm_max_age = 864000;
+char    g_deployment_type[8] = "vm";
+
+char* 	g_mount_path = "/mnt/vrtm/";
 std:: map<std::string, std::string> config_map;
 
 //default signal handlers function pointers
@@ -64,8 +67,7 @@ void ( * default_handler_bus) (int );
 void ( * default_handler_tstp) (int );
 
 int  g_quit = 0;
-
-int g_fdLock;
+int  g_fdLock;
 
 int read_config()
 {
@@ -74,7 +76,7 @@ int read_config()
 	int count=0;
 	int ret_val;
 	std::string vrtmcore_ip, vrtmcore_port, max_thread_limit, vrtm_root, trust_report_dir;
-	std::string entry_cleanup_interval, delete_vm_max_age, cancelled_vm_max_age, stopped_vm_max_age;
+	std::string entry_cleanup_interval, delete_vm_max_age, cancelled_vm_max_age, stopped_vm_max_age, deployment_type;
 
 	LOG_TRACE("Setting vRTM configuration");
 	vrtmcore_ip = config_map["vrtmcore_ip"];
@@ -127,6 +129,11 @@ int read_config()
 		LOG_WARN("Stopped VM cleanup interval not found in vRTM.cfg. Using default value : %d", g_stopped_vm_max_age);
 	}
 	count++;*/
+	deployment_type = config_map["deployment_type"];
+	if (deployment_type == "") {
+		LOG_WARN("Deployment type not found in vRTM.cfg. Using default value : %d", g_deployment_type);
+	}
+	count++;
 	strcpy_s(g_vrtmcore_ip,sizeof(g_vrtmcore_ip), vrtmcore_ip.c_str());
 	LOG_DEBUG("vRTM IP : %s", g_vrtmcore_ip);
 	g_vrtmcore_port = atoi(vrtmcore_port.c_str());
@@ -147,6 +154,8 @@ int read_config()
 	LOG_DEBUG("Cancelled VM cleanup interval : %d", g_cancelled_vm_max_age);
 	//g_stopped_vm_max_age = atoi(stopped_vm_max_age.c_str());
 	//LOG_DEBUG("Stopped VM cleanup interval : %d", g_stopped_vm_max_age);
+	strcpy_s(g_deployment_type,sizeof(g_deployment_type), deployment_type.c_str());
+	LOG_DEBUG("Deployment type : %s", g_deployment_type);
 
 	// clear all data in trust report directory if directory already exists
 	if( stat( g_trust_report_dir, &info ) != 0 ) {
@@ -275,6 +284,7 @@ void vrtm_signal_handler(int sig_caught) {
 		LOG_DEBUG("trust report directory removed successfully");
 	}
 	LOG_INFO("vRTM will Exit with recieved signal %d", sig_caught);
+
 	raise(sig_caught);
 }
 
@@ -283,6 +293,7 @@ int main(int an, char** av)
 {
     int            	iRet= 0;
     int 			instanceValid = 0;
+    pthread_t vrtm_listener_thread, vrtm_interface_thread;
     
     // Start the instance of logger, currently using log4cpp
     if( initLog(log_properties_file, "vrtm") ){
@@ -290,6 +301,7 @@ int main(int an, char** av)
     }
     //set same logger instance in rp_channel
     set_logger_vrtmchannel(rootLogger);
+
 
     LOG_INFO("Starting vRTM core");
     if ((instanceValid = singleInstanceRpcoreservice()) == -2) {
@@ -330,13 +342,25 @@ int main(int an, char** av)
 
 	clear_config(config_map);
 
-    LOG_TRACE("Starting vRTM interface");
-	if(!start_vrtm_interface(NULL)) {
-		LOG_ERROR("Can't initialize vRTM interface");
-		goto cleanup;
-	}
+    if (strcmp(g_deployment_type, "docker") != 0) {
+        LOG_TRACE("Starting vRTM listener");
+        if (pthread_create(&vrtm_listener_thread, NULL, &start_vrtm_listener, (void*)NULL) < 0) {
+            LOG_ERROR( "Failed to start vrtm listener");
+        } else
+            LOG_INFO("vrtm listener started");
+    }
 
-	return iRet;
+    LOG_TRACE("Starting vRTM interface");
+    if (pthread_create(&vrtm_interface_thread, NULL, &start_vrtm_interface, (void*)NULL) < 0) {
+        LOG_ERROR( "Failed to start vrtm interface");
+    } else
+        LOG_INFO("vrtm interface started");
+
+        pthread_join(vrtm_interface_thread,NULL);
+
+        LOG_DEBUG("main exited");
+
+        return iRet;
 
 cleanup:
 	  closeLog();
