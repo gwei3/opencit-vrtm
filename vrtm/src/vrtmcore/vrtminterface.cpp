@@ -368,7 +368,7 @@ void* dom_listener_main ( void* p)
     }*/
 
 	g_ifc_status = IFC_UP;
-    
+ 
     LOG_INFO("Socket ready to accept requests");
     while(!g_quit)
     {
@@ -409,15 +409,19 @@ void* dom_listener_main ( void* p)
     return NULL;
 }
 
-bool start_vrtm_interface(const char* name)
+void* start_vrtm_interface(void* name)
 {
     LOG_DEBUG("Starting vRTM on socket");
-    bool status = false;
         pthread_mutex_init(&gm, NULL);
         pthread_cond_init(&gc, NULL);
     LOG_TRACE("Starting separate thread to start vRTM socket");
         pthread_attr_init(&g_attr);
-        pthread_create(&dom_listener_thread, &g_attr, dom_listener_main, (void*)NULL);
+        pthread_create(&dom_listener_thread, &g_attr, dom_listener_main, NULL);
+
+        //sleep(10);
+        //int error = pthread_kill(dom_listener_thread, SIGTERM);
+        //LOG_DEBUG("pthread_kill returns : %d", error);
+
         pthread_join(dom_listener_thread,NULL);
 
         while (g_ifc_status  == IFC_UNKNOWN ) {
@@ -425,8 +429,7 @@ bool start_vrtm_interface(const char* name)
         }
 
         if (g_ifc_status == IFC_UP )
-                status = true;
+                LOG_DEBUG("Regsitered to libvirt successfully");
 
     LOG_DEBUG("Socket for vRTM is started");
-        return status;
 }

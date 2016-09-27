@@ -165,6 +165,15 @@ then
 	register_startup_script /usr/local/bin/vrtmlistener vrtmlistener
 fi
 
+#Update vRTM.cfg file to include deployment_type
+vrtmCfgFile=$VRTM_CONFIGURATION/vRTM.cfg
+vrtmCfgDeploymentTypeExists=$(grep '^deployment_type' "$vrtmCfgFile")
+if [ -n "$vrtmCfgDeploymentTypeExists" ]; then
+  sed -i 's/^deployment_type.*/deployment_type='$DEPLOYMENT_TYPE'/g' "$vrtmCfgFile"
+else
+  echo "deployment_type=$DEPLOYMENT_TYPE" >> "$vrtmCfgFile"
+fi
+
 ### CURRENTLY DONE IN vRTM_KVM_install.sh
 ##verifier
 #tbootxmVerifier="/opt/tbootxm/bin/verifier"
