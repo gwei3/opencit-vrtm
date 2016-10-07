@@ -507,8 +507,16 @@ function validate()
 
 function log4cpp_inst_ubuntu()
 {
-        echo "Installing log4cpp for Ubuntu..."
-        apt-get -y install liblog4cpp5
+        is_ubuntu_16=`lsb_release -a | grep "^Release" | grep 16.04`
+        if [ -n "$is_ubuntu_16" ]
+        then
+            echo "Installing log4cpp for Ubuntu 16.04... "
+            apt-get -y install liblog4cpp5v5
+        else
+            echo "Installing log4cpp for Ubuntu other than 16.04..."
+            apt-get -y install liblog4cpp5
+        fi
+
         if [ `echo $?` -ne 0 ]
         then
                 echo "Failed to install log4cpp..."
