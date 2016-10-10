@@ -71,10 +71,10 @@ existing_vrtm="$(which vrtm 2>/dev/null)"
 if [ -n "$existing_vrtm" ]; then
   $existing_vrtm stop
 fi
-existing_rplistener="$(which vrtmlistener 2>/dev/null)"
-if [ -n "$existing_rplistener" ]; then
-  $existing_rplistener stop
-fi
+# existing_rplistener="$(which vrtmlistener 2>/dev/null)"
+# if [ -n "$existing_rplistener" ]; then
+  # $existing_rplistener stop
+# fi
 
 #remove logrotate files
 #rm -rf /etc/logrotate.d/vrtm
@@ -87,11 +87,11 @@ fi
 if [ "$(whoami)" == "root" ]; then
   # remove startup scripts
   remove_startup_script vrtm
-  remove_startup_script vrtmlistener
+  # remove_startup_script vrtmlistener
 
   # remove PATH symlinks
   rm -rf /usr/local/bin/vrtm
-  rm -rf /usr/local/bin/vrtmlistener
+  # rm -rf /usr/local/bin/vrtmlistener
 
   ## delete user
   #export VRTM_USERNAME=${VRTM_USERNAME:-vrtm}
