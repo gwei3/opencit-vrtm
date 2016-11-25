@@ -987,9 +987,32 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		return TCSERVICE_RESULT_FAILED;
 	}
 
-
-        snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s%s/", g_trust_report_dir, vm_uuid);
+        	snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s%s/", g_trust_report_dir, vm_uuid);
 		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
+
+		if ( instance_type == INSTANCE_TYPE_VM ) {
+			struct stat info;
+			char trust_report_dir[1024] = {0};
+			
+			if ( stat( vm_manifest_dir, &info ) != 0 ) {
+            			LOG_DEBUG( "cannot access %s\n", vm_manifest_dir );
+            			LOG_DEBUG( "New trust report directory %s will be created", vm_manifest_dir);
+
+                		mkdir(vm_manifest_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+        			chmod(vm_manifest_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+
+				strncpy_s(trust_report_dir, sizeof(trust_report_dir), disk_file, strnlen_s(disk_file, sizeof(disk_file)) - (sizeof("/disk") - 1));
+				snprintf(manifest_file, sizeof(manifest_file), "%s%s", trust_report_dir, "/trustpolicy.xml");
+				snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", trust_report_dir, "/manifest.xml");
+				
+				snprintf(command, sizeof(command), "cp -p %s %s/", manifest_file, vm_manifest_dir);
+				system(command);
+				memset_s(command, sizeof(command), 0);
+				snprintf(command, sizeof(command), "cp -p %s %s/", nohash_manifest_file, vm_manifest_dir);
+				system(command);
+			}
+        	}
+
 		snprintf(manifest_file, sizeof(manifest_file), "%s%s", vm_manifest_dir, "/trustpolicy.xml");
 		LOG_DEBUG("Manifest path %s ", manifest_file);
 		snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", vm_manifest_dir, "/manifest.xml");
