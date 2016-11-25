@@ -270,10 +270,10 @@ int main(int argc, char** argv) {
     disk_start_ptr = strstr(drive_data, "file=") + sizeof("file=") - 1;
     disk_end_ptr = strchr(drive_data, ',');
     int disk_path_len = disk_end_ptr-disk_start_ptr;
-	LOG_DEBUG("Disk path length: %d", disk_path_len);
+    LOG_DEBUG("Disk path length: %d", disk_path_len);
     memset_s(disk_path, sizeof(disk_path), '\0');
     strncpy_s(disk_path, PATH_MAX, disk_start_ptr, disk_path_len);
-	LOG_DEBUG("Disk Path: %s", disk_path);
+    LOG_DEBUG("Disk Path: %s", disk_path);
     //Extract UUID of VM
     strncpy_s(trust_report_dir, sizeof(trust_report_dir), disk_path, disk_path_len - (sizeof("/disk") - 1));
     char *uuid_ptr = strrchr(trust_report_dir, '/');
@@ -281,17 +281,17 @@ int main(int argc, char** argv) {
     LOG_TRACE("Extracted UUID : %s", uuid);
 
     // Parse the config file and extract the manifest path
-    if(load_config(g_config_file, config_map) < 0) {
-    	LOG_ERROR("Can't load config file %s", g_config_file);
-		return EXIT_FAILURE;
-	}
+    //if(load_config(g_config_file, config_map) < 0) {
+    //	LOG_ERROR("Can't load config file %s", g_config_file);
+    //	return EXIT_FAILURE;
+    //}
 
-    std::string reqValue = config_map["trust_report_dir"];
-    clear_config(config_map);
-    strcpy_s(trust_report_dir, sizeof(trust_report_dir), reqValue.c_str());
-    memset(manifest_path, '\0', sizeof(manifest_path));
-	snprintf(manifest_path, sizeof(manifest_path), "%s%s%s", trust_report_dir, uuid, "/trustpolicy.xml");
-	LOG_DEBUG("Path of trust policy: %s", manifest_path);
+    //std::string reqValue = config_map["trust_report_dir"];
+    //clear_config(config_map);
+    //strcpy_s(trust_report_dir, sizeof(trust_report_dir), reqValue.c_str());
+    memset_s(manifest_path, sizeof(manifest_path), '\0');
+    snprintf(manifest_path, sizeof(manifest_path), "%s%s", trust_report_dir, "/trustpolicy.xml");
+    LOG_DEBUG("Path of trust policy: %s", manifest_path);
 
 // If not measured launch then execute command without calling vRTM
     if(access(manifest_path, F_OK)!=0){
