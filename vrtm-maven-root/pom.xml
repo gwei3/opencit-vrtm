@@ -3,7 +3,7 @@
     
     <artifactId>vrtm-maven-root</artifactId>
     <groupId>com.intel.mtwilson.vrtm</groupId>
-    <version>3.1-SNAPSHOT</version>
+    <version>3.2-SNAPSHOT</version>
     
     <packaging>pom</packaging>
     <description>Mystery Hill VRTM</description>
