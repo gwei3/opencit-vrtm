@@ -900,8 +900,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char 	command[2304]={0};
 	FILE*   fp1=NULL;
 	char    extension[20]={0};
+	char    version[10]={0};
 	char    popen_command[1048]={0};
-	char    xml_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
+	char    digest_alg_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
+	char    policy_version_command[]="xmlstarlet sel -t -m \"//@Version\" -v \".\" -n ";
 	char    measurement_file[2048]={0};
 	bool	keep_measurement_log = false;
 	int	verifier_exit_status=1;
@@ -916,10 +918,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	char goldenImageHash[65] = {'\0'};
 	FILE *fq ;
 
-	xmlChar namespace_list[] =			"a=mtwilson:trustdirector:policy:1.1 b=http://www.w3.org/2000/09/xmldsig#";
+	xmlChar namespace_list[] =		"a=mtwilson:trustdirector:policy:1.1 b=http://www.w3.org/2000/09/xmldsig#";
 	xmlChar xpath_customer_id[] = 		"/a:TrustPolicy/a:Director/a:CustomerId";
 	xmlChar xpath_launch_policy[] = 	"/a:TrustPolicy/a:LaunchControlPolicy";
-	xmlChar xpath_image_id[] = 			"/a:TrustPolicy/a:Image/a:ImageId";
+	xmlChar xpath_image_id[] = 		"/a:TrustPolicy/a:Image/a:ImageId";
 	xmlChar xpath_image_hash[] = 		"/a:TrustPolicy/a:Image/a:ImageHash";
 	xmlChar xpath_image_signature[] = 	"/a:TrustPolicy/b:Signature/b:SignatureValue";
 	char* launch_policy_buff = NULL;
@@ -1016,7 +1018,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		snprintf(manifest_file, sizeof(manifest_file), "%s%s", vm_manifest_dir, "/trustpolicy.xml");
 		LOG_DEBUG("Manifest path %s ", manifest_file);
 		snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", vm_manifest_dir, "/manifest.xml");
-		LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
+		LOG_DEBUG("Manifest list path %s",nohash_manifest_file);
 
 		if(access(manifest_file, F_OK)!=0){
 			LOG_ERROR("trustpolicy.xml doesn't exist at  %s", manifest_file);
@@ -1033,16 +1035,16 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		}
 
 		//Read the digest algorithm from manifestlist.xml
-		snprintf(popen_command, sizeof(popen_command), "%s%s",xml_command,nohash_manifest_file);
+		snprintf(popen_command, sizeof(popen_command), "%s%s",digest_alg_command,nohash_manifest_file);
 		fp1=popen(popen_command,"r");
 		if (fp1 != NULL) {
 			fgets(extension, sizeof(extension)-1, fp1);
-			snprintf(measurement_file, sizeof(measurement_file), "%s.%s","/measurement",extension);
 			pclose(fp1);
-			if(measurement_file[strnlen_s(measurement_file, sizeof(measurement_file)) - 1] == '\n')
-				measurement_file[strnlen_s(measurement_file, sizeof(measurement_file)) - 1] = '\0';
+			if(extension[strnlen_s(extension, sizeof(extension)) - 1] == '\n')
+				extension[strnlen_s(extension, sizeof(extension)) - 1] = '\0';
 			LOG_DEBUG("Extension : %s",extension);
 
+			snprintf(measurement_file, sizeof(measurement_file), "%s.%s","/measurement",extension);
 			strcpy_s(cumulativehash_file, sizeof(cumulativehash_file), vm_manifest_dir);
 			strcat_s(cumulativehash_file, sizeof(cumulativehash_file), measurement_file);
 			LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
@@ -1053,10 +1055,30 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			goto return_response;
 		}
 
+		//Read the policy version from manifestlist.xml
+		snprintf(popen_command, sizeof(popen_command), "%s%s",policy_version_command,nohash_manifest_file);
+		fp1=popen(popen_command,"r");
+		if (fp1 != NULL) {
+			fgets(version, sizeof(version)-1, fp1);
+			pclose(fp1);
+			if(version[strnlen_s(version, sizeof(version)) - 1] == '\n')
+				version[strnlen_s(version, sizeof(version)) - 1] = '\0';
+			LOG_DEBUG("Version : %s",version);
+		}
+		else {
+			LOG_ERROR("Failed to read policy version from trustpolicy");
+			start_app_status = 1;
+			goto return_response;
+		}
+
     	/*
     	 * extract Launch Policy, CustomerId, ImageId, VM hash, and Manifest signature value from formatted manifestlist.xml
     	 * by specifying fixed xpaths with namespaces
     	 */
+	if(strcmp(version, "1.2") == 0) {
+		namespace_list[strnlen_s("mtwilson:trustdirector:policy:1.1", 256) + 1] = '2';
+	}
+
     	launch_policy_buff = (char *)calloc(1, sizeof(char)* 64);
     	vm_customer_id = (char *)calloc(1, sizeof(char) * CUSTOMER_ID_SIZE);
     	vm_image_id = (char *) calloc(1, sizeof(char) * IMAGE_ID_SIZE);
