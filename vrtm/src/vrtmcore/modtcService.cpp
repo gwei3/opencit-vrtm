@@ -900,10 +900,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char 	command[2304]={0};
 	FILE*   fp1=NULL;
 	char    extension[20]={0};
-	char    version[10]={0};
+	char    version[40]={0};
 	char    popen_command[1048]={0};
-	char    digest_alg_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" -n ";
-	char    policy_version_command[]="xmlstarlet sel -t -m \"//@Version\" -v \".\" -n ";
+	char    digest_alg_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" ";
+	char    policy_version_command[]="xmlstarlet sel -t -m \"/*/namespace::*[name()='']\" -v \".\" ";
 	char    measurement_file[2048]={0};
 	bool	keep_measurement_log = false;
 	int	verifier_exit_status=1;
@@ -1040,8 +1040,6 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		if (fp1 != NULL) {
 			fgets(extension, sizeof(extension)-1, fp1);
 			pclose(fp1);
-			if(extension[strnlen_s(extension, sizeof(extension)) - 1] == '\n')
-				extension[strnlen_s(extension, sizeof(extension)) - 1] = '\0';
 			LOG_DEBUG("Extension : %s",extension);
 
 			snprintf(measurement_file, sizeof(measurement_file), "%s.%s","/measurement",extension);
@@ -1061,9 +1059,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		if (fp1 != NULL) {
 			fgets(version, sizeof(version)-1, fp1);
 			pclose(fp1);
-			if(version[strnlen_s(version, sizeof(version)) - 1] == '\n')
-				version[strnlen_s(version, sizeof(version)) - 1] = '\0';
 			LOG_DEBUG("Version : %s",version);
+
+			namespace_list[strnlen_s("mtwilson:trustdirector:policy:1.1", 256)+1] = version[strnlen_s("mtwilson:trustdirector:manifest:1.1", 256)-1];
+			LOG_DEBUG("namespace_list : %s", namespace_list);
 		}
 		else {
 			LOG_ERROR("Failed to read policy version from trustpolicy");
@@ -1075,10 +1074,6 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     	 * extract Launch Policy, CustomerId, ImageId, VM hash, and Manifest signature value from formatted manifestlist.xml
     	 * by specifying fixed xpaths with namespaces
     	 */
-	if(strcmp(version, "1.2") == 0) {
-		namespace_list[strnlen_s("mtwilson:trustdirector:policy:1.1", 256) + 1] = '2';
-	}
-
     	launch_policy_buff = (char *)calloc(1, sizeof(char)* 64);
     	vm_customer_id = (char *)calloc(1, sizeof(char) * CUSTOMER_ID_SIZE);
     	vm_image_id = (char *) calloc(1, sizeof(char) * IMAGE_ID_SIZE);
