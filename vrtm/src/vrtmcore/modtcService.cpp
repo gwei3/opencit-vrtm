@@ -600,7 +600,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	snprintf(command0,sizeof(command0),"xmlstarlet c14n %sus_can.xml | openssl dgst -sha1 -binary -out %shash.input",manifest_dir,manifest_dir);
 	system(command0);
 
-	snprintf(command0,sizeof(command0),"/opt/trustagent/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
+	snprintf(command0,sizeof(command0),"/opt/trustagent/share/tpmtools/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
 	LOG_DEBUG("Signing Command : %s", command0);
 	system(command0);
 
