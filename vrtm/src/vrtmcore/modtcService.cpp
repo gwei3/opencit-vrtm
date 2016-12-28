@@ -530,7 +530,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	fprintf(fp,"%s",xmlstr);
 	fclose(fp);
 
-	snprintf(command0,sizeof(command0),"xmlstarlet c14n  %sus_xml.xml | /opt/trustagent/share/openssl/bin/openssl dgst -binary -sha1  | /opt/trustagent/share/openssl/bin/openssl enc -base64 | xargs echo -n >> %ssigned_report.xml", manifest_dir,manifest_dir);
+	snprintf(command0,sizeof(command0),"source /opt/trustagent/env.d/trustagent-lib && xmlstarlet c14n  %sus_xml.xml | /opt/trustagent/share/openssl/bin/openssl dgst -binary -sha1  | /opt/trustagent/share/openssl/bin/openssl enc -base64 | xargs echo -n >> %ssigned_report.xml", manifest_dir,manifest_dir);
 	LOG_DEBUG("command generated to calculate hash: %s", command0);
 	system(command0);
 						
@@ -561,7 +561,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 	fclose(fp1);
 	fclose(fp);
 							  
-	snprintf(command0,sizeof(command0),"xmlstarlet c14n  %sus_xml.xml | /opt/trustagent/share/openssl/bin/openssl dgst -binary -sha1  | /opt/trustagent/share/openssl/bin/openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
+	snprintf(command0,sizeof(command0),"source /opt/trustagent/env.d/trustagent-lib && xmlstarlet c14n  %sus_xml.xml | /opt/trustagent/share/openssl/bin/openssl dgst -binary -sha1  | /opt/trustagent/share/openssl/bin/openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
 	system(command0);
 				 
 	snprintf(xmlstr,sizeof(xmlstr),"</DigestValue></Reference></SignedInfo>");
@@ -597,14 +597,14 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 				 
 	// Sign the XML
-	snprintf(command0,sizeof(command0),"xmlstarlet c14n %sus_can.xml | /opt/trustagent/share/openssl/bin/openssl dgst -sha1 -binary -out %shash.input",manifest_dir,manifest_dir);
+	snprintf(command0,sizeof(command0),"source /opt/trustagent/env.d/trustagent-lib && xmlstarlet c14n %sus_can.xml | /opt/trustagent/share/openssl/bin/openssl dgst -sha1 -binary -out %shash.input",manifest_dir,manifest_dir);
 	system(command0);
 
 	snprintf(command0,sizeof(command0),"source /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/tpmtools/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
 	LOG_DEBUG("Signing Command : %s", command0);
 	system(command0);
 
-	snprintf(command0,sizeof(command0),"/opt/trustagent/share/openssl/bin/openssl enc -base64 -in %shash.sig |xargs echo -n >> %ssigned_report.xml",manifest_dir,manifest_dir); 
+	snprintf(command0,sizeof(command0),"source /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/openssl/bin/openssl enc -base64 -in %shash.sig |xargs echo -n >> %ssigned_report.xml",manifest_dir,manifest_dir); 
 	system(command0);
 
 					   
@@ -622,7 +622,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid,char *n
 
 				 
 	// Append the X.509 certificate
-	snprintf(command0,sizeof(command0),"/opt/trustagent/share/openssl/bin/openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
+	snprintf(command0,sizeof(command0),"source /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/openssl/bin/openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
 	LOG_DEBUG("Command to generate certificate : %s", command0);
 	system(command0);
 					
