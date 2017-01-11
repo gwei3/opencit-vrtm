@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 set DESC=vRTM
-set NAME=vrtm
+set NAME=vrtmhandler
 
 REM ###################################################################################################
 REM #Set environment specific variables here 
@@ -37,15 +37,14 @@ GOTO:EOF
 
 REM functions
 :vrtm_start
-  echo. Starting vrtm service
-  sc start vRTM >null
-  echo. vRTM started
+  echo. Starting vrtm....
+  cd %VRTM_BIN%
+  vrtmcore.exe
 GOTO:EOF
 
 :vrtm_stop
-  echo. Stopping vrtm service
-  sc stop vRTM >null
-  echo. vRTM stopped
+  echo. Stopping all vrtm processes....
+  taskkill /IM vrtmcore.exe /F
 GOTO:EOF
 
 :vrtm_version

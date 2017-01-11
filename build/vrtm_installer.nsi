@@ -168,6 +168,7 @@ Section Install
   File "..\install\nocmd.vbs"
   File "..\install\initsvcsetup.cmd"
   File "..\vrtm\scripts\vrtm.cmd"
+  File "..\vrtm\scripts\vrtmhandler.cmd"
   File "..\vrtm\scripts\Mount-EXTVM.ps1"
   File "..\vrtm\scripts\mount_vm_image.sh"
   File "..\vrtm\scripts\preheat-guestmount.sh"
@@ -178,7 +179,7 @@ Section Install
   File "..\vrtm\bin\vrtmchannel.dll"
   File "..\vrtm\bin\vrtmservice.exe"
   File "..\vrtm\bin\vrtmcore.exe"
-  File "..\..\dcg_security-tboot-xm\imvm\bin\verifier.exe"
+  File "..\vrtm\bin\verifier.exe"
 SectionEnd
 
 Section AdditionalIcons
@@ -231,6 +232,7 @@ Section Uninstall
   Delete "$INSTDIR\bin\vrtmcore.exe"
   Delete "$INSTDIR\bin\verifier.exe"
   Delete "$INSTDIR\scripts\vrtm.cmd"
+  Delete "$INSTDIR\scripts\vrtmhandler.cmd"
   Delete "$INSTDIR\scripts\Mount-EXTVM.ps1"
   Delete "$INSTDIR\scripts\mount_vm_image.sh"
   Delete "$INSTDIR\scripts\preheat-guestmount.sh"

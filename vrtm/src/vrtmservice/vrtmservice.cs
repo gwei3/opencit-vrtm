@@ -53,7 +53,7 @@ namespace vRTM
             SetServiceStatus(this.ServiceHandle, ref serviceStatus); 
             
             string vrtm_dir = Environment.GetEnvironmentVariable("VRTM_HOME");
-            string vrtmcmdstr = vrtm_dir + "/scripts/vrtm.cmd";
+            string vrtmcmdstr = vrtm_dir + "\\scripts\\vrtmhandler.cmd";
 
             Process myProcess = new Process();
             try
@@ -82,7 +82,7 @@ namespace vRTM
             SetServiceStatus(this.ServiceHandle, ref serviceStatus); 
             
             string vrtm_dir = Environment.GetEnvironmentVariable("VRTM_HOME");
-            string vrtmcmdstr = vrtm_dir + "/scripts/vrtm.cmd";
+            string vrtmcmdstr = vrtm_dir + "\\scripts\\vrtmhandler.cmd";
 
             Process myProcess = new Process();
             try
