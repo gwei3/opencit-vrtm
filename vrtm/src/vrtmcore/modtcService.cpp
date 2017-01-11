@@ -53,7 +53,6 @@ extern "C" {
 #include <libxml/xmlreader.h>
 #include <vector>
 #include <map>
-#include <tchar.h>
 
 int g_sz_uuid;
 int g_max_uuid;
