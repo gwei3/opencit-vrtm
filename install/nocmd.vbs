@@ -6,5 +6,5 @@ If WScript.Arguments.Count >= 1 Then
       arr(i) = Arg
     Next
     RunCmd = Join(arr)
-	CreateObject("Wscript.Shell").Run RunCmd, 0, True
+	CreateObject("Shell.Application").ShellExecute RunCmd, "start", "", "runas", 0
 End If

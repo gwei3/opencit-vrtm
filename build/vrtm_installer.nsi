@@ -179,7 +179,7 @@ Section Install
   File "..\vrtm\bin\vrtmchannel.dll"
   File "..\vrtm\bin\vrtmservice.exe"
   File "..\vrtm\bin\vrtmcore.exe"
-  File "..\vrtm\bin\verifier.exe"
+  File "..\..\dcg_security-tboot-xm\imvm\bin\verifier.exe"
 SectionEnd
 
 Section AdditionalIcons
