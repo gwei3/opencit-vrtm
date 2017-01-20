@@ -946,28 +946,26 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	//snprintf(command0,sizeof(command0),trustagent_bin"tagent.cmd config \"signing.key.secret\" > %ssign_key_passwd", manifest_dir);
 #elif __linux__
 	snprintf(command0,sizeof(command0),"tagent config \"signing.key.secret\" > %ssign_key_passwd", manifest_dir);
-#endif
-	//LOG_DEBUG("TPM signing key password :%s \n", command0);
-	//system(command0);
+	LOG_DEBUG("TPM signing key password :%s \n", command0);
+	system(command0);
 
-	
-	//snprintf(tempfile, sizeof(tempfile), "%ssign_key_passwd",manifest_dir);
-	//fp = fopen(tempfile,"r");
-	//if ( fp == NULL) {
-	//	LOG_ERROR("can't open the file sign_key_passwd");
-	//	return TCSERVICE_RESULT_FAILED;
-	//}
-	////fscanf(fp, "%%%ds", sizeof(tpm_signkey_passwd),tpm_signkey_passwd);
-	//fgets( tpm_signkey_passwd, sizeof(tpm_signkey_passwd), fp);
-	//fclose(fp);
+	snprintf(tempfile, sizeof(tempfile), "%ssign_key_passwd",manifest_dir);
+	fp = fopen(tempfile,"r");
+	if ( fp == NULL) {
+		LOG_ERROR("can't open the file sign_key_passwd");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	//fscanf(fp, "%%%ds", sizeof(tpm_signkey_passwd),tpm_signkey_passwd);
+	fgets( tpm_signkey_passwd, sizeof(tpm_signkey_passwd), fp);
+	fclose(fp);
 	LOG_DEBUG("tpm_signkey_passwd read : %s", tpm_signkey_passwd);
 
-	//tpm_signkey_passwd[ sizeof(tpm_signkey_passwd) - 1 ] = '\0';
-	//// to remove the newline character at the end
-	//if ( tpm_signkey_passwd[strnlen_s(tpm_signkey_passwd, sizeof(tpm_signkey_passwd)) - 1 ] == '\n' ) {
-	//	tpm_signkey_passwd[strnlen_s(tpm_signkey_passwd, sizeof(tpm_signkey_passwd)) - 1 ] = '\0';
-	//}
-
+	tpm_signkey_passwd[ sizeof(tpm_signkey_passwd) - 1 ] = '\0';
+	// to remove the newline character at the end
+	if ( tpm_signkey_passwd[strnlen_s(tpm_signkey_passwd, sizeof(tpm_signkey_passwd)) - 1 ] == '\n' ) {
+		tpm_signkey_passwd[strnlen_s(tpm_signkey_passwd, sizeof(tpm_signkey_passwd)) - 1 ] = '\0';
+	}
+#endif
 
 	snprintf(tempfile, sizeof(tempfile), "%sus_can.xml",manifest_dir);				 
 	// Sign the XML
