@@ -22,7 +22,8 @@ typedef unsigned char byte;
 #define snprintf	sprintf_s
 #define strdup		_strdup
 #define unlink		_unlink
-//#define popen		_popen
+#define popen		_popen
+#define pclose		_pclose
 #ifdef VRTMCHANNEL_BUILD
 #define VRTMCHANNEL_DLLPORT __declspec (dllexport)
 #else

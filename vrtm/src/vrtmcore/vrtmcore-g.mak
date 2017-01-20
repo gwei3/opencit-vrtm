@@ -33,15 +33,17 @@ O1CFLAGS=    -D TPMSUPPORT -D QUOTE2_DEFINED -D TEST -D __FLUSHIO__ $(O1RELEASE_
 CC=         g++
 LINK=       g++
 
-sobjs=    	$(OBJ)/vrtmcoremain.o $(OBJ)/vrtminterface.o $(OBJ)/modtcService.o $(OBJ)/logging.o
-
+sobjs=    	$(OBJ)/vrtmcoremain.o $(OBJ)/vrtminterface.o \
+            $(OBJ)/modtcService.o $(OBJ)/logging.o \
+            $(OBJ)/vrtm_listener.o
+			
 #	    $(OBJ)/dombuilder.o $(OBJ)/tcpchan.o
 
 all: $(BIN)/vrtmcore
 
 $(BIN)/vrtmcore: $(sobjs)
 	@echo "vrtmcoreservice"
-	$(LINK) -o $(BIN)/vrtmcore $(sobjs) $(LDFLAGS) -L$(LIB) -L$(SAFESTRING) -L/usr/local/lib/ -lvrtmchannel -lpthread -lxml2 -llog4cpp -lssl -lcrypto -lSafeStringRelease
+	$(LINK) -o $(BIN)/vrtmcore $(sobjs) $(LDFLAGS) -L$(LIB) -L$(SAFESTRING) -L/usr/local/lib/ -lSafeStringRelease -lpthread  -lvrtmchannel -lxml2 -llog4cpp -lvirt
 ifneq "$(debug)" "1"
 	strip -s $(BIN)/vrtmcore
 endif
@@ -49,7 +51,7 @@ endif
 #$(LINK) -o $(BIN)/rpcoreservice $(sobjs) $(LDFLAGS) -lxenlight -lxlutil -lxenctrl -lxenguest -lblktapctl -lxenstore -luuid -lutil -lpthread -L$(LIB) -lrpdombldr-g
 
 $(OBJ)/logging.o: $(SC)/logging.cpp $(SC)/logging.h 
-	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -c -o $(OBJ)/logging.o $(SC)/logging.cpp
+	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/logging.o $(SC)/logging.cpp
 
 $(OBJ)/vrtmcoremain.o: $(TM)/vrtmcoremain.cpp
 	@echo $(debug)
@@ -60,5 +62,8 @@ $(OBJ)/vrtminterface.o: $(TM)/vrtminterface.cpp
 
 #original tcService
 $(OBJ)/modtcService.o: $(TM)/modtcService.cpp
-	$(CC) $(CFLAGS) -I$(UTIL) -I$(LXML) -I$(OPENSSL) -I$(CH)  -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/modtcService.o $(TM)/modtcService.cpp
+	$(CC) $(CFLAGS)  -I/usr/include/libxml2 -I$(UTIL) -I$(SC)  -I$(CH) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/modtcService.o $(TM)/modtcService.cpp
 
+
+$(OBJ)/vrtm_listener.o: $(TM)/vrtm_listener.cpp
+	$(CC) $(CFLAGS) -I$(CH) -I$(UTIL) -I$(LOG4CPP) -I$(SC) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/vrtm_listener.o $(TM)/vrtm_listener.cpp

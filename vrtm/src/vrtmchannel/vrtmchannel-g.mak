@@ -63,6 +63,10 @@ $(OBJ)/tcpchan.o: $(TM)/tcpchan.cpp $(TM)/tcpchan.h
 $(OBJ)/xpathparser.o: $(TM)/xpathparser.cpp $(TM)/xpathparser.h
 	$(CC) $(CFLAGS) -I$(S) -I$(LXML) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/xpathparser.o $(TM)/xpathparser.cpp
 
+$(OBJ)/loadconfig.o: $(S)/loadconfig.cpp $(S)/loadconfig.h
+	$(CC) $(CFLAGS) -I$(S) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/loadconfig.o $(S)/loadconfig.cpp
+	
+	
 $(LIB)/libvrtmchannel.so: $(sobjs)
 	@echo "Building libvrtmchannel.so ..."
 	$(LINK) -shared  -o  $(LIB)/libvrtmchannel.so  $(sobjs) $(LDFLAGS) -L$(SAFESTRING) -L/usr/lib -L/usr/local/lib/ -lpthread -lxml2 -llog4cpp -lssl -lcrypto -lSafeStringRelease

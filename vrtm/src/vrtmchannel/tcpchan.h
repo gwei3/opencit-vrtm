@@ -1,3 +1,5 @@
+#include "vrtmCommon.h"
+
 #define PADDEDREQ 64*1024
 #define PARAMSIZE static_cast<int>(PADDEDREQ-sizeof(tcBuffer))
 

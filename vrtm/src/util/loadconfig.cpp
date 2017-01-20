@@ -21,8 +21,9 @@ int load_config(const char * configFile, std::map<std::string, std::string> & co
 	FILE *fp = fopen(configFile, "r");
 	char *line;
 	int line_size = 512;
-	char *key;
-	char *value;
+	char *key = NULL;
+	char *value = NULL;
+	long unsigned int cur_line_size = 0;
 	LOG_TRACE("Loading vRTM config file %s", configFile);
 	if (fp == NULL)
 	{

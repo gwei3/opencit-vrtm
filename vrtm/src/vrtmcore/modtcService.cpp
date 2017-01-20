@@ -101,7 +101,7 @@ static int g_hyperv_vm_cleanup_service_status = 0;
 
 void cleanupService();
 void* clean_vrtm_table(void *p);
-void* clean_deleted_docker_instances(void *p);
+//void* clean_deleted_docker_instances(void *p);
 // ---------------------------------------------------------------------------
 
 // ------------------------------------------------------------------------------
@@ -218,11 +218,15 @@ bool serviceprocTable::updateprocEntry(int procid, char* uuid, char *vdi_uuid)
 }
 
 bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash,
-									char* vm_manifest_signature, char *launch_policy, bool verification_status, char * vm_manifest_dir) {
+									char* vm_manifest_signature, char *launch_policy, bool verification_status,
+									char * vm_manifest_dir, char * instance_name) {
     //geting the procentry related to this procid
 	LOG_DEBUG("vRTM map entry of vRTM id : %d to be updated with vm image id : %s vm customer id : %s vm hash : %s"
 			" vm manifest signature : %s launch policy : %s verification status : %d vm manifest dir : %s", procid, vm_image_id,
 			vm_customer_id, vm_manifest_hash, vm_manifest_signature, launch_policy, verification_status, vm_manifest_dir);
+	if (instance_name != NULL) {
+		LOG_DEBUG("instance Name : %s", instance_name);
+	}
 	pthread_mutex_lock(&loc_proc_table);
 	proc_table_map::iterator table_it = proc_table.find(procid);
 	if( table_it == proc_table.end()) {
@@ -246,6 +250,14 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 	if (verification_status == false && (strcmp(launch_policy, "Enforce") == 0)) {
 		LOG_DEBUG("Updated the VM status to : %d ", VM_STATUS_CANCELLED);
 		table_it->second.m_vm_status = VM_STATUS_CANCELLED;
+	}
+	else if ( table_it->second.m_instance_type == INSTANCE_TYPE_DOCKER ) {
+		LOG_DEBUG("Updating docker instance status back to %d, cause instance type is %d", VM_STATUS_STARTED, INSTANCE_TYPE_DOCKER);
+		table_it->second.m_vm_status = VM_STATUS_STARTED;
+	}
+	if ( instance_name != NULL) {
+		//copy instance name if updateprocTable() is called with docker instance name
+		strcpy_s(table_it->second.m_instance_name, INSTANCENAME_SIZE, instance_name);
 	}
 	pthread_mutex_unlock(&loc_proc_table);
 	cleanupService();
@@ -282,6 +294,26 @@ int serviceprocTable::getprocIdfromuuid(char* uuid) {
 	return NULL;
 }
 
+int	serviceprocTable::getprocIdfrominstance_name(char *docker_instance_name){
+	if (docker_instance_name == NULL) {
+		LOG_WARN("Provide a valid instance name. Recieved address of docker instance name is NULL");
+		return NULL;
+	}
+	LOG_DEBUG("Finding vRTM Id of map entry having docker instance name : %s", docker_instance_name);
+	pthread_mutex_lock(&loc_proc_table);
+	for(proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++ ) {
+		if (strcmp(table_it->second.m_instance_name, docker_instance_name) == 0) {
+			LOG_INFO("vRTM Id of entry with instance name is : %d", table_it->first);
+			int proc_id = table_it->first;
+			pthread_mutex_unlock(&(this->loc_proc_table));
+			return (proc_id);
+		}
+	}
+	pthread_mutex_unlock(&(this->loc_proc_table));
+	LOG_WARN("Docker instance name : %s is not registered with vRTM", docker_instance_name );
+	return NULL;
+}
+
 int	serviceprocTable::getproctablesize(){
 	int size;
 	pthread_mutex_lock(&loc_proc_table);
@@ -302,7 +334,7 @@ int serviceprocTable::getcancelledvmcount() {
 	LOG_DEBUG("Number of VM with cancelled status : %d ", count);
 	return count;
 }
-
+/*
 int serviceprocTable::getactivedockeruuid(std::set<std::string> & uuid_list) {
 	pthread_mutex_lock(&loc_proc_table);
 	for( proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++) {
@@ -314,7 +346,7 @@ int serviceprocTable::getactivedockeruuid(std::set<std::string> & uuid_list) {
 	LOG_DEBUG("Number of active docker instances in vrtm table: %d ", uuid_list.size());
 	return uuid_list.size();
 }
-
+*/
 int serviceprocTable::getactivevmsuuid(std::set<std::string> &active_vms) {
 	pthread_mutex_lock(&loc_proc_table);
 	for (proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end(); table_it++) {
@@ -397,7 +429,7 @@ TCSERVICE_RESULT tcServiceInterface::initService(const char* execfile, int an, c
         return TCSERVICE_RESULT_FAILED;
     g_servicehashType= hashType;
     g_servicehashSize= sizehash;
-    memcpy(g_servicehash, rgHash, sizehash);
+    memcpy_s(g_servicehash, sizeof(g_servicehash), rgHash, sizehash);
     g_fservicehashValid= true;
 #endif
 
@@ -770,8 +802,11 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	
 	int proc_id = m_procTable.getprocIdfromuuid(vm_uuid);
 	if (proc_id == NULL) {
-		LOG_ERROR("UUID : %s is not registered with vRTM\n", vm_uuid);
-		return TCSERVICE_RESULT_FAILED;
+		//check whether docker instance of this name is registered with vrtmcore
+		if ( (proc_id = m_procTable.getprocIdfrominstance_name(vm_uuid)) == NULL) {
+			LOG_ERROR("Any instance with given UUID or Name : %s is not registered with vRTM\n", vm_uuid);
+			return TCSERVICE_RESULT_FAILED;
+		}
 	}
 	serviceprocEnt * pEnt = m_procTable.getEntfromprocId(proc_id);
 	if ( pEnt != NULL) {
@@ -801,7 +836,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		}
 #endif
 	}
-	snprintf(vm_manifest_dir, MANIFEST_DIR_SIZE, "%s%s/", g_trust_report_dir, vm_uuid); 
+	snprintf(vm_manifest_dir, MANIFEST_DIR_SIZE, "%s%s/", g_trust_report_dir, pEnt->m_uuid);
 	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
 	strcpy_s(manifest_dir, sizeof(manifest_dir), vm_manifest_dir);
 	snprintf(outfile, sizeof(outfile), "%stemp.xml", manifest_dir);
@@ -809,7 +844,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	// Generate Signed  XML  in same vm_manifest_dir
 	//snprintf(manifest_dir,sizeof(manifest_dir),"/var/lib/nova/instances/%s/",vm_uuid);
 	snprintf(filepath, sizeof(filepath), "%ssigned_report.xml", manifest_dir);
-
+	
 	fp1 = fopen(filepath,"w");
 	if (fp1 == NULL) {
 		LOG_ERROR("Can't write report in signed_report.xml file");
@@ -819,13 +854,16 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
 
-	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
+	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>",nonce, pEnt->m_uuid,"SHA256", pEnt->m_vm_manifest_hash);
 	fprintf(fp1,"%s",xmlstr);
 	LOG_DEBUG("XML content : %s", xmlstr);
+#ifdef __linux__
+	chmod(filepath, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+#endif
 	//fclose(fp1);
 
 	// Calculate the Digest Value       
-	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, vm_uuid,"SHA256", pEnt->m_vm_manifest_hash);
+	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, pEnt->m_uuid,"SHA256", pEnt->m_vm_manifest_hash);
 	snprintf(tempfile,sizeof(tempfile),"%sus_xml.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
 	if (fp == NULL) {
@@ -853,7 +891,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	}
 	LOG_DEBUG("Encoded Hash : %s", b64_str);
 /*
-	snprintf(command0,sizeof(command0),"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n >> %ssigned_report.xml", manifest_dir,manifest_dir);
+	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && xmlstarlet c14n  %sus_xml.xml | /opt/trustagent/share/openssl/bin/openssl dgst -binary -sha1  | /opt/trustagent/share/openssl/bin/openssl enc -base64 | xargs echo -n >> %ssigned_report.xml", manifest_dir,manifest_dir);
 	LOG_DEBUG("command generated to calculate hash: %s", command0);
 	system(command0);
 */
@@ -882,7 +920,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	//fclose(fp);
 
 /*
-	snprintf(command0,sizeof(command0),"xmlstarlet c14n  %sus_xml.xml | openssl dgst -binary -sha1  | openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
+	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && xmlstarlet c14n  %sus_xml.xml | /opt/trustagent/share/openssl/bin/openssl dgst -binary -sha1  | /opt/trustagent/share/openssl/bin/openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
 	system(command0);
 */
 	/*fp = fopen(tempfile,"a");
@@ -942,7 +980,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	}
 	LOG_DEBUG("Calculated Hash : %s", hash_str);
 /*
-	snprintf(command0,sizeof(command0),"xmlstarlet c14n %sus_can.xml | openssl dgst -sha1 -binary -out %shash.input",manifest_dir,manifest_dir);
+	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && xmlstarlet c14n %sus_can.xml | /opt/trustagent/share/openssl/bin/openssl dgst -sha1 -binary -out %shash.input",manifest_dir,manifest_dir);
 	system(command0);
 */
 
@@ -958,7 +996,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 #ifdef _WIN32
 	snprintf(command0,sizeof(command0),trustagent_bin"tpm_signdata.exe -i %shash.input -k sign -o %shash.sig -q %s -b "signingkey_blob,manifest_dir,manifest_dir,tpm_signkey_passwd);
 #elif __linux__
-	snprintf(command0,sizeof(command0),"/opt/trustagent/bin/tpm_signdata -i %shash.input -k "signingkey_blob" -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
+	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/tpmtools/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
 #endif
 	LOG_DEBUG("Signing Command : %s", command0);
 	int i = system(command0);
@@ -989,7 +1027,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	LOG_DEBUG("Encoded Signature : %s", b64_str);
 
 /*
-	snprintf(command0,sizeof(command0),"openssl enc -base64 -in %shash.sig |xargs echo -n >> %ssigned_report.xml",manifest_dir,manifest_dir); 
+	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/openssl/bin/openssl enc -base64 -in %shash.sig |xargs echo -n >> %ssigned_report.xml",manifest_dir,manifest_dir); 
 	system(command0);
 */
 
@@ -1012,7 +1050,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	}
 	LOG_DEBUG("Extracted Certificate : %s", cert);
 /*
-	snprintf(command0,sizeof(command0),"openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
+	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/openssl/bin/openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
 	LOG_DEBUG("Command to generate certificate : %s", command0);
 	system(command0);
 */
@@ -1133,7 +1171,7 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(unsigned long entry_max_age
 	}
 	return TCSERVICE_RESULT_SUCCESS;
 }
-
+/*
 TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries) {
 	FILE *fp = NULL;
 	*deleted_entries = 0;
@@ -1151,9 +1189,10 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uui
 	if (fp != NULL) {
 		while(true) {
 			line = (char *) calloc(1,sizeof(char) * line_size);
-			if (line == NULL) {
-				LOG_ERROR("Can't allocate memory to read a line");
-				fclose(fp);
+			if (line == NULL){
+				LOG_ERROR("Failed to execute command to running containers");
+				LOG_DEBUG("Calloc Failed to allcoate memory to read a line");
+				pclose(fp);
 				return TCSERVICE_RESULT_FAILED;
 			}
 			fgets(line,line_size,fp);
@@ -1182,7 +1221,7 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uui
 	}
 	return TCSERVICE_RESULT_SUCCESS;
 }
-
+*/
 TCSERVICE_RESULT tcServiceInterface::CleanVrtmTable_and_update_vm_status(std::set<std::string> & vms, int* deleted_vm_count, int *inactive) {
 #ifdef _WIN32
 	std::map<std::string, int> hyperv_vms;
@@ -1288,7 +1327,7 @@ TCSERVICE_RESULT tcServiceInterface::get_xpath_values(std::map<unsigned char *, 
 TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int* poutsize, byte* out)
 {
     int     size= SHA256DIGESTBYTESIZE;
-	byte    rgHash[SHA256DIGESTBYTESIZE + 1] = { '\0' };
+    byte    rgHash[SHA256DIGESTBYTESIZE] = {'\0'};
     int     child= 0;
     int     i;
     char    kernel_file[1024] = {0};
@@ -1307,10 +1346,16 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     char    vm_manifest_dir[1024] ={0};
     bool 	verification_status = false;
     char	vm_uuid[UUID_SIZE] = {'\0'};
+    char	instance_name[INSTANCENAME_SIZE] = {'\0'};
     int 	start_app_status = 0;
     char 	command[2304]={0};
 	FILE*   fp1=NULL;
-	char    extension[10]={0};
+	char    extension[20]={0};
+	char    version[40]={0};
+	char    popen_command[1048]={0};
+	char    digest_alg_command[]="xmlstarlet sel -t -m \"//@DigestAlg\" -v \".\" ";
+	char    policy_version_command[]="xmlstarlet sel -t -m \"/*/namespace::*[name()='']\" -v \".\" ";
+	char    measurement_file[2048]={0};
 	bool	keep_measurement_log = false;
 	int		verifier_exit_status=1;
    //create domain process shall check the whitelist
@@ -1335,10 +1380,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	FILE *fq ;
 	std::map<xmlChar *, char *> xpath_map;
 
-	xmlChar namespace_list[] =			"a=mtwilson:trustdirector:policy:1.2 b=http://www.w3.org/2000/09/xmldsig#";
+	xmlChar namespace_list[] =		"a=mtwilson:trustdirector:policy:1.1 b=http://www.w3.org/2000/09/xmldsig#";
 	xmlChar xpath_customer_id[] = 		"/a:TrustPolicy/a:Director/a:CustomerId";
 	xmlChar xpath_launch_policy[] = 	"/a:TrustPolicy/a:LaunchControlPolicy";
-	xmlChar xpath_image_id[] = 			"/a:TrustPolicy/a:Image/a:ImageId";
+	xmlChar xpath_image_id[] = 		"/a:TrustPolicy/a:Image/a:ImageId";
 	xmlChar xpath_image_hash[] = 		"/a:TrustPolicy/a:Image/a:ImageHash";
 	xmlChar xpath_image_signature[] = 	"/a:TrustPolicy/b:Signature/b:SignatureValue";
 	xmlChar xpath_digest_alg[] =		"/a:TrustPolicy/a:Whitelist/@DigestAlg";
@@ -1386,6 +1431,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
         	strcpy_s(mount_path, sizeof(mount_path), av[++i]);
         	LOG_DEBUG("Mounted image path : %s", mount_path);
         }
+        if ( av[i] && strcmp(av[i], "-name") == 0) {
+        	strcpy_s(instance_name, INSTANCENAME_SIZE, av[++i]);
+        	LOG_DEBUG("Name of instance : %s", instance_name);
+        }
     }
 
 	if(vm_uuid[0] == 0) {
@@ -1395,14 +1444,45 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		LOG_ERROR("Instance type is docker instance and mount path is not specified");
 		return TCSERVICE_RESULT_FAILED;
 	}
+	else if ( instance_type == INSTANCE_TYPE_DOCKER && mount_path[0] == '\0' ) {
+		LOG_ERROR("Instance type is docker instance and mount path is not specified");
+		return TCSERVICE_RESULT_FAILED;
+	}
+	else if ( instance_type == INSTANCE_TYPE_DOCKER && instance_name[0] == '\0') {
+		LOG_ERROR("Instance type is docker and name of instance is not specified");
+		return TCSERVICE_RESULT_FAILED;
+	}
 
-
-        snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s%s", g_trust_report_dir, vm_uuid);
+        	snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s%s/", g_trust_report_dir, vm_uuid);
 		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
+
+		if ( instance_type == INSTANCE_TYPE_VM ) {
+			struct stat info;
+			char trust_report_dir[1024] = {0};
+			
+			if ( stat( vm_manifest_dir, &info ) != 0 ) {
+            			LOG_DEBUG( "cannot access %s\n", vm_manifest_dir );
+            			LOG_DEBUG( "New trust report directory %s will be created", vm_manifest_dir);
+#ifdef __linux__
+                	mkdir(vm_manifest_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+        			chmod(vm_manifest_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+#endif
+				strncpy_s(trust_report_dir, sizeof(trust_report_dir), disk_file, strnlen_s(disk_file, sizeof(disk_file)) - (sizeof("/disk") - 1));
+				snprintf(manifest_file, sizeof(manifest_file), "%s%s", trust_report_dir, "/trustpolicy.xml");
+				snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", trust_report_dir, "/manifest.xml");
+				
+				snprintf(command, sizeof(command), "cp -p %s %s/", manifest_file, vm_manifest_dir);
+				system(command);
+				memset(command, 0, sizeof(command));
+				snprintf(command, sizeof(command), "cp -p %s %s/", nohash_manifest_file, vm_manifest_dir);
+				system(command);
+			}
+        	}
+
 		snprintf(manifest_file, sizeof(manifest_file), "%s%s", vm_manifest_dir, "/trustpolicy.xml");
 		LOG_DEBUG("Manifest path %s ", manifest_file);
 		snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", vm_manifest_dir, "/manifest.xml");
-		LOG_DEBUG("Manifest list path 2%s\n",nohash_manifest_file);
+		LOG_DEBUG("Manifest list path %s",nohash_manifest_file);
 #ifdef _WIN32
 		if (PathFileExists(manifest_file)==0){
 			LOG_ERROR("trustpolicy.xml doesn't exist at  %s", manifest_file);
@@ -1425,13 +1505,42 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			goto return_response;
 		}
 
-		if(access(nohash_manifest_file, F_OK)!=0){
-			LOG_ERROR("manifestlist.xml doesn't exist at  %s", nohash_manifest_file);
-			LOG_ERROR( "cant continue without reading digest algorithm");
+		//Read the digest algorithm from manifestlist.xml
+		snprintf(popen_command, sizeof(popen_command), "%s%s",digest_alg_command,nohash_manifest_file);
+		fp1=popen(popen_command,"r");
+		if (fp1 != NULL) {
+			fgets(extension, sizeof(extension)-1, fp1);
+			pclose(fp1);
+			LOG_DEBUG("Extension : %s",extension);
+
+			snprintf(measurement_file, sizeof(measurement_file), "%s.%s","/measurement",extension);
+			strcpy_s(cumulativehash_file, sizeof(cumulativehash_file), vm_manifest_dir);
+			strcat_s(cumulativehash_file, sizeof(cumulativehash_file), measurement_file);
+			LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
+		}
+		else {
+			LOG_ERROR("Failed to read hash algorithm from trustpolicy");
 			start_app_status = 1;
 			goto return_response;
 		}
 #endif
+		//Read the policy version from manifestlist.xml
+		snprintf(popen_command, sizeof(popen_command), "%s%s",policy_version_command,nohash_manifest_file);
+		fp1=popen(popen_command,"r");
+		if (fp1 != NULL) {
+			fgets(version, sizeof(version)-1, fp1);
+			pclose(fp1);
+			LOG_DEBUG("Version : %s",version);
+
+			namespace_list[strnlen_s("mtwilson:trustdirector:policy:1.1", 256)+1] = version[strnlen_s("mtwilson:trustdirector:manifest:1.1", 256)-1];
+			LOG_DEBUG("namespace_list : %s", namespace_list);
+		}
+		else {
+			LOG_ERROR("Failed to read policy version from trustpolicy");
+			start_app_status = 1;
+			goto return_response;
+		}
+
     	/*
     	 * extract Launch Policy, CustomerId, ImageId, VM hash, Manifest signature and Digest Alg value from formatted manifestlist.xml
     	 * by specifying fixed xpaths with namespaces
@@ -1689,7 +1798,19 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 				}
 			}
 			LOG_TRACE("Updating proc table entry");
-		   if(!g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash, vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir)) {
+			int update_stat = false;
+			if ( instance_type == INSTANCE_TYPE_VM ) {
+				LOG_TRACE("calling updateprocEntry without  instance name");
+				update_stat = g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash,
+						vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir);
+			}
+			else if( instance_type == INSTANCE_TYPE_DOCKER) {
+				LOG_TRACE("calling updateprocEntry with  instance name");
+				// pass instance name too
+				update_stat = g_myService.m_procTable.updateprocEntry(child, vm_image_id, vm_customer_id, vm_manifest_hash,
+						vm_manifest_signature,launchPolicy,verification_status, vm_manifest_dir, instance_name);
+			}
+			if(!update_stat) {
 				LOG_ERROR("SartApp : can't update proc table entry\n");
 				//return TCSERVICE_RESULT_FAILED;
 				start_app_status = 1;
@@ -2056,7 +2177,7 @@ void* clean_vrtm_table(void *){
 	LOG_DEBUG("Cleanup thread exiting...");
 	return NULL;
 }
-
+/*
 void* clean_deleted_docker_instances(void *){
 	std::set<std::string> uuid_list;
 	LOG_TRACE("");
@@ -2071,12 +2192,13 @@ void* clean_deleted_docker_instances(void *){
 		g_myService.CleanVrtmTable(uuid_list, &cleaned_entries);
 		LOG_INFO("Number of Docker instances removed from vRTM table : %d", cleaned_entries);
 		uuid_list.clear();
+		sleep(g_entry_cleanup_interval);
 	}
 	g_docker_deletion_service_status = 0;
 	LOG_DEBUG("Docker Deletion Service thread exiting...");
 	return NULL;
 }
-
+*/
 #ifdef _WIN32
 void* clean_and_update_hyperv_vm_status(void *) {
 	std::set<std::string> active_vms;
@@ -2128,7 +2250,7 @@ void cleanupService() {
 		}
 	}
 
-	std::set<std::string> uuid_list;
+	/*std::set<std::string> uuid_list;
 	if(g_docker_deletion_service_status == 1) {
 		LOG_INFO("Docker deletion Service already running");
 		//return 0;
@@ -2151,7 +2273,7 @@ void cleanupService() {
 			pthread_attr_destroy(&attr_d);
 			//return 1;
 		}
-	}
+	}*/
 
 #ifdef _WIN32
 	if (g_hyperv_vm_cleanup_service_status) {
@@ -2176,4 +2298,4 @@ void cleanupService() {
 		}
 	}
 #endif
-}			
+}

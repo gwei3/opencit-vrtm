@@ -15,7 +15,6 @@ BUILD_LIBVIRT="FALSE"
 KVM_BINARY=""
 LOG_DIR="/var/log/vrtm"
 VERSION_INFO_FILE=vrtm.version
-DEFAULT_DEPLOYMENT_TYPE="vm"
 
 # This function returns either rhel fedora ubuntu suse
 # TODO : This function can be moved out to some common file
@@ -179,9 +178,9 @@ function installKVMPackages()
         fi
 }
 
-function installvrtmProxyAndListner()
+function installvrtmProxy()
 {
-	echo "Installing vrtmProxy and Starting vrtmListener...."
+	echo "Installing vrtmProxy...."
 
 	if [ -e $KVM_BINARY ] ; then
 		echo "#! /bin/sh" > $KVM_BINARY
@@ -217,7 +216,7 @@ function installvrtmProxyAndListner()
                         grep "$vrtm_comment" $LIBVIRT_QEMU_FILE > /dev/null
                         if [ $? -eq 1 ] ; then
                             echo "$vrtm_comment" >> $LIBVIRT_QEMU_FILE
-                            echo "$INSTALL_DIR/vrtm/lib/libvrtmchannel.so r," >> $LIBVIRT_QEMU_FILE
+                            echo "$INSTALL_DIR/vrtm/lib/libvrtmchannel.so rmix," >> $LIBVIRT_QEMU_FILE
                             echo "$INSTALL_DIR/vrtm/configuration/vrtm_proxylog.properties r," >> $LIBVIRT_QEMU_FILE
                             echo "$INSTALL_DIR/vrtm/configuration/vRTM.cfg r," >> $LIBVIRT_QEMU_FILE
                             echo "$LOG_DIR/vrtm_proxy.log w," >> $LIBVIRT_QEMU_FILE
@@ -316,16 +315,6 @@ function startNonTPMRpCore()
     sleep 5
 	echo "Starting non-TPM vrtmCORE...."
 	/usr/local/bin/vrtm start
-	#might be installing vRTM in DOCKER mode on top of VM mode, So, stop previously running vrtm_listener
-	if [ -e /usr/local/bin/vrtmlistener ]
-	then
-		/usr/local/bin/vrtmlistener stop
-	fi
-	if [ "$DEPLOYMENT_TYPE" == "vm" ]
-	then
-		echo "Starting vrtm_listener...."
-		/usr/local/bin/vrtmlistener start
-	fi
 }
 
 function createvRTMStartScript()
@@ -410,86 +399,6 @@ function createvRTMStartScript()
 	chmod +x "$VRTM_SCRIPT"
 	rm -rf /usr/local/bin/vrtm
 	ln -s "$VRTM_SCRIPT" /usr/local/bin/vrtm
-	
-	if [ "$DEPLOYMENT_TYPE" != "vm" ]
-	then
-		#only vrtmcore is needed to be installed in DOCKER mode
-		return;
-	fi
-
-	VRTM_LISTNER_SCRIPT="$INSTALL_DIR/vrtm/scripts/vrtmlistener.sh"
-	echo "Creating the startup script.... $VRTM_LISTNER_SCRIPT"
-	touch $VRTM_LISTNER_SCRIPT
-	echo "#!/bin/bash
-
-### BEGIN INIT INFO
-# Provides:          vrtmlistener
-# Required-Start:    \$all
-# Required-Stop:     \$all
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Should-Start:    $LIBVIRT_SERVICE_NAME
-# Should-Stop:      $LIBVIRT_SERVICE_NAME
-# Short-Description: vrtm_listener
-# Description:       vrtm_listener
-### END INIT INFO
-
-   RPLISTENER_PID_FILE=/var/run/vrtmlistener.pid
-
-    startRpListner()
-    {
-    	ldconfig
-        cd \"$INSTALL_DIR/vrtm/bin\"
-        nohup ./vrtm_listener > /var/log/vrtm/vrtm_listener_crash.log 2>&1 &
-	echo \$! > \$RPLISTENER_PID_FILE
-    }
-    installMonitFile()
-	{
-		 if [ -e /etc/monit/conf.d/vrtmlistener.monit ] ; then
-			 echo \"INFO : monitor file for vrtm_listener already present\"
-		 else
-	         if [ -d /etc/monit/conf.d ] ; then
-    	         echo \"INFO : monit conf dir already exists\"
-        	 else
-            	 echo \"WARN : monit dir was not existing, is monit installed with trust agent installed ?\"
-	             mkdir -p /etc/monit/conf.d
-    	     fi
-			 cp \"$INSTALL_DIR/vrtm/configuration/monit/vrtmlistener.monit\" /etc/monit/conf.d/.
-		  	 service monit restart > /dev/null 2>&1 &
-		 fi
-	}
-	case \"\$1\" in
-         start)
-            pgrep vrtm_listener
-            if [ \$? -ne 0 ] ; then
-                echo \"Starting vrtm_listener...\"
-                startRpListner
-            else
-                echo \"vrtmListner already running...\"
-            fi  
-			installMonitFile
-           ;;
-         stop)
-                echo \"Stopping all vrtm_listener processes and its monitor (if any) ...\"
-                pkill -9 vrtm_listener
-				echo \"INFO : Removing pid file for vrtm_listener\"
-				rm -rf \$RPLISTENER_PID_FILE
-				echo \"INFO : Removing monitor file for vrtm_listener\"
-				rm -rf /etc/monit/conf.d/vrtmlistener.monit
-				service monit restart > /dev/null 2>&1 &
-           ;;
-         version)
-                cat \"$INSTALL_DIR/vrtm/$VERSION_INFO_FILE\"
-           ;;
-         *)
-           echo \"Usage: {start|stop|version}\" 
-           exit 3
-           ;;
-        esac
-        " > "$VRTM_LISTNER_SCRIPT"
-        chmod +x "$VRTM_LISTNER_SCRIPT"
-        rm -rf /usr/local/bin/vrtmlistener
-        ln -s "$VRTM_LISTNER_SCRIPT" /usr/local/bin/vrtmlistener
 }
 
 function validate()
@@ -508,8 +417,16 @@ function validate()
 
 function log4cpp_inst_ubuntu()
 {
-        echo "Installing log4cpp for Ubuntu..."
-        apt-get -y install liblog4cpp5
+        is_ubuntu_16=`lsb_release -a | grep "^Release" | grep 16.04`
+        if [ -n "$is_ubuntu_16" ]
+        then
+            echo "Installing log4cpp for Ubuntu 16.04... "
+            apt-get -y install liblog4cpp5v5
+        else
+            echo "Installing log4cpp for Ubuntu other than 16.04..."
+            apt-get -y install liblog4cpp5
+        fi
+
         if [ `echo $?` -ne 0 ]
         then
                 echo "Failed to install log4cpp..."
@@ -576,10 +493,6 @@ function install_log4cpp()
 
 function main_default()
 {
-	if [ -z "$DEPLOYMENT_TYPE" ]
-	then
-		DEPLOYMENT_TYPE=$DEFAULT_DEPLOYMENT_TYPE
-	fi
   if [ -z "$INSTALL_DIR" ]; then
     INSTALL_DIR="$DEFAULT_INSTALL_DIR"
   fi
@@ -619,8 +532,8 @@ function main_default()
 
 	if [ "$DEPLOYMENT_TYPE" == "vm" ]
 	then
-		echo "Installing vrtmProxy and vrtmListener..."
-		installvrtmProxyAndListner
+		echo "Installing vrtmProxy..."
+		installvrtmProxy
 		touch "$LOG_DIR"/vrtm_proxy.log
         	chmod 766 "$LOG_DIR"/vrtm_proxy.log
 	fi

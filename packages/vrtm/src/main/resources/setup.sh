@@ -24,6 +24,11 @@
 export VRTM_HOME=${VRTM_HOME:-/opt/vrtm}
 VRTM_LAYOUT=${VRTM_LAYOUT:-home}
 VRTM_VERSION_FILE=vrtm.version
+DEFAULT_DEPLOYMENT_TYPE="vm"
+if [ -z "$DEPLOYMENT_TYPE" ]
+then
+	export DEPLOYMENT_TYPE=$DEFAULT_DEPLOYMENT_TYPE
+fi
 
 # the env directory is not configurable; it is defined as VRTM_HOME/env and
 # the administrator may use a symlink if necessary to place it anywhere else
@@ -155,9 +160,18 @@ rm -rf /$VRTM_HOME/dist
 #Register vRTM start script
 register_startup_script /usr/local/bin/vrtm vrtm
 
-if [ "$DEPLOYMENT_TYPE" == "vm" ]
-then
-	register_startup_script /usr/local/bin/vrtmlistener vrtmlistener
+# if [ "$DEPLOYMENT_TYPE" == "vm" ]
+# then
+	# register_startup_script /usr/local/bin/vrtmlistener vrtmlistener
+# fi
+
+#Update vRTM.cfg file to include deployment_type
+vrtmCfgFile=$VRTM_CONFIGURATION/vRTM.cfg
+vrtmCfgDeploymentTypeExists=$(grep '^deployment_type' "$vrtmCfgFile")
+if [ -n "$vrtmCfgDeploymentTypeExists" ]; then
+  sed -i 's/^deployment_type.*/deployment_type='$DEPLOYMENT_TYPE'/g' "$vrtmCfgFile"
+else
+  echo "deployment_type=$DEPLOYMENT_TYPE" >> "$vrtmCfgFile"
 fi
 
 ### CURRENTLY DONE IN vRTM_KVM_install.sh
@@ -173,6 +187,6 @@ fi
 #ln -s "$tbootxmVerifier" "$vrtmVerifier"
 
 ldconfig
-if [ $? -ne 0 ]; then echo_warning "Failed to load ldconfig. Please run command "ldconfig" after installation completes. And start vrtm & vrtmlistener services again"; fi
+if [ $? -ne 0 ]; then echo_warning "Failed to load ldconfig. Please run command "ldconfig" after installation completes. And start vrtm service again"; fi
 
 echo_success "VRTM Installation complete"

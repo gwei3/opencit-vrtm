@@ -38,7 +38,7 @@ extern "C" {
 
 #define QEMU_SYSTEM_PATH            "/usr/bin/qemu-system-x86_64_orig"
 #define VRTMCORE_DEFAULT_IP_ADDR    "127.0.0.1"
-#define PARAMSIZE                   8192
+//#define PARAMSIZE                   8192
 #define TCSERVICESTARTAPPFROMAPP    15
 #define VRTMCORE_DEFAULT_PORT       16005
 #define VRTM_LISTENER_IP_ADDR       "127.0.0.1"
@@ -209,7 +209,6 @@ int main(int argc, char** argv) {
     vm_pid = getpid();
     LOG_DEBUG("vRTM proxy process id is %d\n", vm_pid);
 
-#ifdef DEBUG
     /* 
     log the original qemu command. Two possibilities here:
     I. Start a qemu process and talk QMP over stdio to discover what capabilities the binary 
@@ -221,7 +220,6 @@ int main(int argc, char** argv) {
     for (i=0; i<argc; i++) {
         LOG_DEBUG("\n%s%s\n", " ", argv[i]);
     }
-#endif
 
     argv[0] = QEMU_SYSTEM_PATH;
 
@@ -268,32 +266,32 @@ int main(int argc, char** argv) {
         return 0;
     }
     // Parse the command line request and extract the disk path
+    
     disk_start_ptr = strstr(drive_data, "file=") + sizeof("file=") - 1;
-    disk_end_ptr = strstr(drive_data, ",if=none");
+    disk_end_ptr = strchr(drive_data, ',');
     int disk_path_len = disk_end_ptr-disk_start_ptr;
-	LOG_DEBUG("Disk path length: %d", disk_path_len);
+    LOG_DEBUG("Disk path length: %d", disk_path_len);
     memset(disk_path, 0, sizeof(disk_path));
     strncpy_s(disk_path, PATH_MAX, disk_start_ptr, disk_path_len);
-	LOG_DEBUG("Disk Path: %s", disk_path);
-
+    LOG_DEBUG("Disk Path: %s", disk_path);
     //Extract UUID of VM
-    strncpy_s(trust_report_dir, sizeof(trust_report_dir), disk_path, disk_path_len-strnlen_s("/disk", sizeof("/disk")));
+    strncpy_s(trust_report_dir, sizeof(trust_report_dir), disk_path, disk_path_len - (sizeof("/disk") - 1));
     char *uuid_ptr = strrchr(trust_report_dir, '/');
     strcpy_s(uuid, sizeof(uuid), uuid_ptr + 1);
     LOG_TRACE("Extracted UUID : %s", uuid);
 
     // Parse the config file and extract the manifest path
-    if(load_config(g_config_file, config_map) < 0) {
-    	LOG_ERROR("Can't load config file %s", g_config_file);
-		return EXIT_FAILURE;
-	}
+    //if(load_config(g_config_file, config_map) < 0) {
+    //	LOG_ERROR("Can't load config file %s", g_config_file);
+    //	return EXIT_FAILURE;
+    //}
 
-    std::string reqValue = config_map["trust_report_dir"];
-    clear_config(config_map);
-    strcpy_s(trust_report_dir, sizeof(trust_report_dir), reqValue.c_str());
-    memset(manifest_path, '\0', sizeof(manifest_path));
-	snprintf(manifest_path, sizeof(manifest_path), "%s%s%s", trust_report_dir, uuid, "/trustpolicy.xml");
-	LOG_DEBUG("Path of trust policy: %s", manifest_path);
+    //std::string reqValue = config_map["trust_report_dir"];
+    //clear_config(config_map);
+    //strcpy_s(trust_report_dir, sizeof(trust_report_dir), reqValue.c_str());
+    memset_s(manifest_path, sizeof(manifest_path), '\0');
+    snprintf(manifest_path, sizeof(manifest_path), "%s%s", trust_report_dir, "/trustpolicy.xml");
+    LOG_DEBUG("Path of trust policy: %s", manifest_path);
 
 // If not measured launch then execute command without calling vRTM
     if(access(manifest_path, F_OK)!=0){

@@ -13,7 +13,9 @@
 #include <fcntl.h>
 #include <time.h>
 #include <string.h>
-#ifdef __linux__
+#ifdef _WIN32
+#include <win_headers.h>
+#elif __linux__
 #include <unistd.h>
 #endif
 #include <pthread.h>
@@ -21,7 +23,6 @@
 #include <set>
 #include <map>
 #include <vrtmCommon.h>
-#include <win_headers.h>
 #include <iostream>
 #include <fstream>
 typedef unsigned TCSERVICE_RESULT;
@@ -59,6 +60,7 @@ typedef unsigned TCSERVICE_RESULT;
 #define MANIFEST_SIGNATURE_SIZE 512
 #define LAUNCH_POLICY_SIZE	15
 #define MANIFEST_DIR_SIZE	1024
+#define INSTANCENAME_SIZE 512
 
 //#include "jlmUtility.h"
 #ifndef byte
@@ -80,6 +82,7 @@ public:
     int                 m_size_vm_manifest_dir;
     byte                m_rgHash[RG_HASH_SIZE];
     char                m_uuid[UUID_SIZE];
+    char				m_instance_name[INSTANCENAME_SIZE];
     char                m_vdi_uuid[UUID_SIZE];
     char*               m_szexeFile;
     int                 m_nArgs;
@@ -98,7 +101,7 @@ public:
     int					m_instance_type;
 
     serviceprocEnt() : m_rgHash(), m_uuid(), m_vdi_uuid(), m_vm_image_id(), m_vm_customer_id(),
-    		m_vm_manifest_hash(), m_vm_manifest_signature(), m_vm_launch_policy(), m_vm_manifest_dir() {
+    		m_vm_manifest_hash(), m_vm_manifest_signature(), m_vm_launch_policy(), m_vm_manifest_dir(), m_instance_name() {
     	
 	m_procid = m_sizeHash = m_size_vm_image_id = m_size_vm_customer_id = m_size_vm_manifest_hash =
     			m_size_vm_manifest_signature = m_size_vm_launch_policy = m_size_vm_manifest_dir = m_nArgs = 0;
@@ -127,14 +130,16 @@ public:
     bool                addprocEntry(int procid, const char* file, int an, char** av,
     			int sizeHash, byte* hash, int instance_type);
     bool 				updateprocEntry(int procid, char* uuid, char* vdi_uuid);
-    bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature,char* launch_policy,bool status, char * vm_manifest_dir);
+    bool        		updateprocEntry(int procid, char* vm_image_id, char* vm_customer_id, char* vm_manifest_hash, char* vm_manifest_signature,
+    						char* launch_policy,bool status, char * vm_manifest_dir, char * instance_name = NULL);
     bool                removeprocEntry(int procid);
     bool                removeprocEntry(char* uuid);
     serviceprocEnt*     getEntfromprocId(int procid);
     int					getprocIdfromuuid(char* uuid);
+    int					getprocIdfrominstance_name(char *instance_name);
     int					getproctablesize();
     int 				getcancelledvmcount();
-    int					getactivedockeruuid(std::set<std::string> &);
+    //int					getactivedockeruuid(std::set<std::string> &);
 	int					getactivevmsuuid(std::set<std::string> &);
     void                print();
 
@@ -168,7 +173,7 @@ public:
     TCSERVICE_RESULT	IsVerified(char *vm_uuid, int* verification_status);
     TCSERVICE_RESULT	GenerateSAMLAndGetDir(char *vm_uuid, char * nonce, char * vm_manifest_dir);
     TCSERVICE_RESULT 	CleanVrtmTable(unsigned long entry_max_age,int vm_status, int* deleted_entries);
-    TCSERVICE_RESULT	CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries);
+    //TCSERVICE_RESULT	CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries);
 	TCSERVICE_RESULT	CleanVrtmTable_and_update_vm_status(std::set<std::string> & vms, int* deleted_vm_count, int *inactive);
     TCSERVICE_RESULT 	get_xpath_values(std::map<unsigned char*, char *> xpath_map, unsigned char* namespace_list, char* xml_file);
 };

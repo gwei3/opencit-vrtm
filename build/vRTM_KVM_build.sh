@@ -80,7 +80,7 @@ function is_log4cpp_installed() {
 	fi	
 }
 
-function buildvrtmlistener()
+function buildvrtmproxy()
 {
 	cd vrtm/src/vrtmproxy/kvm_proxy
    	make -f vrtm-proxy.mak clean >> "$BUILD_DIR/outfile" 2>&1
@@ -99,7 +99,10 @@ function buildvrtmlistener()
                 echo "VRTM-Proxy build successful"
         fi
 	cd "$BUILD_DIR"
+}
 
+function buildvrtmlistener()
+{
         cd vrtm/src/vrtmlistener/kvm_listener
         make -f vrtm-listener.mak clean >> "$BUILD_DIR/outfile" 2>&1
         if [ $? -ne 0 ]; then
@@ -116,8 +119,6 @@ function buildvrtmlistener()
         else
                 echo "VRTM-listener build successful"
         fi
-
-	
         cd "$BUILD_DIR"
 }
 
@@ -182,7 +183,7 @@ function install_kvm_packages_rhel()
 function install_kvm_packages_ubuntu()
 {
 	echo "Installing Required Packages for ubuntu ....."
-	sudo -n apt-get install -y gcc build-essential make libxml2-dev libssl-dev libvirt-dev
+	sudo -n apt-get install -y gcc build-essential make libxml2-dev libssl-dev libvirt-dev --force-yes
 	if [ $? -ne 0 ]; then
                 echo "Failed to install pre-requisite packages"
                 exit -1
@@ -324,8 +325,11 @@ function main()
         buildvrtmcore
 	cd "$BUILD_DIR"
 	
-    echo "Building VRTMListener binaries..."
-	buildvrtmlistener
+        # echo "Building VRTMListener binaries..."
+	# buildvrtmlistener
+
+        echo "Building VRTMProxy binaries..."
+	buildvrtmproxy
 
 	grep -i ' error' "$BUILD_DIR/outfile"
 	
