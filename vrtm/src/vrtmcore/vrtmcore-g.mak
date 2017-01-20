@@ -43,7 +43,7 @@ all: $(BIN)/vrtmcore
 
 $(BIN)/vrtmcore: $(sobjs)
 	@echo "vrtmcoreservice"
-	$(LINK) -o $(BIN)/vrtmcore $(sobjs) $(LDFLAGS) -L$(LIB) -L$(SAFESTRING) -L/usr/local/lib/ -lSafeStringRelease -lpthread  -lvrtmchannel -lxml2 -llog4cpp -lvirt
+	$(LINK) -o $(BIN)/vrtmcore $(sobjs) $(LDFLAGS) -L$(LIB) -L$(SAFESTRING) -L/usr/local/lib/ -lvrtmchannel -lpthread -lxml2 -llog4cpp -lvirt -lssl -lcrypto -lSafeStringRelease
 ifneq "$(debug)" "1"
 	strip -s $(BIN)/vrtmcore
 endif
@@ -62,8 +62,8 @@ $(OBJ)/vrtminterface.o: $(TM)/vrtminterface.cpp
 
 #original tcService
 $(OBJ)/modtcService.o: $(TM)/modtcService.cpp
-	$(CC) $(CFLAGS)  -I/usr/include/libxml2 -I$(UTIL) -I$(SC)  -I$(CH) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/modtcService.o $(TM)/modtcService.cpp
+	$(CC) $(CFLAGS)  -I$(LXML) -I$(OPENSSL) -I$(UTIL) -I$(CH) -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/modtcService.o $(TM)/modtcService.cpp
 
 
 $(OBJ)/vrtm_listener.o: $(TM)/vrtm_listener.cpp
-	$(CC) $(CFLAGS) -I$(CH) -I$(UTIL) -I$(LOG4CPP) -I$(SC) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/vrtm_listener.o $(TM)/vrtm_listener.cpp
+	$(CC) $(CFLAGS) -I$(SC) -I$(UTIL) -I$(LOG4CPP) -I$(CH) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/vrtm_listener.o $(TM)/vrtm_listener.cpp
