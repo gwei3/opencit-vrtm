@@ -38,9 +38,14 @@ extern "C" {
 }
 #endif
 
-
+#ifdef _WIN32
+#define    g_config_file "../configuration/vRTM_nt.cfg"
+#define	   log_properties_file "../configuration/vrtm_log_nt.properties"
+#elif __linux__
 #define    g_config_file "../configuration/vRTM.cfg"
 #define	   log_properties_file "../configuration/vrtm_log.properties"
+#endif
+
 char    g_vrtmcore_ip [64]        = "127.0.0.1";
 int     g_vrtmcore_port 		= 16005;
 int     g_max_thread_limit 	= 64;
