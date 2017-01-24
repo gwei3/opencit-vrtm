@@ -747,7 +747,7 @@ int calculateHash(char *xml_file, char *hash_str, int hash_str_size) {
 
 	//Dump the hash in variable and finish the Hash Object handle
 	ntstatus = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
-	strncpy_s(hash_str, hash_str_size, (char *)hash_ptr, 20);
+	memcpy_s(hash_str, hash_str_size, (char *)hash_ptr, hash_size);
 	cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
 #elif __linux__
 	unsigned char hash[SHA_DIGEST_LENGTH];
@@ -758,7 +758,7 @@ int calculateHash(char *xml_file, char *hash_str, int hash_str_size) {
 		SHA1_Update(&sha1, buffer, bytesRead);
 	SHA1_Final(hash, &sha1);
 
-	strncpy_s(hash_str, MAX_LEN, (char *)hash, SHA_DIGEST_LENGTH);
+	memcpy_s(hash_str, hash_str_size, (char *)hash, SHA_DIGEST_LENGTH);
 #endif
 cleanup:
 	fclose(fd);
