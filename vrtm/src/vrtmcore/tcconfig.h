@@ -1,7 +1,8 @@
 #ifndef _TCCONFIGH_
 #define _TCCONFIGH_
 
-
+#define RP_MODE_OPENSTACK 	0
+#define RP_MODE_STANDALONE 	1
 extern char g_vrtmcore_ip[];
 extern int  g_vrtmcore_port ;
 extern int  g_max_thread_limit ;
@@ -15,8 +16,5 @@ extern char     g_deployment_type[];
 
 extern char*	g_mount_path;
 extern int  g_quit;
-
-#define RP_MODE_OPENSTACK 	0
-#define RP_MODE_STANDALONE 	1
 
 #endif

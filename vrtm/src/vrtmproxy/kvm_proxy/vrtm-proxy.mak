@@ -30,7 +30,7 @@ proxyobj=$(OBJ)/vrtm_proxy.o $(OBJ)/logging.o
 all: $(BIN)/vrtm_proxy
 
 $(BIN)/vrtm_proxy: $(proxyobj)
-	$(LINK) -o $(BIN)/vrtm_proxy $(proxyobj) $(LDFLAGS) -L$(LIB) -L$(SAFESTRING) -L/usr/local/lib/ -lSafeStringRelease -lvrtmchannel -llog4cpp
+	$(LINK) -o $(BIN)/vrtm_proxy $(proxyobj) $(LDFLAGS) -L$(LIB) -L$(SAFESTRING) -L/usr/local/lib/ -lvrtmchannel -llog4cpp -lssl -lcrypto -lSafeStringRelease
 
 ifneq "$(debug)" "1"
 	strip -s $(BIN)/vrtm_proxy

@@ -9,6 +9,6 @@
 #define LOG_RPCHANNEL_H_
 
 #include "logging.h"
-void set_logger_vrtmchannel(log4cpp::Category* root);
+VRTMCHANNEL_DLLPORT void set_logger_vrtmchannel(log4cpp::Category* root);
 
 #endif /* LOG_RPCHANNEL_H_ */

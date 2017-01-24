@@ -14,14 +14,14 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#ifdef __linux__
 #include "safe_lib.h"
+#endif
 #ifdef __cplusplus
 }
 #endif
 
 #if defined(LIBXML_XPATH_ENABLED) && defined(LIBXML_SAX1_ENABLED)
-
-int list_elements_from_object(xmlNodeSetPtr nodes, char** elements_buf, int elements_buf_size);
 
 /**
  * setup_xpath_parser:
@@ -56,7 +56,7 @@ int setup_xpath_parser(xmlDocPtr* doc,xmlXPathContextPtr * xpathCtx, const char*
  * @xpathCtx:			xmlXPathContextPtr of doc in which xpath is going to be searched
  * @xpathExpr:			xpath expression
  * @nslist:				char string of namespaces separated by space
- * @elements_buf:		buffer to store the elements value
+ * @elements_buf:		buffer to store the elements value, buffer to store elements contents should have min size of 512 chars
  * @elements_buf_size:	number of entries buffer can store
  *
  * Parse the xpath and return the list of values of given xpath
@@ -193,9 +193,22 @@ int list_elements_from_object(xmlNodeSetPtr nodes, char** elements_buf, int elem
                 LOG_DEBUG( "= element node \"%s\" \t value : %s\n",
                     cur->name, node_content);
             }
-            strcpy_s(elements_buf[i], MAX_LEN, node_content);
-            free(node_content);
-        } else {
+			strcpy_s(elements_buf[i], LARGE_CHAR_ARR_SIZE, node_content);
+			xmlFree((xmlChar *)node_content);
+		} else if (nodes->nodeTab[i]->type == XML_ATTRIBUTE_NODE) {
+			cur = nodes->nodeTab[i];
+			node_content = (char *)xmlNodeGetContent(cur);
+			if (cur->ns) {
+				LOG_DEBUG("= attribute node \"%s:%s\" value : %s\n",
+					cur->ns->href, cur->name, node_content);
+			}
+			else {
+				LOG_DEBUG("= attribute node \"%s\" \t value : %s\n",
+					cur->name, node_content);
+			}
+			strcpy_s(elements_buf[i], LARGE_CHAR_ARR_SIZE, node_content);
+			xmlFree((xmlChar *)node_content);
+		} else {
             cur = nodes->nodeTab[i];
             LOG_DEBUG( "= node \"%s\": type %d\n", cur->name, cur->type);
         }
