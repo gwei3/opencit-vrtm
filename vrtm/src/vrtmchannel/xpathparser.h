@@ -20,11 +20,11 @@
 
 #if defined(LIBXML_XPATH_ENABLED) && defined(LIBXML_SAX1_ENABLED)
 
-int register_namespaces(xmlXPathContextPtr xpathCtx, xmlChar* nsList);
-int list_elements_from_object(xmlNodeSetPtr nodes, char** elements_buf, int elements_buf_size);
-int setup_xpath_parser(xmlDocPtr* doc,xmlXPathContextPtr * xpathCtx, const char* filename);
-int parse_xpath(xmlXPathContextPtr xpathCtx, xmlChar* xpathExpr, xmlChar* nsList, char** elements_buf, int elements_buf_size);
-int teardown_xpath_parser(xmlDocPtr doc, xmlXPathContextPtr xpathCtx);
+VRTMCHANNEL_DLLPORT int register_namespaces(xmlXPathContextPtr xpathCtx, xmlChar* nsList);
+VRTMCHANNEL_DLLPORT int list_elements_from_object(xmlNodeSetPtr nodes, char** elements_buf, int elements_buf_size);
+VRTMCHANNEL_DLLPORT int setup_xpath_parser(xmlDocPtr* doc, xmlXPathContextPtr * xpathCtx, const char* filename);
+VRTMCHANNEL_DLLPORT int parse_xpath(xmlXPathContextPtr xpathCtx, xmlChar* xpathExpr, xmlChar* nsList, char** elements_buf, int elements_buf_size);
+VRTMCHANNEL_DLLPORT int teardown_xpath_parser(xmlDocPtr doc, xmlXPathContextPtr xpathCtx);
 
 #endif
 

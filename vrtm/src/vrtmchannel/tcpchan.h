@@ -1,3 +1,4 @@
+#include "vrtmCommon.h"
 
 #define PADDEDREQ 64*1024
 #define PARAMSIZE static_cast<int>(PADDEDREQ-sizeof(tcBuffer))
@@ -9,11 +10,11 @@ struct tcBuffer {
 };
 typedef struct tcBuffer tcBuffer;
 
-void ch_register(int fd);
-int ch_open(char* serverip, int port);
-int ch_read(int fd, void *buf, int maxsize);
-int ch_write(int fd, void *buf, int size);
-void ch_close(int fd);
+VRTMCHANNEL_DLLPORT void ch_register(int fd);
+VRTMCHANNEL_DLLPORT int ch_open(char* serverip, int port);
+VRTMCHANNEL_DLLPORT int ch_read(int fd, void *buf, int maxsize);
+VRTMCHANNEL_DLLPORT int ch_write(int fd, void *buf, int size);
+VRTMCHANNEL_DLLPORT void ch_close(int fd);
 
 
 
