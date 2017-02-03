@@ -19,19 +19,29 @@
         <makeself.name>${project.artifactId}-${project.version}</makeself.name>
     </properties>
     
-    <dependencies>
-        <dependency>
-            <groupId>com.intel.mtwilson.vrtm.packages</groupId>
-            <artifactId>vrtm-zip</artifactId>
-            <version>${project.version}</version>
-            <type>zip</type>
-        </dependency>
-        <dependency>
-            <groupId>com.intel.mtwilson.linux</groupId>
-            <artifactId>mtwilson-linux-util</artifactId>
-            <version>${project.version}</version>
-            <type>sh</type>
-        </dependency>
-    </dependencies>
+    <profiles>
+        <profile>
+            <activation>
+                <os>
+                    <family>unix</family>
+                </os>
+            </activation>
+
+            <dependencies>
+                <dependency>
+                    <groupId>com.intel.mtwilson.vrtm.packages</groupId>
+                    <artifactId>vrtm-zip</artifactId>
+                    <version>${project.version}</version>
+                    <type>zip</type>
+                </dependency>
+                <dependency>
+                    <groupId>com.intel.mtwilson.linux</groupId>
+                    <artifactId>mtwilson-linux-util</artifactId>
+                    <version>${project.version}</version>
+                    <type>sh</type>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
     
 </project>

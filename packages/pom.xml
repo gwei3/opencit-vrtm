@@ -10,6 +10,7 @@
     <modules>
         <module>vrtm</module>
         <module>vrtm-zip</module>
+        <module>vrtm-windows</module>
     </modules>
     
 </project>

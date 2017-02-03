@@ -19,6 +19,12 @@
 		<condition property="cmd.maven" value="mvn">
 			<os family="unix"/>
 		</condition>
+                <condition property="isWindows" value="true">
+                        <os family="windows" />
+                </condition>             
+                <condition property="isUnix" value="true">
+                        <os family="unix" />
+                </condition>
 	</target>
 	
 	<target name="ready" depends="init">
@@ -52,6 +58,7 @@
 		
 		<delete dir="build/KVM_build"/>
 		<delete dir="dist"/>
+                <delete file="build/vrtm-setup.exe"/>
 	</target>
 	
 	<target name="build" depends="init">
@@ -68,9 +75,13 @@
 		<chmod file="vRTM_KVM_build.sh" perm="700"/>
 		
 		<!-- run the build script -->
-		<exec executable="/bin/bash" dir="build" failonerror="true">
+		<exec executable="/bin/bash" dir="build" failonerror="true" osfamily="unix">
 			<arg value="-c"/>
 			<arg value="./vRTM_KVM_build.sh"/>
+		</exec>
+                <exec executable="cmd.exe" dir="build" failonerror="true" osfamily="windows">
+                        <arg value="/c" />
+                        <arg value="vrtm_windows_build.cmd x64 Release" />
 		</exec>
 	</target>
 
