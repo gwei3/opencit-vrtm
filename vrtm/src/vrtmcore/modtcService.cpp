@@ -1010,12 +1010,12 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		LOG_ERROR("can't open the file hash.sig");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	fread(signature, 1, 256, fp);
+	int bytesread = fread(signature, 1, 256, fp);
 	//fgets(signature, 1024, fp);
 	fclose(fp);
+	LOG_DEBUG("bytes read : %d", bytesread);
 	LOG_DEBUG("signature read : %s", signature);
-
-	if(Base64Encode(signature, &b64_str) != 0) {
+	if (Base64EncodeWithLength(signature, &b64_str, bytesread) != 0) {
 		LOG_ERROR("Unable to encode the signature read");
 		return TCSERVICE_RESULT_FAILED;
 	}
@@ -1378,13 +1378,21 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	FILE *fq ;
 	std::map<xmlChar *, char *> xpath_map;
 
-	xmlChar namespace_list[] =		"a=mtwilson:trustdirector:policy:1.1 b=http://www.w3.org/2000/09/xmldsig#";
+	/*xmlChar namespace_list[] =		"a=mtwilson:trustdirector:policy:1.2 b=http://www.w3.org/2000/09/xmldsig#";
 	xmlChar xpath_customer_id[] = 		"/a:TrustPolicy/a:Director/a:CustomerId";
 	xmlChar xpath_launch_policy[] = 	"/a:TrustPolicy/a:LaunchControlPolicy";
 	xmlChar xpath_image_id[] = 		"/a:TrustPolicy/a:Image/a:ImageId";
 	xmlChar xpath_image_hash[] = 		"/a:TrustPolicy/a:Image/a:ImageHash";
 	xmlChar xpath_image_signature[] = 	"/a:TrustPolicy/b:Signature/b:SignatureValue";
-	xmlChar xpath_digest_alg[] =		"/a:TrustPolicy/a:Whitelist/@DigestAlg";
+	xmlChar xpath_digest_alg[] =		"/a:TrustPolicy/a:Whitelist/@DigestAlg";*/
+
+	xmlChar namespace_list[] = "a=mtwilson:trustdirector:policy:1.1 b=http://www.w3.org/2000/09/xmldsig#";
+	xmlChar xpath_customer_id[] = "//*[local-name()='CustomerId']";
+	xmlChar xpath_launch_policy[] = "//*[local-name()='LaunchControlPolicy']";
+	xmlChar xpath_image_id[] = "//*[local-name()='ImageId']";
+	xmlChar xpath_image_hash[] = "//*[local-name()='ImageHash']";
+	xmlChar xpath_image_signature[] = "//*[local-name()='SignatureValue']";
+	xmlChar xpath_digest_alg[] = "//*/@*[local-name()='DigestAlg']";
 
 
     LOG_TRACE("Start VM App");
@@ -1503,7 +1511,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			goto return_response;
 		}
 
-		//Read the digest algorithm from manifestlist.xml
+		/*//Read the digest algorithm from manifestlist.xml
 		snprintf(popen_command, sizeof(popen_command), "%s%s",digest_alg_command,nohash_manifest_file);
 		fp1=popen(popen_command,"r");
 		if (fp1 != NULL) {
@@ -1521,7 +1529,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			start_app_status = 1;
 			goto return_response;
 		}
-#endif
+
 		//Read the policy version from manifestlist.xml
 		snprintf(popen_command, sizeof(popen_command), "%s%s",policy_version_command,nohash_manifest_file);
 		fp1=popen(popen_command,"r");
@@ -1537,8 +1545,8 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			LOG_ERROR("Failed to read policy version from trustpolicy");
 			start_app_status = 1;
 			goto return_response;
-		}
-
+		}*/
+#endif
     	/*
     	 * extract Launch Policy, CustomerId, ImageId, VM hash, Manifest signature and Digest Alg value from formatted manifestlist.xml
     	 * by specifying fixed xpaths with namespaces

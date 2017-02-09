@@ -14,6 +14,7 @@
 #include <math.h>
 #include "logging.h"
 #include "win_headers.h"
+#include "base64.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -110,11 +111,16 @@ int Base64Decode(char* b64message, char** buffer) {
 }
 
 int Base64Encode(char* message, char** buffer) {
+	int length = strnlen_s(message, MAX_LEN);
+	return Base64EncodeWithLength(message, buffer, length);
+}
+
+int Base64EncodeWithLength(char* message, char** buffer, int length) {
 
 #ifdef _WIN32
 	DWORD encodelen = -1;
 	*buffer = NULL;
-	if (CryptBinaryToString((BYTE *)message, strnlen_s(message, MAX_LEN), CRYPT_STRING_BASE64, *buffer, &encodelen) == false) {
+	if (CryptBinaryToString((BYTE *)message, length, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCR, *buffer, &encodelen) == false) {
 		return 1; //error
 	}
 	LOG_DEBUG("Possible encoded length : %d", encodelen);
@@ -124,14 +130,14 @@ int Base64Encode(char* message, char** buffer) {
 		return 1;
 	}
 	memset(*buffer, 0, encodelen + 1);
-	if (CryptBinaryToString((BYTE *)message, strnlen_s(message, MAX_LEN), CRYPT_STRING_BASE64, *buffer, &encodelen) == false) {
+	if (CryptBinaryToString((BYTE *)message, length, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCR, *buffer, &encodelen) == false) {
 		return 1; //error
 	}
 	return 0; //success
 #elif __linux__
 	BIO *bio, *b64;
 	FILE* stream;
-	int encodedSize = 4*ceil((double)strnlen_s(message, MAX_LEN)/3);
+	int encodedSize = 4*ceil((double)length/3);
 	LOG_DEBUG("Possible encoded length : %d", encodedSize);
 	*buffer = (char *)malloc(encodedSize+1);
 	if ( *buffer == NULL) {
@@ -144,7 +150,7 @@ int Base64Encode(char* message, char** buffer) {
 	bio = BIO_new_fp(stream, BIO_NOCLOSE);
 	bio = BIO_push(b64, bio);
 	BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL); //Ignore newlines - write everything in one line
-	BIO_write(bio, message, strnlen_s(message, MAX_LEN));
+	BIO_write(bio, message, length);
 	BIO_flush(bio);
 	BIO_free_all(bio);
 	fclose(stream);
