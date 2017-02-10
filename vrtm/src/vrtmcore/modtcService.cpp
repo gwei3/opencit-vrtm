@@ -1010,12 +1010,12 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		LOG_ERROR("can't open the file hash.sig");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	fread(signature, 1, 256, fp);
+        int bytesread=fread(signature, 1, 256, fp);
 	//fgets(signature, 1024, fp);
 	fclose(fp);
 	LOG_DEBUG("signature read : %s", signature);
 
-	if(Base64Encode(signature, &b64_str) != 0) {
+        if(Base64EncodeWithLength(signature, &b64_str,bytesread) != 0) {
 		LOG_ERROR("Unable to encode the signature read");
 		return TCSERVICE_RESULT_FAILED;
 	}

@@ -12,5 +12,6 @@
 int calcDecodeLength(const char* b64input);
 int Base64Decode(char* b64message, char** buffer );
 int Base64Encode(char* message, char** buffer);
+int Base64EncodeWithLength(char* message, char** buffer, int length);
 
 #endif /* BASE64_H_ */
