@@ -693,7 +693,9 @@ int appendCert(char *certBuffer, char *manifest_dir, int certBuffer_size) {
 		return -1;
 	}
 
-	X509_free(cert);
+	if(cert){
+		X509_free(cert);
+	}
 	BIO_free_all(inbio);
 	BIO_free_all(outbio);
 #endif
