@@ -1048,7 +1048,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		LOG_ERROR("Unable to append Certificate");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	LOG_DEBUG("Extracted Certificate : %s", cert);
+	//LOG_DEBUG("Extracted Certificate : %s", cert);
 /*
 	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/openssl/bin/openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
 	LOG_DEBUG("Command to generate certificate : %s", command0);
