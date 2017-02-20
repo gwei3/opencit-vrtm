@@ -111,8 +111,8 @@ int Base64Decode(char* b64message, char** buffer) {
 }
 
 int Base64Encode(char* message, char** buffer) {
-	int length = strnlen_s(message, MAX_LEN);
-	return Base64EncodeWithLength(message, buffer, length);
+    int length=strnlen_s(message, MAX_LEN);
+    return Base64EncodeWithLength(message,buffer,length);
 }
 
 int Base64EncodeWithLength(char* message, char** buffer, int length) {

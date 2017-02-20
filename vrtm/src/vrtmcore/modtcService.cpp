@@ -693,7 +693,9 @@ int appendCert(char *certBuffer, char *manifest_dir, int certBuffer_size) {
 		return -1;
 	}
 
-	X509_free(cert);
+	if(cert){
+		X509_free(cert);
+	}
 	BIO_free_all(inbio);
 	BIO_free_all(outbio);
 #endif
@@ -1010,12 +1012,13 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		LOG_ERROR("can't open the file hash.sig");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	int bytesread = fread(signature, 1, 256, fp);
+        int bytesread=fread(signature, 1, 256, fp);
 	//fgets(signature, 1024, fp);
 	fclose(fp);
 	LOG_DEBUG("bytes read : %d", bytesread);
 	LOG_DEBUG("signature read : %s", signature);
-	if (Base64EncodeWithLength(signature, &b64_str, bytesread) != 0) {
+
+        if(Base64EncodeWithLength(signature, &b64_str,bytesread) != 0) {
 		LOG_ERROR("Unable to encode the signature read");
 		return TCSERVICE_RESULT_FAILED;
 	}
@@ -1046,7 +1049,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		LOG_ERROR("Unable to append Certificate");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	LOG_DEBUG("Extracted Certificate : %s", cert);
+	//LOG_DEBUG("Extracted Certificate : %s", cert);
 /*
 	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/openssl/bin/openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
 	LOG_DEBUG("Command to generate certificate : %s", command0);
