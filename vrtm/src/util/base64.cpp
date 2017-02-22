@@ -120,7 +120,7 @@ int Base64EncodeWithLength(char* message, char** buffer, int length) {
 #ifdef _WIN32
 	DWORD encodelen = -1;
 	*buffer = NULL;
-        if (CryptBinaryToString((BYTE *)message, length, CRYPT_STRING_BASE64, *buffer, &encodelen) == false) {
+	if (CryptBinaryToString((BYTE *)message, length, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCR, *buffer, &encodelen) == false) {
 		return 1; //error
 	}
 	LOG_DEBUG("Possible encoded length : %d", encodelen);
@@ -130,7 +130,7 @@ int Base64EncodeWithLength(char* message, char** buffer, int length) {
 		return 1;
 	}
 	memset(*buffer, 0, encodelen + 1);
-        if (CryptBinaryToString((BYTE *)message, length, CRYPT_STRING_BASE64, *buffer, &encodelen) == false) {
+	if (CryptBinaryToString((BYTE *)message, length, CRYPT_STRING_BASE64 | CRYPT_STRING_NOCR, *buffer, &encodelen) == false) {
 		return 1; //error
 	}
 	return 0; //success
