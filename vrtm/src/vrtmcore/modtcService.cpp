@@ -1393,7 +1393,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	xmlChar xpath_image_signature[] = 	"/a:TrustPolicy/b:Signature/b:SignatureValue";
 	xmlChar xpath_digest_alg[] =		"/a:TrustPolicy/a:Whitelist/@DigestAlg";*/
 
-	xmlChar namespace_list[] = "a=mtwilson:trustdirector:policy:1.1 b=http://www.w3.org/2000/09/xmldsig#";
+	xmlChar namespace_list[] = "";
 	xmlChar xpath_customer_id[] = "//*[local-name()='CustomerId']";
 	xmlChar xpath_launch_policy[] = "//*[local-name()='LaunchControlPolicy']";
 	xmlChar xpath_image_id[] = "//*[local-name()='ImageId']";
