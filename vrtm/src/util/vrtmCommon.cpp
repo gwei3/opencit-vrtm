@@ -53,3 +53,20 @@ int remove_dir(char* dir_name) {
 #endif
 	return result;
 }
+
+int copy_file(char* existing_file_name, char* new_file_name) {
+	int result;
+#ifdef _WIN32
+	if (CopyFile((LPCSTR)existing_file_name, (LPCSTR)new_file_name, FALSE) == 0) {
+		if (GetLastError() == ERROR_FILE_NOT_FOUND) {
+			LOG_ERROR("Error in copying file: %s. \n PLEASE MAKE SURE FILE EXIST ON MACHINE", existing_file_name);
+			result = -1;
+		}
+	}
+#elif __linux__
+	char copy_file[2048] = { '\0' };
+	snprintf(copy_file, sizeof(copy_file), "cp -p %s %s", existing_file_name, new_file_name);
+	result = system(copy_file);
+#endif
+	return result;
+}
