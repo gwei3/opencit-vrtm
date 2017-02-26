@@ -33,5 +33,6 @@ typedef unsigned char byte;
 #define VRTMCHANNEL_DLLPORT
 #endif
 
-int make_dir(char *filename);
-int remove_dir(char *filename);
+int make_dir(char *dir_name);
+int remove_dir(char *dir_name);
+int copy_file(char* existing_file_name, char* new_file_name);
