@@ -797,6 +797,8 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	char tpm_signkey_passwd[100]={0};
 	FILE * fp = NULL;
 	FILE * fp1 = NULL;
+	int bytesread = 256;
+	int byteswritten = 20;
 	
 	std::map<std::string, std::string> properties_map;
 
@@ -884,7 +886,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		return TCSERVICE_RESULT_FAILED;
 	}
 	LOG_DEBUG("Calculated Hash : %s", hash_str);
-	if(Base64Encode(hash_str, &b64_str) != 0) {
+	if(Base64EncodeWithLength(hash_str, &b64_str, byteswritten) != 0) {
 		LOG_ERROR("Unable to encode the calculated hash");
 		return TCSERVICE_RESULT_FAILED;
 	}
@@ -990,7 +992,9 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		LOG_ERROR("can't open the file hash.input");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	fprintf(fp, "%s", hash_str);
+	byteswritten = fwrite(hash_str, 1, 20, fp);
+	LOG_DEBUG("bytes written : %d", byteswritten);
+	//fprintf(fp, "%s", hash_str);
 	fclose(fp);
 
 #ifdef _WIN32
@@ -1012,12 +1016,12 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		LOG_ERROR("can't open the file hash.sig");
 		return TCSERVICE_RESULT_FAILED;
 	}
-        int bytesread=fread(signature, 1, 256, fp);
+	bytesread = fread(signature, 1, 256, fp);
+	LOG_DEBUG("bytes read : %d", bytesread);
 	//fgets(signature, 1024, fp);
 	fclose(fp);
 	LOG_DEBUG("signature read : %s", signature);
-
-        if(Base64EncodeWithLength(signature, &b64_str,bytesread) != 0) {
+	if (Base64EncodeWithLength(signature, &b64_str, bytesread) != 0) {
 		LOG_ERROR("Unable to encode the signature read");
 		return TCSERVICE_RESULT_FAILED;
 	}
@@ -1374,19 +1378,28 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 #endif
 
 //	char * nohash_manifest_file ="/root/nohash_manifest.xml"; // Need to be passed by policy agent
-	char launchPolicy[10] = {'\0'};
+	char digestAlg[10] = { '\0' };
+	char launchPolicy[10] = { '\0' };
 	char imageHash[65] = {'\0'};
 	char goldenImageHash[65] = {'\0'};
 	FILE *fq ;
 	std::map<xmlChar *, char *> xpath_map;
 
-	xmlChar namespace_list[] =		"a=mtwilson:trustdirector:policy:1.1 b=http://www.w3.org/2000/09/xmldsig#";
+	/*xmlChar namespace_list[] =		"a=mtwilson:trustdirector:policy:1.2 b=http://www.w3.org/2000/09/xmldsig#";
 	xmlChar xpath_customer_id[] = 		"/a:TrustPolicy/a:Director/a:CustomerId";
 	xmlChar xpath_launch_policy[] = 	"/a:TrustPolicy/a:LaunchControlPolicy";
 	xmlChar xpath_image_id[] = 		"/a:TrustPolicy/a:Image/a:ImageId";
 	xmlChar xpath_image_hash[] = 		"/a:TrustPolicy/a:Image/a:ImageHash";
 	xmlChar xpath_image_signature[] = 	"/a:TrustPolicy/b:Signature/b:SignatureValue";
-	xmlChar xpath_digest_alg[] =		"/a:TrustPolicy/a:Whitelist/@DigestAlg";
+	xmlChar xpath_digest_alg[] =		"/a:TrustPolicy/a:Whitelist/@DigestAlg";*/
+
+	xmlChar namespace_list[] = "";
+	xmlChar xpath_customer_id[] = "//*[local-name()='CustomerId']";
+	xmlChar xpath_launch_policy[] = "//*[local-name()='LaunchControlPolicy']";
+	xmlChar xpath_image_id[] = "//*[local-name()='ImageId']";
+	xmlChar xpath_image_hash[] = "//*[local-name()='ImageHash']";
+	xmlChar xpath_image_signature[] = "//*[local-name()='SignatureValue']";
+	xmlChar xpath_digest_alg[] = "//*/@*[local-name()='DigestAlg']";
 
 
     LOG_TRACE("Start VM App");
@@ -1453,31 +1466,48 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		return TCSERVICE_RESULT_FAILED;
 	}
 
-        	snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s%s/", g_trust_report_dir, vm_uuid);
+        snprintf(vm_manifest_dir, sizeof(vm_manifest_dir), "%s%s/", g_trust_report_dir, vm_uuid);
 		LOG_DEBUG("VM Manifest Dir : %s", vm_manifest_dir);
 
 		if ( instance_type == INSTANCE_TYPE_VM ) {
 			struct stat info;
+			char file_to_copy[1024] = { 0 };
 			char trust_report_dir[1024] = {0};
 			
 			if ( stat( vm_manifest_dir, &info ) != 0 ) {
             			LOG_DEBUG( "cannot access %s\n", vm_manifest_dir );
             			LOG_DEBUG( "New trust report directory %s will be created", vm_manifest_dir);
+						if (make_dir(vm_manifest_dir) == 0) {
+							LOG_INFO("Trust report directory %s, created successfully", vm_manifest_dir);
+						}
+						else {
+							LOG_ERROR("Trust report directory %s, couldn't be created", vm_manifest_dir);
+						}
 #ifdef __linux__
-                	mkdir(vm_manifest_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-        			chmod(vm_manifest_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+                		chmod(vm_manifest_dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 #endif
 				strncpy_s(trust_report_dir, sizeof(trust_report_dir), disk_file, strnlen_s(disk_file, sizeof(disk_file)) - (sizeof("/disk") - 1));
 				snprintf(manifest_file, sizeof(manifest_file), "%s%s", trust_report_dir, "/trustpolicy.xml");
 				snprintf(nohash_manifest_file, sizeof(nohash_manifest_file), "%s%s", trust_report_dir, "/manifest.xml");
 				
-				snprintf(command, sizeof(command), "cp -p %s %s/", manifest_file, vm_manifest_dir);
-				system(command);
-				memset(command, 0, sizeof(command));
-				snprintf(command, sizeof(command), "cp -p %s %s/", nohash_manifest_file, vm_manifest_dir);
-				system(command);
+				snprintf(file_to_copy, sizeof(file_to_copy), "%s%s", vm_manifest_dir, "/trustpolicy.xml");
+				if (copy_file(manifest_file, file_to_copy) == 0) {
+					LOG_INFO("Trust policy file %s, copied successfully", manifest_file);
+				}
+				else {
+					LOG_ERROR("Trust policy file %s, couldn't be copied", manifest_file);
+				}
+
+				memset(file_to_copy, 0, sizeof(file_to_copy));
+				snprintf(file_to_copy, sizeof(file_to_copy), "%s%s", vm_manifest_dir, "/manifest.xml");
+				if (copy_file(nohash_manifest_file, file_to_copy) == 0) {
+					LOG_INFO("Manifest file %s, copied successfully", nohash_manifest_file);
+				}
+				else {
+					LOG_ERROR("Manifest file %s, couldn't be copied", nohash_manifest_file);
+				}
 			}
-        	}
+        }
 
 		snprintf(manifest_file, sizeof(manifest_file), "%s%s", vm_manifest_dir, "/trustpolicy.xml");
 		LOG_DEBUG("Manifest path %s ", manifest_file);
@@ -1505,7 +1535,14 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			goto return_response;
 		}
 
-		//Read the digest algorithm from manifestlist.xml
+		if(access(nohash_manifest_file, F_OK)!=0){
+			LOG_ERROR("manifestlist.xml doesn't exist at  %s", nohash_manifest_file);
+			LOG_ERROR( "cant continue without reading digest algorithm");
+			start_app_status = 1;
+			goto return_response;
+		}
+
+		/*//Read the digest algorithm from manifestlist.xml
 		snprintf(popen_command, sizeof(popen_command), "%s%s",digest_alg_command,nohash_manifest_file);
 		fp1=popen(popen_command,"r");
 		if (fp1 != NULL) {
@@ -1523,7 +1560,7 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			start_app_status = 1;
 			goto return_response;
 		}
-#endif
+
 		//Read the policy version from manifestlist.xml
 		snprintf(popen_command, sizeof(popen_command), "%s%s",policy_version_command,nohash_manifest_file);
 		fp1=popen(popen_command,"r");
@@ -1539,8 +1576,8 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			LOG_ERROR("Failed to read policy version from trustpolicy");
 			start_app_status = 1;
 			goto return_response;
-		}
-
+		}*/
+#endif
     	/*
     	 * extract Launch Policy, CustomerId, ImageId, VM hash, Manifest signature and Digest Alg value from formatted manifestlist.xml
     	 * by specifying fixed xpaths with namespaces
@@ -1558,31 +1595,39 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
     		xpath_map.insert(std::pair<xmlChar*, char *>(xpath_image_id, vm_image_id));
     		xpath_map.insert(std::pair<xmlChar*, char *>(xpath_image_hash, vm_manifest_hash));
     		xpath_map.insert(std::pair<xmlChar*, char *>(xpath_image_signature, vm_manifest_signature));
-			xpath_map.insert(std::pair<xmlChar*, char *>(xpath_digest_alg, digest_alg_buff));
 			if (TCSERVICE_RESULT_FAILED == get_xpath_values(xpath_map, namespace_list, manifest_file)) {
 	    		LOG_ERROR("Function get_xpath_values failed");
 				//TODO write a remove directory function using dirint.h header file
 				start_app_status = 1;
 				goto return_response;
 			}
+
+			xpath_map.clear();
+			xpath_map.insert(std::pair<xmlChar*, char *>(xpath_digest_alg, digest_alg_buff));
+			if (TCSERVICE_RESULT_FAILED == get_xpath_values(xpath_map, namespace_list, nohash_manifest_file)) {
+				LOG_ERROR("Function get_xpath_values failed");
+				//TODO write a remove directory function using dirint.h header file
+				start_app_status = 1;
+				goto return_response;
+			}
+
 			if (strcmp(launch_policy_buff, "MeasureOnly") == 0) {
 				strcpy_s(launchPolicy, sizeof(launchPolicy), "Audit");
 			}
 			else if (strcmp(launch_policy_buff, "MeasureAndEnforce") == 0) {
 				strcpy_s(launchPolicy, sizeof(launchPolicy), "Enforce");
 			}
-
 			if (strcmp(launchPolicy, "Audit") != 0 && strcmp(launchPolicy, "Enforce") != 0) {
 				LOG_INFO("Launch policy is neither Audit nor Enforce so vm verification is not not carried out");
 				remove_dir(vm_manifest_dir);
 				start_app_status = 0;
 				goto return_response;
 			}
-			strcpy_s(goldenImageHash, sizeof(goldenImageHash), vm_manifest_hash);			
-			strcpy_s(extension, sizeof(extension), digest_alg_buff);
+			strcpy_s(goldenImageHash, sizeof(goldenImageHash), vm_manifest_hash);
+			strcpy_s(digestAlg, sizeof(digestAlg), digest_alg_buff);
 
-			LOG_DEBUG("Extension : %s", extension);
-			snprintf(cumulativehash_file, sizeof(cumulativehash_file), "%s/measurement.%s", vm_manifest_dir, extension);
+			LOG_DEBUG("Digest Algorithm Used : %s", digestAlg);
+			snprintf(cumulativehash_file, sizeof(cumulativehash_file), "%s/measurement.%s", vm_manifest_dir, digestAlg);
 			LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
 
 		if (instance_type == INSTANCE_TYPE_VM) {
