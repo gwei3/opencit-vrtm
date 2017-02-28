@@ -255,6 +255,13 @@ bool serviceprocTable::updateprocEntry(int procid, char* vm_image_id, char* vm_c
 		LOG_DEBUG("Updating docker instance status back to %d, cause instance type is %d", VM_STATUS_STARTED, INSTANCE_TYPE_DOCKER);
 		table_it->second.m_vm_status = VM_STATUS_STARTED;
 	}
+#ifdef _WIN32
+	else {
+		//in case of windows we keep it as started, cause there is no explicit notifier,
+		//like in case of KVM(vrtm_listener)
+		table_it->second.m_vm_status = VM_STATUS_STARTED;
+	}
+#endif
 	if ( instance_name != NULL) {
 		//copy instance name if updateprocTable() is called with docker instance name
 		strcpy_s(table_it->second.m_instance_name, INSTANCENAME_SIZE, instance_name);
