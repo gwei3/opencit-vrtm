@@ -35,7 +35,8 @@ LINK=       g++
 
 sobjs=    	$(OBJ)/vrtmcoremain.o $(OBJ)/vrtminterface.o \
             $(OBJ)/modtcService.o $(OBJ)/logging.o \
-            $(OBJ)/vrtm_listener.o
+            $(OBJ)/vrtm_listener.o \
+            $(OBJ)/vrtmCommon.o
 			
 #	    $(OBJ)/dombuilder.o $(OBJ)/tcpchan.o
 
@@ -49,6 +50,9 @@ ifneq "$(debug)" "1"
 endif
 
 #$(LINK) -o $(BIN)/rpcoreservice $(sobjs) $(LDFLAGS) -lxenlight -lxlutil -lxenctrl -lxenguest -lblktapctl -lxenstore -luuid -lutil -lpthread -L$(LIB) -lrpdombldr-g
+
+$(OBJ)/vrtmCommon.o: $(SC)/vrtmCommon.cpp $(SC)/vrtmCommon.h
+	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -c -o $(OBJ)/vrtmCommon.o $(SC)/vrtmCommon.cpp
 
 $(OBJ)/logging.o: $(SC)/logging.cpp $(SC)/logging.h 
 	$(CC) $(CFLAGS) -I$(SC) -I$(LOG4CPP) -I$(SAFESTRING_INCLUDE) -c -o $(OBJ)/logging.o $(SC)/logging.cpp
