@@ -7,6 +7,15 @@
     
     <packaging>pom</packaging>
     <description>Mystery Hill VRTM</description>
+	
+	<dependencies>
+		<dependency>
+            <groupId>com.intel.mtwilson.tbootxm</groupId>
+            <artifactId>imvm</artifactId>
+            <version>${project.version}</version>
+            <type>exe</type>
+        </dependency>
+	</dependencies>
     
     <build>
         <plugins>
