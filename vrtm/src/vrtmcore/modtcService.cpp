@@ -1007,7 +1007,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 #ifdef _WIN32
 	snprintf(command0,sizeof(command0),trustagent_bin"tpm_signdata.exe -i %shash.input -k sign -o %shash.sig -q %s -b "signingkey_blob,manifest_dir,manifest_dir,tpm_signkey_passwd);
 #elif __linux__
-	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/tpmtools/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
+	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/tpmtools/bin/tpm_signdata -i %sus_can.xml -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
 #endif
 	LOG_DEBUG("Signing Command : %s", command0);
 	int i = system(command0);
