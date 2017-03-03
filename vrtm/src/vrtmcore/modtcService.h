@@ -22,7 +22,7 @@
 #include <string>
 #include <set>
 #include <map>
-#include <vrtmCommon.h>
+#include "vrtmCommon.h"
 #include <iostream>
 #include <fstream>
 typedef unsigned TCSERVICE_RESULT;
