@@ -286,31 +286,13 @@
 								<version>${project.version}</version>
 								<type>exe</type>
 								<outputDirectory>${makeself.directory}</outputDirectory>
+								<destFileName>verifier.exe</destFileName>
 						   </artifactItem>
 						</artifactItems>
 					  </configuration>
 				   </execution>
 				 </executions>
 			   </plugin>
-
-			   <plugin>
-				 <groupId>com.coderplus.maven.plugins</groupId>
-				 <artifactId>copy-rename-maven-plugin</artifactId>
-				 <version>1.0.1</version>
-				 <executions>
-					<execution>
-					   <id>rename-file</id>
-					   <phase>compile</phase>
-					   <goals>
-						  <goal>rename</goal>
-					   </goals>
-					   <configuration>
-						  <sourceFile>${makeself.directory}/imvm-3.1-SNAPSHOT.exe</sourceFile>
-						  <destinationFile>${makeself.directory}/verifier.exe</destinationFile>
-					   </configuration>
-					</execution>
-				  </executions>
-				</plugin>
 			</plugins>
 			</build>
 		
