@@ -161,9 +161,8 @@ SectionEnd
 Section Install
   SetOverwrite ifnewer
   SetOutPath "$INSTDIR\configuration"
-  File "..\vrtm\configuration\vRTM_nt.cfg"
-  File "..\vrtm\configuration\vrtm_log_nt.properties"
-  File "..\vrtm\configuration\vrtm_proxylog.properties"
+  File /oname=vRTM.cfg "..\vrtm\configuration\vRTM_nt.cfg"
+  File /oname=vrtm_log.properties "..\vrtm\configuration\vrtm_log_nt.properties"
   SetOutPath "$INSTDIR\scripts"
   File "..\install\nocmd.vbs"
   File "..\install\initsvcsetup.cmd"
@@ -236,9 +235,8 @@ Section Uninstall
   Delete "$INSTDIR\scripts\Mount-EXTVM.ps1"
   Delete "$INSTDIR\scripts\mount_vm_image.sh"
   Delete "$INSTDIR\scripts\preheat-guestmount.sh"
-  Delete "$INSTDIR\configuration\vRTM_nt.cfg"
-  Delete "$INSTDIR\configuration\vrtm_log_nt.properties"
-  Delete "$INSTDIR\configuration\vrtm_proxylog.properties"
+  Delete "$INSTDIR\configuration\vRTM.cfg"
+  Delete "$INSTDIR\configuration\vrtm_log.properties"
   Delete "$INSTDIR\prerequisites\Ext2Fsd-0.62.exe"
   Delete "$INSTDIR\prerequisites\vcredist_10.exe"
   Delete "$INSTDIR\prerequisites\vcredist_13.exe"
