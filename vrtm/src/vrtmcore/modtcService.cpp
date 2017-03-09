@@ -6,6 +6,7 @@
 #include "xpathparser.h"
 #include "base64.h"
 #include "loadconfig.h"
+#include "vrtmCommon.h"
 #ifdef _WIN32
 #include <processthreadsapi.h>
 #include <bcrypt.h>
@@ -101,7 +102,6 @@ static int g_hyperv_vm_cleanup_service_status = 0;
 
 void cleanupService();
 void* clean_vrtm_table(void *p);
-//void* clean_deleted_docker_instances(void *p);
 // ---------------------------------------------------------------------------
 
 // ------------------------------------------------------------------------------
@@ -341,19 +341,7 @@ int serviceprocTable::getcancelledvmcount() {
 	LOG_DEBUG("Number of VM with cancelled status : %d ", count);
 	return count;
 }
-/*
-int serviceprocTable::getactivedockeruuid(std::set<std::string> & uuid_list) {
-	pthread_mutex_lock(&loc_proc_table);
-	for( proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end() ; table_it++) {
-		if (table_it->second.m_instance_type == INSTANCE_TYPE_DOCKER && table_it->second.m_vm_status != VM_STATUS_CANCELLED) {
-			uuid_list.insert(std::string(table_it->second.m_uuid));
-		}
-	}
-	pthread_mutex_unlock(&loc_proc_table);
-	LOG_DEBUG("Number of active docker instances in vrtm table: %d ", uuid_list.size());
-	return uuid_list.size();
-}
-*/
+
 int serviceprocTable::getactivevmsuuid(std::set<std::string> &active_vms) {
 	pthread_mutex_lock(&loc_proc_table);
 	for (proc_table_map::iterator table_it = proc_table.begin(); table_it != proc_table.end(); table_it++) {
@@ -853,7 +841,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	snprintf(outfile, sizeof(outfile), "%stemp.xml", manifest_dir);
 
 	// Generate Signed  XML  in same vm_manifest_dir
-	//snprintf(manifest_dir,sizeof(manifest_dir),"/var/lib/nova/instances/%s/",vm_uuid);
 	snprintf(filepath, sizeof(filepath), "%ssigned_report.xml", manifest_dir);
 	
 	fp1 = fopen(filepath,"w");
@@ -871,7 +858,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 #ifdef __linux__
 	chmod(filepath, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 #endif
-	//fclose(fp1);
 
 	// Calculate the Digest Value       
 	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, pEnt->m_uuid,"SHA256", pEnt->m_vm_manifest_hash);
@@ -901,17 +887,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		b64_str[strnlen_s(b64_str, MAX_LEN) - 1] = '\0';
 	}
 	LOG_DEBUG("Encoded Hash : %s", b64_str);
-/*
-	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && xmlstarlet c14n  %sus_xml.xml | /opt/trustagent/share/openssl/bin/openssl dgst -binary -sha1  | /opt/trustagent/share/openssl/bin/openssl enc -base64 | xargs echo -n >> %ssigned_report.xml", manifest_dir,manifest_dir);
-	LOG_DEBUG("command generated to calculate hash: %s", command0);
-	system(command0);
-*/
-	
-	/*fp1 = fopen(filepath,"a");
-	if (fp1 == NULL) {
-		LOG_ERROR("Can't write report in signed_report.xml file");
-		return TCSERVICE_RESULT_FAILED;
-	}*/
+
 	fprintf(fp1,"%s", b64_str);
 	snprintf(xmlstr,sizeof(xmlstr),"</DigestValue></Reference></SignedInfo><SignatureValue>");
 	fprintf(fp1,"%s",xmlstr);
@@ -927,18 +903,9 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		return TCSERVICE_RESULT_FAILED;
 	}
 	snprintf(xmlstr,sizeof(xmlstr),"<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod><DigestValue>");
-	fprintf(fp,"%s",xmlstr); 
-	//fclose(fp);
+	fprintf(fp,"%s",xmlstr);
 
-/*
-	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && xmlstarlet c14n  %sus_xml.xml | /opt/trustagent/share/openssl/bin/openssl dgst -binary -sha1  | /opt/trustagent/share/openssl/bin/openssl enc -base64 | xargs echo -n  >> %sus_can.xml", manifest_dir,manifest_dir);
-	system(command0);
-*/
-	/*fp = fopen(tempfile,"a");
-	if (fp == NULL) {
-		LOG_ERROR("can't open the file us_can.xml");
-		return TCSERVICE_RESULT_FAILED;
-	}*/
+
 	fprintf(fp,"%s", b64_str);
 	snprintf(xmlstr,sizeof(xmlstr),"</DigestValue></Reference></SignedInfo>");
 	fprintf(fp,"%s",xmlstr);
@@ -954,7 +921,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	std::string reqValue = properties_map["signing.key.secret"];
 	clear_config(properties_map);
 	strcpy_s(tpm_signkey_passwd, sizeof(tpm_signkey_passwd), reqValue.c_str());
-	//snprintf(command0,sizeof(command0),trustagent_bin"tagent.cmd config \"signing.key.secret\" > %ssign_key_passwd", manifest_dir);
 #elif __linux__
 	snprintf(command0,sizeof(command0),"tagent config \"signing.key.secret\" > %ssign_key_passwd", manifest_dir);
 	LOG_DEBUG("TPM signing key password :%s \n", command0);
@@ -966,7 +932,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		LOG_ERROR("can't open the file sign_key_passwd");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	//fscanf(fp, "%%%ds", sizeof(tpm_signkey_passwd),tpm_signkey_passwd);
 	fgets( tpm_signkey_passwd, sizeof(tpm_signkey_passwd), fp);
 	fclose(fp);
 	LOG_DEBUG("tpm_signkey_passwd read : %s", tpm_signkey_passwd);
@@ -988,10 +953,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		return TCSERVICE_RESULT_FAILED;
 	}
 	LOG_DEBUG("Calculated Hash : %s", hash_str);
-/*
-	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && xmlstarlet c14n %sus_can.xml | /opt/trustagent/share/openssl/bin/openssl dgst -sha1 -binary -out %shash.input",manifest_dir,manifest_dir);
-	system(command0);
-*/
+
 
 	snprintf(tempfile,sizeof(tempfile),"%shash.input",manifest_dir);
 	fp = fopen(tempfile,"wb");
@@ -1001,13 +963,12 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	}
 	byteswritten = fwrite(hash_str, 1, 20, fp);
 	LOG_DEBUG("bytes written : %d", byteswritten);
-	//fprintf(fp, "%s", hash_str);
 	fclose(fp);
 
 #ifdef _WIN32
 	snprintf(command0,sizeof(command0),trustagent_bin"tpm_signdata.exe -i %shash.input -k sign -o %shash.sig -q %s -b "signingkey_blob,manifest_dir,manifest_dir,tpm_signkey_passwd);
 #elif __linux__
-	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/tpmtools/bin/tpm_signdata -i %shash.input -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
+	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/tpmtools/bin/tpm_signdata -i %sus_can.xml -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
 #endif
 	LOG_DEBUG("Signing Command : %s", command0);
 	int i = system(command0);
@@ -1025,7 +986,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	}
 	bytesread = fread(signature, 1, 256, fp);
 	LOG_DEBUG("bytes read : %d", bytesread);
-	//fgets(signature, 1024, fp);
 	fclose(fp);
 	LOG_DEBUG("signature read : %s", signature);
 	if (Base64EncodeWithLength(signature, &b64_str, bytesread) != 0) {
@@ -1037,11 +997,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	}
 	LOG_DEBUG("Encoded Signature : %s", b64_str);
 
-/*
-	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/openssl/bin/openssl enc -base64 -in %shash.sig |xargs echo -n >> %ssigned_report.xml",manifest_dir,manifest_dir); 
-	system(command0);
-*/
-
 	fp1 = fopen(filepath,"a");
 	if (fp1 == NULL) {
 		LOG_ERROR("Can't write report in signed_report.xml file");
@@ -1051,7 +1006,6 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	snprintf(xmlstr,sizeof(xmlstr),"</SignatureValue><KeyInfo><X509Data><X509Certificate>");
 	fprintf(fp1,"%s",xmlstr);
 	LOG_DEBUG("XML content : %s", xmlstr);
-	//fclose(fp1);
 
 
 	// Append the X.509 certificate
@@ -1060,17 +1014,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		return TCSERVICE_RESULT_FAILED;
 	}
 	//LOG_DEBUG("Extracted Certificate : %s", cert);
-/*
-	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/openssl/bin/openssl x509 -in /opt/trustagent/configuration/signingkey.pem -text | awk '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/' |  sed '1d;$d' >> %ssigned_report.xml",manifest_dir);
-	LOG_DEBUG("Command to generate certificate : %s", command0);
-	system(command0);
-*/
 
-	/*fp1 = fopen(filepath,"a");
-	if (fp1 == NULL) {
-		LOG_ERROR("Can't write report in signed_report.xml file");
-		return TCSERVICE_RESULT_FAILED;
-	}*/
 	fprintf(fp1, "%s", cert);
 	snprintf(xmlstr,sizeof(xmlstr),"</X509Certificate></X509Data></KeyInfo></Signature></VMQuote>");
 	fprintf(fp1,"%s",xmlstr);
@@ -1182,57 +1126,7 @@ TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(unsigned long entry_max_age
 	}
 	return TCSERVICE_RESULT_SUCCESS;
 }
-/*
-TCSERVICE_RESULT 	tcServiceInterface::CleanVrtmTable(std::set<std::string> & uuid_list, int* deleted_entries) {
-	FILE *fp = NULL;
-	*deleted_entries = 0;
-	char command[65] = {0};
-	char *line;
-	int line_size = 65;
 
-	snprintf(command, sizeof(command), "docker ps -q --no-trunc");
-	LOG_DEBUG("Docker command : %s", command);
-#ifdef _WIN32
-	fp=_popen(command,"r");
-#elif __linux__
-	fp=popen(command,"r");
-#endif
-	if (fp != NULL) {
-		while(true) {
-			line = (char *) calloc(1,sizeof(char) * line_size);
-			if (line == NULL){
-				LOG_ERROR("Failed to execute command to running containers");
-				LOG_DEBUG("Calloc Failed to allcoate memory to read a line");
-				pclose(fp);
-				return TCSERVICE_RESULT_FAILED;
-			}
-			fgets(line,line_size,fp);
-			if(feof(fp)) {
-				free(line);
-				break;
-			}
-			if(line[0] != '\n') {
-				LOG_DEBUG("Running Docker container Id : %s",line);
-				uuid_list.erase(std::string(line));
-			}
-			free(line);
-		}
-#ifdef _WIN32
-		_pclose(fp);
-#elif __linux__
-		pclose(fp);
-#endif
-	}
-
-	for(std::set<std::string>::iterator iter = uuid_list.begin() ; iter != uuid_list.end(); iter++) {
-		snprintf(command, sizeof(command), "%s", (*iter).c_str());
-		LOG_DEBUG("Entry to be removed : %s", command);
-		if(m_procTable.removeprocEntry(command))
-			(*deleted_entries)++;
-	}
-	return TCSERVICE_RESULT_SUCCESS;
-}
-*/
 TCSERVICE_RESULT tcServiceInterface::CleanVrtmTable_and_update_vm_status(std::set<std::string> & vms, int* deleted_vm_count, int *inactive) {
 #ifdef _WIN32
 	std::map<std::string, int> hyperv_vms;
@@ -1376,29 +1270,16 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 	int 	instance_type = INSTANCE_TYPE_VM;
 
 #ifdef _WIN32
-	//STARTUPINFO si;
-	//PROCESS_INFORMATION pi;
 	char next_logical_drive_char;
 	int sleep_count = 0;
-	// dirctory which will be the working directory of powershell
-	//char current_dir_of_power_shell[] = "./";
 #endif
 
-//	char * nohash_manifest_file ="/root/nohash_manifest.xml"; // Need to be passed by policy agent
 	char digestAlg[10] = { '\0' };
 	char launchPolicy[10] = { '\0' };
 	char imageHash[65] = {'\0'};
 	char goldenImageHash[65] = {'\0'};
 	FILE *fq ;
 	std::map<xmlChar *, char *> xpath_map;
-
-	/*xmlChar namespace_list[] =		"a=mtwilson:trustdirector:policy:1.2 b=http://www.w3.org/2000/09/xmldsig#";
-	xmlChar xpath_customer_id[] = 		"/a:TrustPolicy/a:Director/a:CustomerId";
-	xmlChar xpath_launch_policy[] = 	"/a:TrustPolicy/a:LaunchControlPolicy";
-	xmlChar xpath_image_id[] = 		"/a:TrustPolicy/a:Image/a:ImageId";
-	xmlChar xpath_image_hash[] = 		"/a:TrustPolicy/a:Image/a:ImageHash";
-	xmlChar xpath_image_signature[] = 	"/a:TrustPolicy/b:Signature/b:SignatureValue";
-	xmlChar xpath_digest_alg[] =		"/a:TrustPolicy/a:Whitelist/@DigestAlg";*/
 
 	xmlChar namespace_list[] = "";
 	xmlChar xpath_customer_id[] = "//*[local-name()='CustomerId']";
@@ -1548,42 +1429,6 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			start_app_status = 1;
 			goto return_response;
 		}
-
-		/*//Read the digest algorithm from manifestlist.xml
-		snprintf(popen_command, sizeof(popen_command), "%s%s",digest_alg_command,nohash_manifest_file);
-		fp1=popen(popen_command,"r");
-		if (fp1 != NULL) {
-			fgets(extension, sizeof(extension)-1, fp1);
-			pclose(fp1);
-			LOG_DEBUG("Extension : %s",extension);
-
-			snprintf(measurement_file, sizeof(measurement_file), "%s.%s","/measurement",extension);
-			strcpy_s(cumulativehash_file, sizeof(cumulativehash_file), vm_manifest_dir);
-			strcat_s(cumulativehash_file, sizeof(cumulativehash_file), measurement_file);
-			LOG_DEBUG("Cumulative hash file : %s", cumulativehash_file);
-		}
-		else {
-			LOG_ERROR("Failed to read hash algorithm from trustpolicy");
-			start_app_status = 1;
-			goto return_response;
-		}
-
-		//Read the policy version from manifestlist.xml
-		snprintf(popen_command, sizeof(popen_command), "%s%s",policy_version_command,nohash_manifest_file);
-		fp1=popen(popen_command,"r");
-		if (fp1 != NULL) {
-			fgets(version, sizeof(version)-1, fp1);
-			pclose(fp1);
-			LOG_DEBUG("Version : %s",version);
-
-			namespace_list[strnlen_s("mtwilson:trustdirector:policy:1.1", 256)+1] = version[strnlen_s("mtwilson:trustdirector:manifest:1.1", 256)-1];
-			LOG_DEBUG("namespace_list : %s", namespace_list);
-		}
-		else {
-			LOG_ERROR("Failed to read policy version from trustpolicy");
-			start_app_status = 1;
-			goto return_response;
-		}*/
 #endif
     	/*
     	 * extract Launch Policy, CustomerId, ImageId, VM hash, Manifest signature and Digest Alg value from formatted manifestlist.xml
@@ -1662,21 +1507,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 
 			snprintf(command, sizeof(command), power_shell power_shell_prereq_command "%s -Path %s -DriveLetter %s -Mount > %s%s-%d 2>&1", mount_script, disk_file, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to mount the image : %s", command);
-			/*ZeroMemory(&si, sizeof(si));
-			si.cb = sizeof(si);
-			ZeroMemory(&pi, sizeof(pi));
-			i = CreateProcess( NULL, command, NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, NULL, current_dir_of_power_shell, &si, &pi);
-			WaitForSingleObject(pi.hProcess, INFINITE);
-			CloseHandle(si.hStdError);
-			CloseHandle(si.hStdInput);
-			CloseHandle(si.hStdOutput);
-			CloseHandle(pi.hProcess);
-			CloseHandle(pi.hThread);*/
 			i = system(command);
 			LOG_DEBUG("system call to mount image exit status : %d", i);
 			keep_measurement_log = true;
 			if (i != 0) {
-				//LOG_ERROR("CreateProcess failed (%d).", GetLastError());
 				LOG_ERROR("Error in mounting the image for measurement. For more info please look into file %s%s-%d", vm_manifest_dir, ma_log, child);
 				start_app_status = 1;
 				goto return_response;
@@ -1722,32 +1556,21 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			if ( verifier_exit_status != 0 ) {
 				LOG_ERROR("Measurement agent failed to execute successfully. Please check Measurement log in file %s/%s-%d", vm_manifest_dir, ma_log, child);
 			}
-			/*
-			 * unmount image by calling mount script with UN_MOUNT mode after the measurement as :
-			 * ../scripts/mount_vm_image.sh MOUNT_PATH
-			 */
 #ifdef _WIN32
 			snprintf(command, sizeof(command), power_shell power_shell_prereq_command "%s -Path %s -DriveLetter %s -Umount >> %s%s-%d 2>&1", mount_script, disk_file, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to unmount the image : %s", command);
-			/*ZeroMemory(&si, sizeof(si));
-			si.cb = sizeof(si);
-			ZeroMemory(&pi, sizeof(pi));
-			i = CreateProcess(NULL, command, NULL, NULL, TRUE, NORMAL_PRIORITY_CLASS, NULL, current_dir_of_power_shell, &si, &pi);
-			WaitForSingleObject(pi.hProcess, INFINITE);
-			CloseHandle(si.hStdError);
-			CloseHandle(si.hStdInput);
-			CloseHandle(si.hStdOutput);
-			CloseHandle(pi.hProcess);
-			CloseHandle(pi.hThread);*/ 
 			i = system(command);
 			LOG_DEBUG("system call for unmounting exit status : %d", i);
 			if (i != 0) {
-				//LOG_ERROR("CreateProcess failed (%d).", GetLastError());
 				LOG_ERROR("Error in unmounting the vm image. Please check log file : %s%s-%d", vm_manifest_dir, ma_log, child);
 				start_app_status = 1;
 				goto return_response;
 			}
 #elif __linux__
+			/*
+			* unmount image by calling mount script with UN_MOUNT mode after the measurement as :
+			* ../scripts/mount_vm_image.sh MOUNT_PATH
+			*/
 			snprintf(command, sizeof(command), "%s %s >> %s/%s-%d 2>&1", mount_script, mount_path, vm_manifest_dir, ma_log, child);
 			LOG_DEBUG("Command to unmount the image : %s", command);
 			i = system(command);
@@ -1789,12 +1612,10 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 		if(!fq)
 		{
 			LOG_ERROR("Cumulative hash file not found, please check Measurement log in file %s/%s-%d\n", vm_manifest_dir, ma_log, child);
-			//return TCSERVICE_RESULT_FAILED; // measurement failed  (verifier failed to measure)
 			start_app_status = 1;
 			goto return_response;
 		}
 
-		//int flag=0;
 			if (fq != NULL) {
 				char line[512];
 				if(fgets(line,sizeof(line),fq)!= NULL)  {
@@ -1806,31 +1627,20 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			if (strcmp(imageHash, goldenImageHash) == 0) {
 				LOG_INFO("IMVM Verification Successfull");
 				verification_status = true;
-				//flag=1;
 			}
 			else if ((strcmp(launchPolicy, "Audit") == 0)) {
 				LOG_INFO("IMVM Verification Failed, but continuing with VM launch as MeasureOnly launch policy is used");
 				verification_status = false;
-				//flag=1;
 			}
 			else {
 				LOG_ERROR("IMVM Verification Failed, not continuing with VM launch as MeasureAndEnforce launch policy is used");
 				verification_status = false;
-				//flag=0;
 			}
 
 		//////////////////////////////////////////////////////////////////////////////////////////////////////
 
-			//The code below does the work of converting 64 byte hex (imageHash) to 32 byte binary (rgHash)
-			//same as in rpchannel/channelcoding.cpp:ascii2bin(),
 			{
 				strcpy_s(vm_manifest_hash, MANIFEST_HASH_SIZE, imageHash);
-				/*int len = strnlen_s(imageHash,sizeof(imageHash));
-				int iSize = 0;
-				for (c= 0; c < len; c = c+2) {
-					sscanf(&imageHash[c], "%02x", (unsigned int *)&rgHash[c/2]);
-					iSize++;
-				}*/
 				LOG_TRACE("Adding proc table entry for measured VM");
 				int temp_proc_id = g_myService.m_procTable.getprocIdfromuuid(vm_uuid);
 				int vm_data_size = 0;
@@ -1864,7 +1674,6 @@ TCSERVICE_RESULT tcServiceInterface::StartApp(int procid, int an, char** av, int
 			}
 			if(!update_stat) {
 				LOG_ERROR("SartApp : can't update proc table entry\n");
-				//return TCSERVICE_RESULT_FAILED;
 				start_app_status = 1;
 				goto return_response;
 			}
@@ -2229,28 +2038,7 @@ void* clean_vrtm_table(void *){
 	LOG_DEBUG("Cleanup thread exiting...");
 	return NULL;
 }
-/*
-void* clean_deleted_docker_instances(void *){
-	std::set<std::string> uuid_list;
-	LOG_TRACE("");
-	while(g_myService.m_procTable.getactivedockeruuid(uuid_list)) {
-		int cleaned_entries;
-#ifdef __linux__
-		sleep(g_entry_cleanup_interval);
-#elif _WIN32
-		DWORD g_entry_cleanup_interval_msec = g_entry_cleanup_interval * 1000;
-		Sleep(g_entry_cleanup_interval_msec);
-#endif
-		g_myService.CleanVrtmTable(uuid_list, &cleaned_entries);
-		LOG_INFO("Number of Docker instances removed from vRTM table : %d", cleaned_entries);
-		uuid_list.clear();
-		sleep(g_entry_cleanup_interval);
-	}
-	g_docker_deletion_service_status = 0;
-	LOG_DEBUG("Docker Deletion Service thread exiting...");
-	return NULL;
-}
-*/
+
 #ifdef _WIN32
 void* clean_and_update_hyperv_vm_status(void *) {
 	std::set<std::string> active_vms;
@@ -2280,7 +2068,6 @@ void cleanupService() {
 	LOG_TRACE("");
 	if (g_cleanup_service_status == 1) {
 		LOG_INFO("Clean-up Service already running");
-		//return 0;
 	}
 	else if (g_myService.m_procTable.getcancelledvmcount() == 0) {
 		LOG_INFO("No vms in cancelled state");
@@ -2292,41 +2079,13 @@ void cleanupService() {
 			LOG_INFO("Successfully created the thread for entries cleanup");
 			g_cleanup_service_status = 1;
 			pthread_attr_destroy(&attr);
-			//return 0;
 		}
 		else {
 			LOG_ERROR("Can't set cleanup thread attribute to detatchstate");
 			LOG_ERROR("Failed to spawn the vRTM entry clean up thread");
 			pthread_attr_destroy(&attr);
-			//return 1;
 		}
 	}
-
-	/*std::set<std::string> uuid_list;
-	if(g_docker_deletion_service_status == 1) {
-		LOG_INFO("Docker deletion Service already running");
-		//return 0;
-	}
-	else if (g_myService.m_procTable.getactivedockeruuid(uuid_list) == 0) {
-		LOG_INFO("No active docker instances");
-	}
-	else {
-		pthread_attr_init(&attr_d);
-		if (!pthread_attr_setdetachstate(&attr_d, PTHREAD_CREATE_DETACHED)) {
-			pthread_create(&tid_d, &attr_d, clean_deleted_docker_instances, (void *)NULL);
-			LOG_INFO("Successfully created the thread for cleaning deleted docker instances");
-			g_docker_deletion_service_status = 1;
-			pthread_attr_destroy(&attr_d);
-			//return 0;
-		}
-		else {
-			LOG_ERROR("Can't set docker deletion thread attribute to detachstate");
-			LOG_ERROR("Failed to spawn the Docker Deletion service thread");
-			pthread_attr_destroy(&attr_d);
-			//return 1;
-		}
-	}*/
-
 #ifdef _WIN32
 	if (g_hyperv_vm_cleanup_service_status) {
 		LOG_INFO("Hyper-V VM status checking service is already running");

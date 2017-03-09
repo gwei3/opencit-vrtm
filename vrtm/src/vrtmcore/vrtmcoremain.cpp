@@ -38,13 +38,8 @@ extern "C" {
 }
 #endif
 
-#ifdef _WIN32
-#define    g_config_file "../configuration/vRTM_nt.cfg"
-#define	   log_properties_file "../configuration/vrtm_log_nt.properties"
-#elif __linux__
 #define    g_config_file "../configuration/vRTM.cfg"
 #define	   log_properties_file "../configuration/vrtm_log.properties"
-#endif
 
 char    g_vrtmcore_ip [64]        = "127.0.0.1";
 int     g_vrtmcore_port 		= 16005;
@@ -355,6 +350,7 @@ int main(int an, char** av)
 	clear_config(config_map);
 
 #ifdef _WIN32
+	// Uses WMI calls to HyperV interface. So no need of vRTM listener.
 	LOG_TRACE("Starting vRTM interface");
 	if (!start_vrtm_interface(NULL)) {
 		LOG_ERROR("Can't initialize vRTM interface");
