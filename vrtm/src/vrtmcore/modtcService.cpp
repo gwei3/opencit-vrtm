@@ -76,10 +76,12 @@ byte                    g_servicehash[32]= {
 #define signingkey_blob "../../TrustAgent/configuration/signingkey.opaque"
 #define trustagent_bin "..\\..\\TrustAgent\\bin\\"
 #define ta_properties_file "../../TrustAgent/configuration/trustagent.properties"
+#define tpm_version_file "../../TrustAgent/configuration/tpm-version"
 #elif __linux__
 #define mount_script_path "/scripts/mount_vm_image.sh"
 #define signingkey_file "/opt/trustagent/configuration/signingkey.pem"
 #define signingkey_blob "/opt/trustagent/configuration/signingkey.blob"
+#define tpm_version_file "/opt/trustagent/configuration/tpm-version"
 #endif
 
 #define ma_log "/measurement.log"
@@ -537,12 +539,17 @@ void cleanup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *ha
 	}
 }
 
-int setup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *handle_Hash_object, PBYTE* hashObject_ptr, int * hashObject_size, PBYTE* hash_ptr, int * hash_size) {
+int setup_CNG_api_args(BCRYPT_ALG_HANDLE * handle_Alg, BCRYPT_HASH_HANDLE *handle_Hash_object, PBYTE* hashObject_ptr, int * hashObject_size, PBYTE* hash_ptr, int * hash_size, char *hash_alg) {
 	int status = 0;
 	DWORD out_data_size;
 
 	// Open algorithm
-	status = BCryptOpenAlgorithmProvider(handle_Alg, BCRYPT_SHA1_ALGORITHM, NULL, 0);
+	if (strcmp(hash_alg, "sha1") == 0) {
+		status = BCryptOpenAlgorithmProvider(handle_Alg, BCRYPT_SHA1_ALGORITHM, NULL, 0);
+	}
+	else {
+		status = BCryptOpenAlgorithmProvider(handle_Alg, BCRYPT_SHA256_ALGORITHM, NULL, 0);
+	}
 	if (!NT_SUCCESS(status)) {
 		cleanup_CNG_api_args(handle_Alg, handle_Hash_object, hashObject_ptr, hash_ptr);
 		return status;
@@ -701,8 +708,8 @@ int appendCert(char *certBuffer, char *manifest_dir, int certBuffer_size) {
 	return 0;
 }
 
-int calculateHash(char *xml_file, char *hash_str, int hash_str_size) {
-	int status = 0;
+int calculateHash(char *xml_file, char *hash_str, int hash_str_size, char *hash_alg) {
+	int status = -1;
 	const int bufSize = 65000;
 	char *buffer = (char *)malloc(bufSize);
 	int bytesRead = 0;
@@ -725,10 +732,9 @@ int calculateHash(char *xml_file, char *hash_str, int hash_str_size) {
 	PBYTE                   hashObject_ptr = NULL;
 	PBYTE                   hash_ptr = NULL;
 
-	ntstatus = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size);
+	ntstatus = setup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hashObject_size, &hash_ptr, &hash_size, hash_alg);
 	if (!NT_SUCCESS(ntstatus)) {
 		LOG_ERROR("Could not inititalize CNG args Provider : 0x%x", ntstatus);
-		status = -1;
 		goto cleanup;
 	}
 	while ((bytesRead = fread(buffer, 1, bufSize, fd))) {
@@ -737,7 +743,6 @@ int calculateHash(char *xml_file, char *hash_str, int hash_str_size) {
 		if (!NT_SUCCESS(ntstatus)) {
 			LOG_ERROR("Could not calculate hash of data : 0x%x", ntstatus);
 			cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
-			status = -1;
 			goto cleanup;
 		}
 	}
@@ -746,16 +751,32 @@ int calculateHash(char *xml_file, char *hash_str, int hash_str_size) {
 	ntstatus = BCryptFinishHash(handle_Hash_object, hash_ptr, hash_size, 0);
 	memcpy_s(hash_str, hash_str_size, (char *)hash_ptr, hash_size);
 	cleanup_CNG_api_args(&handle_Alg, &handle_Hash_object, &hashObject_ptr, &hash_ptr);
+	status = hash_size;
 #elif __linux__
-	unsigned char hash[SHA_DIGEST_LENGTH];
-	SHA_CTX sha1;
-	SHA1_Init(&sha1);
+	if (strcmp(hash_alg, "sha1") == 0) {
+		unsigned char hash[SHA_DIGEST_LENGTH];
+		SHA_CTX sha1;
+		SHA1_Init(&sha1);
 
-	while ((bytesRead = fread(buffer, 1, bufSize, fd)))
-		SHA1_Update(&sha1, buffer, bytesRead);
-	SHA1_Final(hash, &sha1);
+		while ((bytesRead = fread(buffer, 1, bufSize, fd)))
+			SHA1_Update(&sha1, buffer, bytesRead);
+		SHA1_Final(hash, &sha1);
 
-	memcpy_s(hash_str, hash_str_size, (char *)hash, SHA_DIGEST_LENGTH);
+		memcpy_s(hash_str, hash_str_size, (char *)hash, SHA_DIGEST_LENGTH);
+		status = SHA_DIGEST_LENGTH;
+	}
+	else {
+		unsigned char hash[SHA256_DIGEST_LENGTH];
+		SHA256_CTX sha256;
+		SHA256_Init(&sha256);
+
+		while ((bytesRead = fread(buffer, 1, bufSize, fd)))
+			SHA256_Update(&sha256, buffer, bytesRead);
+		SHA256_Final(hash, &sha256);
+
+		memcpy_s(hash_str, hash_str_size, (char *)hash, SHA256_DIGEST_LENGTH);
+		status = SHA256_DIGEST_LENGTH;
+	}
 #endif
 cleanup:
 	fclose(fd);
@@ -788,12 +809,14 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	char command0[2304]={0};
 	char manifest_dir[1024]={0};
 	char hash_str[512]={0};
+	char hash_alg[10]={0};
+	char tpm_version[10]={0};
 	char signature[1024]={0};
 	char tpm_signkey_passwd[100]={0};
 	FILE * fp = NULL;
 	FILE * fp1 = NULL;
-	int bytesread = 256;
-	int byteswritten = 20;
+	int sig_size;
+	int hash_size;
 	
 	std::map<std::string, std::string> properties_map;
 
@@ -835,6 +858,27 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		}
 #endif
 	}
+
+	fp = fopen(tpm_version_file, "r");
+	if (fp == NULL) {
+		LOG_ERROR("Failed to open tpm version file : %s", tpm_version_file);
+		return TCSERVICE_RESULT_FAILED;
+	}
+	fgets(tpm_version, sizeof(tpm_version), fp);
+	fclose(fp);
+	LOG_DEBUG("TPM version : %s", tpm_version);
+
+	if (strcmp(tpm_version, "2.0") == 0) {
+		strcpy_s(hash_alg, sizeof(hash_alg), "sha256");
+	}
+	else if (strcmp(tpm_version, "1.2") == 0) {
+		strcpy_s(hash_alg, sizeof(hash_alg), "sha1");
+	}
+	else {
+		LOG_ERROR("Failed to find valid tpm version");
+		return TCSERVICE_RESULT_FAILED;
+	}
+
 	snprintf(vm_manifest_dir, MANIFEST_DIR_SIZE, "%s%s/", g_trust_report_dir, pEnt->m_uuid);
 	LOG_DEBUG("Manifest Dir : %s", vm_manifest_dir);
 	strcpy_s(manifest_dir, sizeof(manifest_dir), vm_manifest_dir);
@@ -852,7 +896,12 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	fprintf(fp1,"%s",xmlstr);
     LOG_DEBUG("XML content : %s", xmlstr);
 
-	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>",nonce, pEnt->m_uuid,"SHA256", pEnt->m_vm_manifest_hash);
+	if (strcmp(hash_alg, "sha1") == 0) {
+		snprintf(xmlstr, sizeof(xmlstr), "<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"/><DigestValue>", nonce, pEnt->m_uuid, hash_alg, pEnt->m_vm_manifest_hash);
+	}
+	else {
+		snprintf(xmlstr, sizeof(xmlstr), "<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash><Signature xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><SignedInfo><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/><SignatureMethod Algorithm=\"http://www.w3.org/2001/04/xmldsig-more#rsa-sha256\"/><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"/><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"/></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha256\"/><DigestValue>", nonce, pEnt->m_uuid, hash_alg, pEnt->m_vm_manifest_hash);
+	}
 	fprintf(fp1,"%s",xmlstr);
 	LOG_DEBUG("XML content : %s", xmlstr);
 #ifdef __linux__
@@ -860,7 +909,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 #endif
 
 	// Calculate the Digest Value       
-	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, pEnt->m_uuid,"SHA256", pEnt->m_vm_manifest_hash);
+	snprintf(xmlstr,sizeof(xmlstr),"<VMQuote><nonce>%s</nonce><vm_instance_id>%s</vm_instance_id><digest_alg>%s</digest_alg><cumulative_hash>%s</cumulative_hash></VMQuote>",nonce, pEnt->m_uuid,hash_alg, pEnt->m_vm_manifest_hash);
 	snprintf(tempfile,sizeof(tempfile),"%sus_xml.xml",manifest_dir);
 	fp = fopen(tempfile,"w");
 	if (fp == NULL) {
@@ -872,14 +921,16 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 
 
 	if(canonicalizeXml(tempfile, outfile) != 0) {
+		LOG_ERROR("Unable to canonicalize xml file '%s'\n", tempfile); 
 		return TCSERVICE_RESULT_FAILED;
 	}
-	if(calculateHash(outfile, hash_str, sizeof(hash_str)) != 0) {
+	hash_size = calculateHash(outfile, hash_str, sizeof(hash_str), hash_alg);
+	if(hash_size == -1) {
 		LOG_ERROR("Unable to calculate hash of file '%s'\n", tempfile);
 		return TCSERVICE_RESULT_FAILED;
 	}
 	LOG_DEBUG("Calculated Hash : %s", hash_str);
-	if(Base64EncodeWithLength(hash_str, &b64_str, byteswritten) != 0) {
+	if(Base64EncodeWithLength(hash_str, &b64_str, hash_size) != 0) {
 		LOG_ERROR("Unable to encode the calculated hash");
 		return TCSERVICE_RESULT_FAILED;
 	}
@@ -902,7 +953,12 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		LOG_ERROR("can't open the file us_can.xml");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	snprintf(xmlstr,sizeof(xmlstr),"<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod><DigestValue>");
+	if (strcmp(hash_alg, "sha1") == 0) {
+		snprintf(xmlstr, sizeof(xmlstr), "<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#rsa-sha1\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2000/09/xmldsig#sha1\"></DigestMethod><DigestValue>");
+	}
+	else {
+		snprintf(xmlstr, sizeof(xmlstr), "<SignedInfo xmlns=\"http://www.w3.org/2000/09/xmldsig#\"><CanonicalizationMethod Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></CanonicalizationMethod><SignatureMethod Algorithm=\"http://www.w3.org/2001/04/xmldsig-more#rsa-sha256\"></SignatureMethod><Reference URI=\"\"><Transforms><Transform Algorithm=\"http://www.w3.org/2000/09/xmldsig#enveloped-signature\"></Transform><Transform Algorithm=\"http://www.w3.org/2001/10/xml-exc-c14n#\"></Transform></Transforms><DigestMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha256\"></DigestMethod><DigestValue>");
+	}
 	fprintf(fp,"%s",xmlstr);
 
 
@@ -948,7 +1004,8 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	if(canonicalizeXml(tempfile, outfile) != 0) {
 		return TCSERVICE_RESULT_FAILED;
 	}
-	if (calculateHash(outfile, hash_str, sizeof(hash_str)) != 0) {
+	hash_size = calculateHash(outfile, hash_str, sizeof(hash_str), hash_alg);
+	if (hash_size == -1) {
 		LOG_ERROR("Unable to calculate hash of file '%s'\n", tempfile);
 		return TCSERVICE_RESULT_FAILED;
 	}
@@ -961,8 +1018,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		LOG_ERROR("can't open the file hash.input");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	byteswritten = fwrite(hash_str, 1, 20, fp);
-	LOG_DEBUG("bytes written : %d", byteswritten);
+	fwrite(hash_str, 1, hash_size, fp);
 	fclose(fp);
 
 #ifdef _WIN32
@@ -984,11 +1040,10 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		LOG_ERROR("can't open the file hash.sig");
 		return TCSERVICE_RESULT_FAILED;
 	}
-	bytesread = fread(signature, 1, 256, fp);
-	LOG_DEBUG("bytes read : %d", bytesread);
+	sig_size = fread(signature, 1, 256, fp);
 	fclose(fp);
 	LOG_DEBUG("signature read : %s", signature);
-	if (Base64EncodeWithLength(signature, &b64_str, bytesread) != 0) {
+	if (Base64EncodeWithLength(signature, &b64_str, sig_size) != 0) {
 		LOG_ERROR("Unable to encode the signature read");
 		return TCSERVICE_RESULT_FAILED;
 	}
