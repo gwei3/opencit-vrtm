@@ -357,4 +357,5 @@ void* start_vrtm_listener(void* name) {
 
     // Give Libvirt event listener to exit gracefully
     sleep(sleep_duration_sec);
+	return 0;
 }
