@@ -406,10 +406,7 @@ void* dom_listener_main ( void* p)
         }
 		
 		LOG_INFO( "Client connection from %s ", inet_ntoa(client_addr.sin_addr));
-		if (g_quit) {
-			close_connection(newfd);
-			continue;
-		}
+		
 		thread_fd = (int *)malloc(sizeof(int));
 		if(thread_fd != NULL) {
 			*thread_fd=newfd;
@@ -480,5 +477,6 @@ void* start_vrtm_interface(void* name)
                 LOG_DEBUG("Regsitered to libvirt successfully");
 
     LOG_DEBUG("Socket for vRTM is started");
+	return 0;
 }
 #endif
