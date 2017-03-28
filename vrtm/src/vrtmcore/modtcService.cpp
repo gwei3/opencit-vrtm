@@ -72,20 +72,13 @@ byte                    g_servicehash[32]= {
 #define power_shell "powershell "
 #define power_shell_prereq_command "-noprofile -executionpolicy bypass -file "
 #define mount_script_path "/scripts/Mount-EXTVM.ps1"
-#define signingkey_file "../../TrustAgent/configuration/signingkey.pem"
-#define signingkey_blob "../../TrustAgent/configuration/signingkey.opaque"
-#define trustagent_bin "..\\..\\TrustAgent\\bin\\"
-#define ta_properties_file "../../TrustAgent/configuration/trustagent.properties"
-#define tpm_version_file "../../TrustAgent/configuration/tpm-version"
 #elif __linux__
 #define mount_script_path "/scripts/mount_vm_image.sh"
-#define signingkey_file "/opt/trustagent/configuration/signingkey.pem"
-#define signingkey_blob "/opt/trustagent/configuration/signingkey.blob"
-#define tpm_version_file "/opt/trustagent/configuration/tpm-version"
 #endif
 
 #define ma_log "/measurement.log"
 #define stripped_manifest_file "/manifest.xml"
+#define g_config_file "../configuration/vRTM.cfg"
 uint32_t	g_rpdomid = 1000;
 static int g_cleanup_service_status = 0;
 static int g_docker_deletion_service_status = 0;
@@ -663,7 +656,7 @@ int extractCert(char *pem_file, char *certBuffer, int certBuffer_size) {
 	return 0;
 }
 
-int appendCert(char *certBuffer, char *manifest_dir, int certBuffer_size) {
+int appendCert(char *certBuffer, char *manifest_dir, int certBuffer_size, char *signingkey_file) {
 	char outfile[1048] = { 0 };
 	snprintf(outfile, sizeof(outfile), "%stemp.pem", manifest_dir);
 #ifdef _WIN32
@@ -671,7 +664,7 @@ int appendCert(char *certBuffer, char *manifest_dir, int certBuffer_size) {
 	char command[2304] = { 0 };
 
 	snprintf(infile, sizeof(infile), "%stemp.der", manifest_dir);
-	snprintf(command, sizeof(command), "CertUtil -decode " signingkey_file " %s && CertUtil -encode %s %s", infile, infile, outfile);
+	snprintf(command, sizeof(command), "CertUtil -decode %s %s && CertUtil -encode %s %s", signingkey_file, infile, infile, outfile);
 	LOG_DEBUG("CertUtil command : %s", command);
 
 	FILE *fp = _popen(command, "r");
@@ -817,7 +810,13 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	FILE * fp1 = NULL;
 	int sig_size;
 	int hash_size;
-	
+
+	char signingkey_file[1048] = { 0 };
+	char signingkey_blob[1048] = { 0 };
+	char tpm_version_file[1048] = { 0 };
+	char tpm_signdata_cmd[1048] = { 0 };
+	char ta_properties_file[1048] = { 0 };
+	std::string reqValue;
 	std::map<std::string, std::string> properties_map;
 
     LOG_DEBUG("Generating SAML Report for UUID: %s and getting manifest Directory against nonce : %s", vm_uuid, nonce);
@@ -858,6 +857,49 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 		}
 #endif
 	}
+
+	// Parse the config file and extract the signing related configurations
+	if (load_config(g_config_file, properties_map) < 0) {
+		LOG_ERROR("Can't load config file %s", g_config_file);
+		return EXIT_FAILURE;
+	}
+
+	reqValue = properties_map["signingkey_file"];
+	if (reqValue == ""){
+		LOG_ERROR("Signing Key file is not found in vRTM.cfg.");
+		return EXIT_FAILURE;
+	}
+	strcpy_s(signingkey_file, sizeof(signingkey_file), reqValue.c_str());
+
+	reqValue = properties_map["signingkey_blob"];
+	if (reqValue == ""){
+		LOG_ERROR("Signing Key blob is not found in vRTM.cfg.");
+		return EXIT_FAILURE;
+	}
+	strcpy_s(signingkey_blob, sizeof(signingkey_blob), reqValue.c_str());
+
+	reqValue = properties_map["tpm_version_file"];
+	if (reqValue == ""){
+		LOG_ERROR("Tpm Version file is not found in vRTM.cfg.");
+		return EXIT_FAILURE;
+	}
+	strcpy_s(tpm_version_file, sizeof(tpm_version_file), reqValue.c_str());
+
+	reqValue = properties_map["tpm_signdata_cmd"];
+	if (reqValue == ""){
+		LOG_ERROR("Tpm Signdata cmd is not found in vRTM.cfg.");
+		return EXIT_FAILURE;
+	}
+	strcpy_s(tpm_signdata_cmd, sizeof(tpm_signdata_cmd), reqValue.c_str());
+#ifdef _WIN32
+	reqValue = properties_map["ta_properties_file"];
+	if (reqValue == ""){
+		LOG_ERROR("TA properties file is not found in vRTM.cfg.");
+		return EXIT_FAILURE;
+	}
+	strcpy_s(ta_properties_file, sizeof(ta_properties_file), reqValue.c_str());
+#endif
+	clear_config(properties_map);
 
 	fp = fopen(tpm_version_file, "r");
 	if (fp == NULL) {
@@ -968,13 +1010,13 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	fclose(fp);
 
 #ifdef _WIN32
-	// Parse the config file and extract the manifest path
+	// Parse the trustagent properties file and extract the signing key secret
 	if(load_config(ta_properties_file, properties_map) < 0) {
-		LOG_ERROR("Can't load config file %s", ta_properties_file);
+		LOG_ERROR("Can't load trustagent properties file %s", ta_properties_file);
 		return EXIT_FAILURE;
 	}
 
-	std::string reqValue = properties_map["signing.key.secret"];
+	reqValue = properties_map["signing.key.secret"];
 	clear_config(properties_map);
 	strcpy_s(tpm_signkey_passwd, sizeof(tpm_signkey_passwd), reqValue.c_str());
 #elif __linux__
@@ -1022,9 +1064,9 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	fclose(fp);
 
 #ifdef _WIN32
-	snprintf(command0,sizeof(command0),trustagent_bin"tpm_signdata.exe -i %shash.input -k sign -o %shash.sig -q %s -b "signingkey_blob,manifest_dir,manifest_dir,tpm_signkey_passwd);
+	snprintf(command0,sizeof(command0),"%s -i %shash.input -k sign -o %shash.sig -q %s -b %s",tpm_signdata_cmd,manifest_dir,tpm_signkey_passwd,signingkey_blob);
 #elif __linux__
-	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && /opt/trustagent/share/tpmtools/bin/tpm_signdata -i %sus_can.xml -k /opt/trustagent/configuration/signingkey.blob -o %shash.sig -q %s -x",manifest_dir,manifest_dir,tpm_signkey_passwd);
+	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && %s -i %sus_can.xml -k %s -o %shash.sig -q %s -x",tpm_signdata_cmd,signingkey_blob,manifest_dir,manifest_dir,tpm_signkey_passwd);
 #endif
 	LOG_DEBUG("Signing Command : %s", command0);
 	int i = system(command0);
@@ -1064,7 +1106,7 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 
 
 	// Append the X.509 certificate
-	if(appendCert(cert, manifest_dir, sizeof(cert)) != 0) {
+	if(appendCert(cert, manifest_dir, sizeof(cert), signingkey_file) != 0) {
 		LOG_ERROR("Unable to append Certificate");
 		return TCSERVICE_RESULT_FAILED;
 	}
