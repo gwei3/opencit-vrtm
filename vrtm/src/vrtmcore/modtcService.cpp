@@ -664,13 +664,15 @@ int appendCert(char *certBuffer, char *manifest_dir, int certBuffer_size, char *
 	char command[2304] = { 0 };
 
 	snprintf(infile, sizeof(infile), "%stemp.der", manifest_dir);
-	snprintf(command, sizeof(command), "CertUtil -decode %s %s && CertUtil -encode %s %s", signingkey_file, infile, infile, outfile);
+	snprintf(command, sizeof(command), "CertUtil -decode \"%s\" %s && CertUtil -encode %s %s", signingkey_file, infile, infile, outfile);
 	LOG_DEBUG("CertUtil command : %s", command);
 
 	FILE *fp = _popen(command, "r");
-	if (fp != NULL) {
-		_pclose(fp);
+	if (fp == NULL) {
+		LOG_ERROR("Error writing certificate data in PEM format");
+		return -1;
 	}
+	_pclose(fp);
 #elif __linux__
 	X509 *cert;
 	BIO *inbio, *outbio;
@@ -1064,9 +1066,9 @@ TCSERVICE_RESULT tcServiceInterface::GenerateSAMLAndGetDir(char *vm_uuid, char *
 	fclose(fp);
 
 #ifdef _WIN32
-	snprintf(command0,sizeof(command0),"%s -i %shash.input -k sign -o %shash.sig -q %s -b %s",tpm_signdata_cmd,manifest_dir,tpm_signkey_passwd,signingkey_blob);
+	snprintf(command0, sizeof(command0), "\"%s\" -i %shash.input -k sign -o %shash.sig -q %s -b %s", tpm_signdata_cmd, manifest_dir, manifest_dir, tpm_signkey_passwd, signingkey_blob);
 #elif __linux__
-	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && %s -i %sus_can.xml -k %s -o %shash.sig -q %s -x",tpm_signdata_cmd,signingkey_blob,manifest_dir,manifest_dir,tpm_signkey_passwd);
+	snprintf(command0,sizeof(command0),". /opt/trustagent/env.d/trustagent-lib && %s -i %sus_can.xml -k %s -o %shash.sig -q %s -x",tpm_signdata_cmd,manifest_dir,signingkey_blob,manifest_dir,tpm_signkey_passwd);
 #endif
 	LOG_DEBUG("Signing Command : %s", command0);
 	int i = system(command0);
