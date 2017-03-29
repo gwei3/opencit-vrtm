@@ -133,33 +133,6 @@ bool openserver(int* pfd, const char* szunixPath, struct sockaddr* psrv)
     return true;
 }
 
-/*
-bool openclient(int* pfd, const char* szunixPath, struct sockaddr* psrv)
-{
-    int     fd;
-    int     newfd;
-    int     slen= strlen(szunixPath)+sizeof(psrv->sa_family)+1;
-    int     iError= 0;
-
-    LOG_TRACE("Open Client");
-//    fprintf(g_logFile, "open client FILE: %s\n", szunixPath);
-    if((fd=socket(AF_UNIX, SOCK_STREAM, 0))==(-1))
-        return false;
-
-    memset((void*) psrv, 0, slen);
-    psrv->sa_family= AF_UNIX;
-    strcpy_s(psrv->sa_data, sizeof(psrv->sa_data), szunixPath);
-
-    iError= connect(fd, psrv, slen);
-    if(iError<0) {
-        LOG_ERROR( "openclient: Cant connect client, %s\n", strerror(errno));
-        close_connection(fd);
-        return false;
-    }
-
-    *pfd= fd;
-    return true;
-}*/
 #endif
 
 int g_mx_sess = 32;
