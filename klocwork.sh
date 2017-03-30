@@ -21,8 +21,6 @@ PATH=$PATH:$KW_HOME
 declare -A projectsArray
 check=0
 #Assign key value pairs, which correspond to [specFileName] = projectPath
-projectsArray[x509actest-openSSLAC.out]="test_util/openSSLAC/x509actest"
-projectsArray[x509ac-openSSLAC.out]="test_util/openSSLAC/x509ac"
 projectsArray[src-vrtm.out]="vrtm/src"
 
 
