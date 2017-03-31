@@ -46,7 +46,7 @@ generateBuildSpecs() {
 
 buildProject() {
    #Construct the kwbuildproject command with the cprojects appended
-   kwBuildProjectCommand="kwbuildproject --url \"${KLOCWORK_SERVER_URL}/${KLOCWORK_PROJECT}\" --tables-directory \"${TABLES_DIRECTORY}\" --force
+   kwBuildProjectCommand="kwbuildproject --url \"${KLOCWORK_SERVER_URL}/${KLOCWORK_PROJECT}\" --tables-directory \"${TABLES_DIRECTORY}\" --force "
    
    for project in "${!projectsArray[@]}"; do
       IFS=':' read -r -a projectArray <<< "$project"
