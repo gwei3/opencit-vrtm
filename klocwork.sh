@@ -21,8 +21,6 @@ PATH=$PATH:$KW_HOME
 declare -A projectsArray
 check=0
 #Assign key value pairs, which correspond to [specFileName] = projectPath
-projectsArray[x509actest-openSSLAC.out]="test_util/openSSLAC/x509actest"
-projectsArray[x509ac-openSSLAC.out]="test_util/openSSLAC/x509ac"
 projectsArray[src-vrtm.out]="vrtm/src"
 
 
@@ -34,7 +32,6 @@ initialize() {
 
 generateBuildSpecs() {
    ant ready clean
-   kwmaven --output "${BUILD_SPECS_DIRECTORY}/${MAIN_PROJECT_SPEC}" -DskipTests=true install
 
    #Iterate through each c project defined in cProjects string
    for project in "${!projectsArray[@]}"; do
@@ -49,7 +46,7 @@ generateBuildSpecs() {
 
 buildProject() {
    #Construct the kwbuildproject command with the cprojects appended
-   kwBuildProjectCommand="kwbuildproject --url \"${KLOCWORK_SERVER_URL}/${KLOCWORK_PROJECT}\" --tables-directory \"${TABLES_DIRECTORY}\" --force \"${BUILD_SPECS_DIRECTORY}/$MAIN_PROJECT_SPEC\""
+   kwBuildProjectCommand="kwbuildproject --url \"${KLOCWORK_SERVER_URL}/${KLOCWORK_PROJECT}\" --tables-directory \"${TABLES_DIRECTORY}\" --force "
    
    for project in "${!projectsArray[@]}"; do
       IFS=':' read -r -a projectArray <<< "$project"
