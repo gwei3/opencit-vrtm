@@ -3,7 +3,7 @@
 !include "x64.nsh"
 !include "LogicLib.nsh"
 
-!define PRODUCT_NAME "vRTM"
+!define PRODUCT_NAME "Vrtm"
 !define PRODUCT_VERSION "1.0"
 !define PRODUCT_PUBLISHER "Intel Corporation"
 !define PRODUCT_WEB_SITE "http://www.intel.com"
@@ -20,7 +20,7 @@
 
 Name "${PRODUCT_NAME}"
 OutFile "vrtm-setup.exe"
-InstallDir "$PROGRAMFILES\Intel\vRTM"
+InstallDir "$PROGRAMFILES\Intel\Vrtm"
 InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
 ShowUnInstDetails show
@@ -136,26 +136,32 @@ FunctionEnd
 Section InstallPrerequisites
   SetOverwrite ifnewer
   SetOutPath "$INSTDIR\prerequisites"
+  ClearErrors
   File "..\vrtm\prerequisites\vcredist_10.exe"
   ${If} $vcr10Flag == 0
-    MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON1 "Microsoft Visual C++ 2010 Redistributable not found. It is recommended to continue with the installation for Intel CIT vRTM setup." /SD IDOK IDCANCEL end10
-    nsExec::Exec '$INSTDIR\prerequisites\vcredist_10.exe'
+    MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON1 "Microsoft Visual C++ 2010 Redistributable not installed. Click `OK` to install or`Cancel` to cancel vRTM installation." /SD IDOK IDCANCEL abort_installation
+    ExecWait '$INSTDIR\prerequisites\vcredist_10.exe /install /passive /norestart'
+	IfErrors abort_installation
   ${endif}
 
-  end10:
   File "..\vrtm\prerequisites\vcredist_13.exe"
   ${If} $vcr13Flag == 0
-    MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON1 "Microsoft Visual C++ 2013 Redistributable not found. It is recommended to continue with the installation for Intel CIT vRTM setup." /SD IDOK IDCANCEL end13
-    nsExec::Exec '$INSTDIR\prerequisites\vcredist_13.exe'
+    MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON1 "Microsoft Visual C++ 2013 Redistributable not installed. Click `OK` to install or`Cancel` to cancel vRTM installation." /SD IDOK IDCANCEL abort_installation
+    ExecWait '$INSTDIR\prerequisites\vcredist_13.exe /install /passive /norestart'
+	IfErrors abort_installation
   ${endif}
 
-  end13:
   File "..\vrtm\prerequisites\Ext2Fsd-0.62.exe"
   ${If} $extFlag == 0
-    MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON1 "Ext2Fsd driver not found. It is recommended to continue with the installation for Intel CIT vRTM setup." /SD IDOK IDCANCEL end
-    nsExec::Exec '$INSTDIR\prerequisites\Ext2Fsd-0.62.exe'
+    MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON1 "Ext2Fsd driver not installed. Click `OK` to install or`Cancel` to cancel vRTM installation." /SD IDOK IDCANCEL abort_installation
+    ExecWait '$INSTDIR\prerequisites\Ext2Fsd-0.62.exe /silent'
+	IfErrors abort_installation
   ${endif}
-  end:
+
+  Goto done
+  abort_installation:
+  Abort
+  done:
 SectionEnd
 
 Section Install
@@ -163,6 +169,7 @@ Section Install
   SetOutPath "$INSTDIR\configuration"
   File /oname=vRTM.cfg "..\vrtm\configuration\vRTM_nt.cfg"
   File /oname=vrtm_log.properties "..\vrtm\configuration\vrtm_log_nt.properties"
+
   SetOutPath "$INSTDIR\scripts"
   File "..\install\nocmd.vbs"
   File "..\install\initsvcsetup.cmd"
@@ -171,6 +178,7 @@ Section Install
   File "..\vrtm\scripts\Mount-EXTVM.ps1"
   File "..\vrtm\scripts\mount_vm_image.sh"
   File "..\vrtm\scripts\preheat-guestmount.sh"
+
   SetOutPath "$INSTDIR\bin"
   File "..\vrtm\bin\log4cpp.dll"
   File "..\vrtm\bin\libxml2.dll"
@@ -183,8 +191,8 @@ SectionEnd
 
 Section AdditionalIcons
   CreateDirectory "$SMPROGRAMS\Intel"
-  CreateDirectory "$SMPROGRAMS\Intel\vRTM"
-  CreateShortCut "$SMPROGRAMS\Intel\vRTM\Uninstall.lnk" "$INSTDIR\uninst.exe"
+  CreateDirectory "$SMPROGRAMS\Intel\Vrtm"
+  CreateShortCut "$SMPROGRAMS\Intel\Vrtm\Uninstall.lnk" "$INSTDIR\uninst.exe"
 SectionEnd
 
 Section Post
@@ -240,9 +248,9 @@ Section Uninstall
   Delete "$INSTDIR\prerequisites\Ext2Fsd-0.62.exe"
   Delete "$INSTDIR\prerequisites\vcredist_10.exe"
   Delete "$INSTDIR\prerequisites\vcredist_13.exe"
-  Delete "$SMPROGRAMS\Intel\vRTM\Uninstall.lnk"
+  Delete "$SMPROGRAMS\Intel\Vrtm\Uninstall.lnk"
 
-  RMDir "$SMPROGRAMS\Intel\vRTM"
+  RMDir "$SMPROGRAMS\Intel\Vrtm"
   RMDir "$SMPROGRAMS\Intel"
   RMDir "$INSTDIR\bin"
   RMDir "$INSTDIR\scripts"
@@ -267,6 +275,13 @@ SectionEnd
 ; ----------------------------------------------------------
 
 Function .onInit
+  ReadRegStr $R0 ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString"
+  StrCmp $R0 "" done
+  MessageBox MB_ICONEXCLAMATION|MB_OKCANCEL|MB_DEFBUTTON2 "$(^Name) is already installed. Click `OK` to remove the previous version or `Cancel` to cancel this upgrade." IDOK +2
+  Abort
+  ExecWait $INSTDIR\uninst.exe
+
+  done:
   !ifdef IsSilent
     SetSilent silent
   !endif
