@@ -7,7 +7,9 @@ setlocal enabledelayedexpansion
 set me=%~n0
 set pwd=%~dp0
 
-set VsDevCmd="C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\Tools\VsDevCmd.bat"
+for /f "delims=" %%A in ('where /r C:\ VsDevCmd.bat') do set "tempVsDevCmd=%%A"
+
+set VsDevCmd="%tempVsDevCmd%"
 
 set vrtm_home=%pwd%\..
 
