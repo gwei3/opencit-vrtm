@@ -7,7 +7,7 @@ setlocal enabledelayedexpansion
 set me=%~n0
 set pwd=%~dp0
 
-for /f "delims=" %%A in ('where /r C:\ VsDevCmd.bat') do set "tempVsDevCmd=%%A"
+for /f "delims=" %%A in ('where /r "C:\Program Files (x86)" VsDevCmd.bat') do set "tempVsDevCmd=%%A"
 
 set VsDevCmd="%tempVsDevCmd%"
 

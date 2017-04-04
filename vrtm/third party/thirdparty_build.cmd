@@ -7,8 +7,8 @@ setlocal enabledelayedexpansion
 set me=%~n0
 set pwd=%~dp0
 
-for /f "delims=" %%A in ('where /r C:\ vcvarsall.bat') do set "tempVcvarsall=%%A"
-for /f "delims=" %%B in ('where /r C:\ VsDevCmd.bat') do set "tempVsDevCmd=%%B"
+for /f "delims=" %%A in ('where /r "C:\Program Files (x86)" vcvarsall.bat') do set "tempVcvarsall=%%A"
+for /f "delims=" %%B in ('where /r "C:\Program Files (x86)" VsDevCmd.bat') do set "tempVsDevCmd=%%B"
 
 set vcvarsall="%tempVcvarsall%"
 set VsDevCmd="%tempVsDevCmd%"
