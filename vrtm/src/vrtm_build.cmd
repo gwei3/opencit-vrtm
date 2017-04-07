@@ -7,7 +7,9 @@ setlocal enabledelayedexpansion
 set me=%~n0
 set pwd=%~dp0
 
-set VsDevCmd="C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7\Tools\VsDevCmd.bat"
+for /f "delims=" %%A in ('where /r "C:\Program Files (x86)" VsDevCmd.bat') do set "tempVsDevCmd=%%A"
+
+set VsDevCmd="%tempVsDevCmd%"
 
 set vrtm_home=%pwd%\..
 
@@ -40,7 +42,7 @@ GOTO:EOF
   cd
   IF "%2"=="x86" (
     echo. calling with Win32 option
-    msbuild vRTM.sln /property:Configuration=%1;Platform=Win32
+    msbuild vRTM.sln /property:Configuration=%1;Platform=Win32;ForceImportBeforeCppTargets=%vrtm_home%\compiler_flags_x86.props
 	IF NOT %ERRORLEVEL% EQU 0 (
 	  echo. %me%: Build Failed
 	  call:ExitBatch
@@ -48,7 +50,7 @@ GOTO:EOF
 	)
   ) ELSE (
     echo. calling with x64 option
-    msbuild vRTM.sln /property:Configuration=%1;Platform=%2
+    msbuild vRTM.sln /property:Configuration=%1;Platform=%2;ForceImportBeforeCppTargets=%vrtm_home%\compiler_flags_x64.props
     IF NOT %ERRORLEVEL% EQU 0 (
 	  echo. %me%: Build Failed
 	  call:ExitBatch
