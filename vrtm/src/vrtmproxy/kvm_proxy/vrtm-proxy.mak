@@ -20,7 +20,7 @@ SAFESTRING_INCLUDE=    $(SAFESTRING)/include/
 #DEBUG_CFLAGS	:= -Wall  -Wno-format -g -DDEBUG -fpermissive
 #RELEASE_CFLAGS	:= -Wall  -Wno-unknown-pragmas -Wno-format -O3
 LDFLAGS  := -pie -z noexecstack -z relro -z now
-CFLAGS	= -fPIE -fPIC -fstack-protector -O2 -D FORTIFY_SOURCE=2 $(DEBUG_CFLAGS)
+CFLAGS	= -fPIE -fPIC -fstack-protector-strong -O2 -D FORTIFY_SOURCE=2 $(DEBUG_CFLAGS)
 
 CC	= g++
 LINK	= g++
