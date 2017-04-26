@@ -39,14 +39,14 @@ GOTO:EOF
   echo. "%vrtm_home%\third party\pthread\dll\%1\pthreadVC2.dll"
   copy "%vrtm_home%\third party\pthread\dll\%1\pthreadVC2.dll" "%vrtm_home%\bin" /y
   
-  set group_id="net.sourceforge.ext2fsd"
-  set artifact_id="ext2fsd"
-  set version="0.62"
-  set packaging="exe"
+  set ext2fsd_group_id="net.sourceforge.ext2fsd"
+  set ext2fsd_artifact_id="ext2fsd"
+  set ext2fsd_version="0.62"
+  set ext2fsd_packaging="exe"
   cd..
   SET vrtm_home=%cd%\vrtm
   cd build\
-  call mvn dependency:get -DgroupId=%group_id% -DartifactId=%artifact_id% -Dversion=%version% -Dpackaging=%packaging% -Ddest="%vrtm_home%\third party\Ext2Fsd-0.62.exe"
+  call mvn dependency:get -DgroupId=%ext2fsd_group_id% -DartifactId=%ext2fsd_artifact_id% -Dversion=%ext2fsd_version% -Dpackaging=%ext2fsd_packaging% -Ddest="%vrtm_home%\third party\Ext2Fsd-0.62.exe"
   
   mkdir "%vrtm_home%\prerequisites"
   echo. "%vrtm_home%\third party\Ext2Fsd-0.62.exe"
