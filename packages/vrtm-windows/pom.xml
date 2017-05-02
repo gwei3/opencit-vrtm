@@ -4,7 +4,7 @@
     <parent>
         <groupId>com.intel.mtwilson.vrtm.packages</groupId>
         <artifactId>vrtm-maven-build-packages</artifactId>
-        <version>3.1-SNAPSHOT</version>
+        <version>3.2-SNAPSHOT</version>
     </parent>
     <artifactId>vrtm-windows</artifactId>
     <packaging>pom</packaging>
@@ -19,6 +19,15 @@
 		  <family>windows</family>
 		</os>
 	    </activation>
+        <dependencies>
+          <dependency>
+                <groupId>net.sourceforge.ext2fsd</groupId>
+                <artifactId>ext2fsd</artifactId>
+                <version>0.62</version>
+                <type>exe</type>
+          </dependency>
+        </dependencies>
+
             <build>
                 <plugins>
                     <!-- create self-extracting installer plugin -->
