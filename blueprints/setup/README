@@ -1,0 +1,24 @@
+In the mysterhill/docs/setup/compute_node_installation directory you will find documents
+describing how to set up a KVM node and a XEN/Nova Compute node using the new
+scripts and tar files created on a build machine using the build scripts.
+
+Also in the ClientTool directory you will find Client_build_instructions.txt, a document describing how to use the Client_build.sh script on
+a machine that has access to the git repository at 192.55.66.14.  This will build
+the java code, Manifest Tool that runs in a GUI.  It is also known as the Client Tool. 
+
+Again in the ClientTool directory you will find Client_tool_instructions.txt which
+describes the procedure for getting the certificates set up so that the Client Tool
+can communicate with the Mt Wilson server.
+
+Finally in the ClientTool directory there is a document, Client_Tool_Usage.docx,
+which shows how to navigate through the graphical interface of the Client Tool.
+
+Here are the latest files added:
+docs/setup/TCB_boot/TCB_boot_setup.txt
+docs/setup/authentication/kms_server_setup.txt
+docs/setup/authentication/mtwilson_setup.txt
+docs/setup/tboot/tboot_setup.txt
+
+Here are the recently updated files:
+docs/setup/ClientTool/Client_Tool_Mt_Wilson_Integration_Steps.txt
+docs/setup/TrustAgent-install.txt

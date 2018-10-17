@@ -1,0 +1,30 @@
+Client_build.sh and the Client Tool should be run on a machine running Ubuntu
+12.04 or greater and also running some version of X windows.
+
+Add the ssh public key from the new Client Tool machine to ~repo/.ssh/authorized_keys
+and ~a/.ssh/authorized_keys on the machine at 192.55.66.14 FIRST.
+
+Then:
+./Client_build.sh --help
+to show the usage.
+
+In a root shell in the directory to clone mysteryhill repository to or where it exists:
+./Client_build.sh
+
+You will be prompted for the username enabled for ssh to Avalonia - 192.55.66.14
+This is the username that works for running this command:
+ssh repo@192.55.66.14
+
+If Version 1.7 of the java jdk is not installed, it will be installed by the script.
+
+You will also be prompted to:
+	"Enter the Glance IP address"
+This could be the same machine you are running the script on or a different machine that is running glance that the Virtual Machine images and manifests will be uploaded to.
+	"Enter the KMS Server IP address"
+This could also be the same machine you are running the script on, but it is the machine that the KMS Server is running on.
+
+After the script finishes,
+cd /opt/RP_$Current_Date/ManifestTool
+Then check and verify all the values in resources/config.properties
+
+See Client_tool_instructions.txt for instructions on running Client Tool (Manifest Tool).

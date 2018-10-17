@@ -1,0 +1,9 @@
+
+
+This script installs the RPCore components over the KVM node :
+
+1. It asks for the location of installation
+2. Installs the RPCore components and libvirt
+3. During installation, it also asks if the user needs to install nontpmrpcore.
+4. If yes, it installs nontpmrpcore and also installs the necessary scripts in rc.local
+5. Otherwise, it only updates rc.local with rp_listener

@@ -1,0 +1,12 @@
+
+
+This script is used for adding the timeout change to libvirt and create a tar package. The 
+tar package is already configured and make. User willing to install the latest libvirt should
+copy the tar to deployment enironment and execute make install.
+
+To overwrite the existing libvirt, users will have to ensure the following :
+1. The libvirt.so with 1.2.2 is available in ld.config. This can be achieved by
+adding libvirtd.conf file in /etc/ld.so.conf/ with content "/usr/local/lib64".
+2. The libvirtd with 1.2.2 is given precedence in path. This gets installed at /usr/local/sbin.
+
+

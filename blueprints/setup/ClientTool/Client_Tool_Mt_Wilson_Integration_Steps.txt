@@ -1,0 +1,35 @@
+1. Retrieve Mt. Wilson server public certificate
+# ./retrieve-cert.sh 10.35.35.205:8181 > ./mtwcert.pem
+
+Default password for keytool is changeit
+1.a. Delete the old mtwcert certificate from the java keystore:
+# keytool -delete -noprompt -trustcacerts -alias mtwcert  -keystore /root/java/jdk1.7.0_51/jre/lib/security/cacerts
+
+2. Add the certificate to java keystore
+# keytool -import -noprompt -trustcacerts -alias mtwcert -file ./mtwcert.pem -keystore /root/java/jdk1.7.0_51/jre/lib/security/cacerts
+
+3. Verify the certificate added to keystore
+# keytool -list -keystore /root/java/jdk1.7.0_51/jre/lib/security/cacerts -alias mtwcert
+
+4. Uncomment the the lines from line number 252 to 261 from src/manifesttool/utils/GenerateManifest.java
+
+5. Add the following properties to resources/config.properties
+Mt_Wilson_User_Name=admin
+Mt_Wilson_Password=password
+
+6. Build the client tool code
+# ant dist
+
+pu ~a/mtw/kmsfiles/private
+pu /opt/RP_20140914181638/ManifestTool/
+cp -p resources/client-0.1-SNAPSHOT-with-dependencies.jar $OLDPWD
+pu
+java -jar client-0.1-SNAPSHOT-with-dependencies.jar import-data-encryption-key-recipient --format=DER 392c4989fed88bde588c8b9fd9a5b473.crt
+The .crt file should be in the ~a/mtw/kmsfiles/private directory after setting up the kms server.
+
+Put the word, password, in the vmpass.txt file in /opt/RP_20140914181638/ManifestTool/, then:
+java -jar ./resources/client-0.1-SNAPSHOT-with-dependencies.jar import-data-encryption-key demokey ./vmpass.txt
+This java command will put demokey in /root/.mystery-hill/client/dek
+
+7. Run the client tool and provide the 'Mt. Wilson IP' and 'Mt. Wilson Port' 
+

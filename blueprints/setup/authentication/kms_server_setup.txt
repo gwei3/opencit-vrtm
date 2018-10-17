@@ -1,0 +1,51 @@
+		    KMS Server Setup Instructions
+
+
+How to set up the mhserver to work with MtWilson:
+First copy /home/repo/mtw/kms-0.1-SNAPSHOT-with-dependencies.jar or /home/repo/mtw/kms-0.1-SNAPSHOT-with-dependencies.jar.ori (rename it) from Avalonia to ~/mtw/kmsfiles on the local machine.
+I don't think the .ori (original) version will work with the latest Mt Wilson version.
+Then copy /home/repo/mtw/kmsfiles/mhserver on Avalonia to the local machine in /usr/local/bin.
+Create the configuration file for the key management server:
+mkdir C:\Users\Administrator\.mhserver
+or for linux:
+mkdir ~/.mhserver
+In the ~/mtw/kmsfiles directory:
+echo > config.txt
+echo mt/crea.api.username=mhserver >> config.txt
+echo mtwilson.api.password=password >> config.txt
+echo mtwilson.api.url=https://10.1.70.25:8181/mtwilson/v1 >> config.txt
+
+Import it as the KMS configuration:
+mhserver import-config config.txt
+del config.txt
+
+Register with Mt Wilson:
+mhserver mtwilson-create-user
+Approve the user in Mt Wilson (not shown here): go to https://10.1.70.25:8181/mtwilson-portal/Login.jsp and approve the mhserver access request.
+
+
+Create the TLS key and self-signed certificate for the server. You will be prompted for a password to protect the private key, and also for the subject name and the hostname. For simplicity you can use the same password that protects your configuration password -- in a later version this will be handled automatically. You can use something like CN=mhserver,OU=IASI,O=Intel,ST=CA,C=US and the IP address 10.1.70.52
+
+mhserver create-tls-certificate
+
+
+Export the TLS certificate so it can be copied to the client later. The password is the same one provided earlier when creating the TLS certificate.  The output file ssl.crt will be copied to the client.
+
+cd C:\Users\Administrator\.mhserver
+keytool -exportcert -keystore tls-keystore.jks -storepass password -alias "CN=mhserver,OU=IASI,O=Intel,ST=CA,C=US" -file ssl.crt
+
+
+Create the key management certificate. This is what the client will use to encrypt keys when posting them to the server.  It will display a certificate ID when its created. You can find that certificate at C:\Users\Administrator\.mhserver\private\<id>.crt
+
+mhserver create-key-management-certificate
+
+
+Start the key management server. It will prompt you for the same password you provided to protect the configuration. This last step is the only one that needs to be performed again after a reboot:
+
+mhserver start-http-server
+
+
+To start the server without being prompted for the password and store all the output to a log file:
+set MHPASSWD=password
+mhserver start-http-server --env-password=MHPASSWD > kms.log 2>&1
+

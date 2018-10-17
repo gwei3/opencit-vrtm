@@ -1,0 +1,28 @@
+To install the Trust Agent on a tboot machine:
+
+First copy /home/repo/mtw/mtwilson-trustagent-installer-2.0.0.bin from Avalonia to the local machine.
+Then copy /home/a/xfer/root/trustagent.env to the local machine, put it in the same directory as the .bin file, and edit it to fit your situation.
+
+Bring up this web page in a browser:
+https://10.1.70.15:8181/mtwilson/v2/util/trustagent-env-file.html
+admin/password
+
+copy 
+MTWILSON_TLS_CERT_SHA1=567528cedaf89527c1c8984f32908e6a243fdc46 and replace it in your trustagent.env
+value will be different
+
+If there was a previous install attempt, you can use this command:
+tagent uninstall
+
+cat /sys/class/misc/tpm0/device/owned
+If owned != 0 then clear the ownership by clearing in the Setup screen before booting
+Run the Trust Agent install .bin file
+
+Then the kms server must be upgraded to match also.
+
+During install, answer this question y.
+Register TPM password with service to support asset tag automation? y/n  y
+
+pubkey.pem must be available.  A good place to put it is:
+/opt/RP_{date}/rpcore/bin/debug] sum !*
+
